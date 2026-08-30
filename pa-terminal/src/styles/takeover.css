@@ -1,0 +1,189 @@
+/* --- 履歴の引き継ぎ（features/agents/takeover.ts） ---
+   共通履歴ダイアログの会話履歴タブ。色は必ず CSS 変数経由。
+   行は「1行目 = 種別/名前 + 操作、2行目 = cwd/時刻、3行目 = 由来セッション」の
+   ゆったりした縦積みで、開くボタンの下に作成先パスの確認 UI が展開される */
+
+#takeover-history {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.takeover-row {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.takeover-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.takeover-info { flex: 1; min-width: 0; }
+.takeover-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.takeover-kind {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--dim);
+  font-size: 11px;
+}
+.takeover-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.takeover-running-badge {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.takeover-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--dim);
+  font-size: 11px;
+}
+.takeover-cwd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.takeover-time { flex: none; }
+
+/* 由来（やりとりしていたセッション名 + 所属グループ） */
+.takeover-origin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 11px;
+  min-width: 0;
+}
+.takeover-origin-name,
+.takeover-origin-group {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.takeover-origin-name { color: var(--text); }
+
+.takeover-show,
+.takeover-open-btn {
+  flex: none;
+  padding: 6px 12px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.takeover-show:hover,
+.takeover-open-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* 作成先パスの確認 UI（行の下に展開） */
+.takeover-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.takeover-warning {
+  margin: 0;
+  color: var(--alarm);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.takeover-dest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.takeover-dest-label {
+  color: var(--dim);
+  font-size: 11px;
+}
+.takeover-dest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.takeover-dest input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+}
+.takeover-dest input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.takeover-browse {
+  flex: none;
+  padding: 7px 12px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.takeover-browse:hover { color: var(--accent); border-color: var(--accent); }
+.takeover-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.takeover-confirm-actions button {
+  padding: 6px 14px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.takeover-confirm-actions button:hover { border-color: var(--dim); }
+.takeover-confirm-actions button.is-primary {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.takeover-confirm-actions button.is-primary:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+#takeover-history-status { padding: 8px 2px; color: var(--dim); font-size: 12px; }
+#takeover-history-status.is-error { color: var(--alarm); }
+#takeover-history-status[hidden] { display: none; }

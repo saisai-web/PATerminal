@@ -1,0 +1,46 @@
+[package]
+name = "pa-terminal"
+version = "0.2.2"
+edition = "2021"
+
+[lib]
+name = "pa_terminal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+# デフォルト = 自ビルド系統（トライアル/ソフトロック無効・ローカル機能は無期限）。
+# official は CI/リリーススクリプトだけが指定する（release.yml の --features official）。
+# ロジックは official を bool 引数で受ける純粋関数にし、cfg! はフラグの値だけに使う
+default = []
+official = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.test]
+# Windows の `cargo test` は PDB 生成込みのリンクが支配的コスト（CI 実測で数分級）。
+# テスト実行にデバッガは要らないので、test プロファイルだけデバッグ情報を切って縮める
+# （dev/release には影響しない）。ローカルでテストを逐次デバッグしたい時だけ一時的に戻す
+debug = false
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# 画像パスをターミナルへ渡すネイティブファイル選択
+tauri-plugin-dialog = "2"
+# エクスプローラーの削除 = OS のゴミ箱へ移動（恒久削除しない。確認ダイアログを挟まない方針の代償）
+trash = "5"
+# 完了のデスクトップ通知（WKWebView は Web Notification API 非対応）
+tauri-plugin-notification = "2"
+# 公式ビルドの署名検証付き自動更新。selfbuild は従来の GitHub 通知だけを使う。
+tauri-plugin-updater = "2.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+portable-pty = "0.9"
+# アップデート確認 + Polar ライセンス検証用。rustls で OS の OpenSSL に依存しない。
+# json は Polar への POST ボディ用
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# ライセンスキーのオフライン署名検証（license/key.rs）
+ed25519-dalek = "2"
+base64 = "0.22"
+# pr_info の gh CLI 実行用（タイムアウト付き・executor を塞がない）。tauri 経由で既に依存ツリーにある
+tokio = { version = "1", features = ["process", "time", "macros"] }

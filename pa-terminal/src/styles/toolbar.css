@@ -1,0 +1,72 @@
+/* --- ワークスペースレイヤー --- */
+.workspace-layer { position: absolute; inset: 0; }
+.workspace-layer[hidden] { display: none; }
+
+/* --- toolbar --- */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+
+#toolbar button,
+#toolbar select {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+#toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ツールバーボタンのアイコン（stroke: currentColor でボタンの文字色に追従する） */
+.toolbar-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+#toolbar button:hover,
+#toolbar select:hover { border-color: var(--dim); }
+
+#toolbar button:focus-visible,
+#toolbar select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.spacer { flex: 1; }
+.hint { color: var(--dim); white-space: nowrap; }
+#save-state { min-width: 4em; text-align: right; }
+
+#broadcast[aria-pressed="true"] {
+  color: var(--on-accent);
+  background: var(--alarm);
+  border-color: var(--alarm);
+}
+
+#auto-enter-toggle[aria-pressed="true"] {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+#auto-enter-toggle[aria-pressed="true"]:hover {
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* 一斉入力中だけ表示される説明（ペイン枠の警告色と揃える） */
+#bc-hint {
+  color: var(--alarm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

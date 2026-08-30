@@ -1,0 +1,74 @@
+/* --- ディバイダ --- */
+.divider {
+  position: absolute;
+  background: var(--line);
+  z-index: 5;
+  touch-action: none;
+}
+.divider:hover, .divider.is-dragging { background: var(--accent); }
+.divider.dir-row { cursor: col-resize; }
+.divider.dir-col { cursor: row-resize; }
+
+/* ドラッグ中は WebView にテキスト選択させない */
+body.dragging { user-select: none; }
+body.dragging .pane { pointer-events: none; }
+
+/* --- ブロードキャスト中の全域警告 --- */
+body.broadcasting .pane { border-color: var(--alarm); }
+body.broadcasting .divider { background: var(--alarm); }
+
+@media (prefers-reduced-motion: no-preference) {
+  body.broadcasting .divider { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { background: var(--alarm); }
+    50% { background: var(--pulse); }
+  }
+}
+
+/* --- 一斉入力の送信先マーク（サイドバー） ---
+   複数選択の左端アクセントとぶつからないよう右端に出す */
+.ws-item.is-bc-target { box-shadow: inset -3px 0 0 0 var(--alarm); }
+
+/* --- 一斉入力の送信先モーダル（枠は .git-action-* を再利用） --- */
+#broadcast-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 6px;
+}
+#broadcast-select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+#broadcast-count { color: var(--dim); font-size: 12px; }
+#broadcast-ws-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.bc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+.bc-row:last-child { border-bottom: none; }
+.bc-row:hover { background: var(--hover); }
+.bc-row.is-current { cursor: default; background: var(--active-bg); }
+.bc-check { margin-top: 3px; }
+.bc-row-text { display: flex; flex-direction: column; min-width: 0; }
+.bc-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-row-sub {
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

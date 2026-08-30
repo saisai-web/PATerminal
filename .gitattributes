@@ -1,0 +1,6 @@
+# Windows の既定（core.autocrlf=true）でも作業ツリーを LF に保つ。
+# テストのフィクスチャや PowerShell へ埋め込むスクリプトが CRLF になると、
+# OS によって内容比較が食い違う。
+* text=auto eol=lf
+
+*.ts text diff

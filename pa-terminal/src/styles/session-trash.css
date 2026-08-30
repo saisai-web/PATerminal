@@ -1,0 +1,59 @@
+/* --- 共通履歴ダイアログの「最近削除したセッション」タブ --- */
+#session-trash-hint { margin: 0; color: var(--dim); }
+
+#session-trash-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.session-trash-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.session-trash-info { flex: 1; min-width: 0; }
+.session-trash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-trash-note {
+  margin-top: 4px;
+  padding-inline-start: 6px;
+  border-inline-start: 2px solid var(--accent);
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-trash-note[hidden] { display: none; }
+.session-trash-meta { margin-top: 2px; color: var(--dim); font-size: 11px; }
+.session-trash-restore,
+#session-trash-foot button {
+  flex: none;
+  padding: 5px 9px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+.session-trash-restore:hover { color: var(--accent); border-color: var(--accent); }
+#session-trash-empty { padding: 18px 0; color: var(--dim); text-align: center; }
+#session-trash-empty[hidden] { display: none; }
+#session-trash-error { color: var(--alarm); }
+#session-trash-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+#session-trash-foot button:hover { border-color: var(--dim); }
+#session-trash-clear { color: var(--alarm) !important; }
+#session-trash-clear.is-confirm { border-color: var(--alarm); }

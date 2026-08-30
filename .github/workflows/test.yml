@@ -1,0 +1,86 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# Rust のテスト（ubuntu / Windows）は rust.yml に分離してあり、
+# pa-terminal/src-tauri/ を触った push / PR のときだけ走る
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  # PR は同ブランチへの push で前の実行を打ち切って良いが、main への push は
+  # キャッシュ保存（setup-node の Post 側）まで完走させる
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  frontend:
+    name: TypeScript / UI
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pa-terminal/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: pa-terminal
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: pa-terminal
+        run: |
+          npm run check:architecture
+          npx tsc --noEmit
+
+      - name: Verify legal and release support files
+        working-directory: pa-terminal
+        run: |
+          npm run check:eula
+          npm run check:third-party-notices
+          npm run test:release-helpers
+
+      - name: UI tests
+        working-directory: pa-terminal
+        env:
+          PATERMINAL_TEST_URL: http://127.0.0.1:1420/
+        run: |
+          npx vite --host 127.0.0.1 --port 1420 --strictPort > "$RUNNER_TEMP/vite.log" 2>&1 &
+          vite_pid=$!
+          cleanup() {
+            kill "$vite_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PATERMINAL_TEST_URL" >/dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$vite_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            sed -n '1,200p' "$RUNNER_TEMP/vite.log"
+            exit 1
+          fi
+
+          # 90秒 = npm / Chromium 起動 + vite の初回変換（約8秒）込みの上限。
+          # 30秒では最長スイート（git-changes 実測23秒）が構造的に収まらず、
+          # main でも exit 124 で常時失敗していた。45秒も smoke の本数を増やすと
+          # 足りない（超えると失敗内容ではなく exit 124 になって原因が分からない）。
+          # 並列実行なので本数に線形では効かないが、余裕を持たせてある
+          timeout 90s npm run test:ui:smoke

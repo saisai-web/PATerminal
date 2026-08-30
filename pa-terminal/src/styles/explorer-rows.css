@@ -1,0 +1,107 @@
+/* 行の当たり判定は名前を書いている範囲だけ（width: max-content）。名前より右の余白は
+   #exp-list に抜けるので、そこの右クリックは「一覧の余白」= 表示中フォルダのメニューになる */
+.exp-row {
+  width: max-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.exp-row.has-path-context { display: flex; align-items: center; gap: 8px; }
+.exp-row-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.exp-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: calc(6px + var(--exp-depth, 0) * 14px);
+}
+.exp-tree-marker {
+  flex: none;
+  width: 10px;
+  color: var(--dim);
+  text-align: center;
+}
+.exp-tree-row.is-dir[aria-expanded="true"] > .exp-tree-marker { color: var(--accent); }
+.exp-tree-row.is-revealed { background: var(--active-bg); }
+.exp-tree-message { padding-left: calc(20px + var(--exp-depth, 0) * 14px); }
+.exp-tree-loading { padding-top: 2px; padding-bottom: 2px; }
+/* パス文脈は必ず1行。折り返さず、1行に収まらない分だけ末尾を … で省く（全文は title）。
+   幅の上限は置かず行の残り幅を使い切る。あふれたときは名前より先にこちらを縮めたいので
+   flex-shrink を大きくしてある（名前は最後に縮む） */
+.exp-row-path {
+  flex: 0 1 auto;
+  flex-shrink: 100;
+  min-width: 0;
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exp-row.is-dir { color: var(--text); cursor: pointer; }
+.exp-row.is-file { color: var(--dim); cursor: pointer; }
+.exp-row.is-dir:hover, .exp-row.is-file:hover { background: var(--hover); }
+.exp-row.exp-mkdir-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: min(220px, calc(100% - 12px - var(--exp-depth, 0) * 14px));
+  cursor: text;
+  background: var(--hover);
+}
+.exp-mkdir-marker { flex: none; }
+.exp-mkdir-input { flex: 1; width: auto; }
+.exp-mkdir-input:disabled { color: var(--dim); cursor: progress; }
+.exp-mkdir-error { max-width: 100%; font-size: 11px; }
+.exp-error { color: var(--alarm); padding: 6px; white-space: normal; word-break: break-all; }
+.exp-note { color: var(--dim); padding: 6px; }
+/* DnD 移動: ドラッグ中の行は薄く、受け入れ可能なドロップ先（フォルダ行 / 一覧余白 =
+   表示中フォルダ）は内側の枠でハイライトする */
+.exp-row.is-dragging { opacity: 0.5; }
+.exp-row.is-drop-target {
+  background: var(--active-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+#exp-list.is-drop-target { box-shadow: inset 0 0 0 1px var(--accent); }
+/* 配下（サブフォルダ）検索の見出しと結果行。直下の一覧と混ざらないよう区切る */
+.exp-note.exp-search-head {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+.exp-row-deep .exp-row-name { padding-left: 6px; }
+
+/* #sidebar-foot / #main-foot と同寸（padding 6px×2 + ボタン 26px + border 1px = 39px）に
+   して、下端の境界線が画面全幅で一直線に通るようにする */
+#exp-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--line);
+}
+#exp-actions button {
+  flex: 1;
+  height: 26px;
+  font: inherit; color: var(--text); background: transparent;
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#exp-actions button:hover { border-color: var(--accent); }
+
+/* エクスプローラーを閉じている間だけ右端に出る再オープンタブ */
+#exp-reopen {
+  flex: none;
+  width: 22px;
+  font: inherit;
+  color: var(--dim);
+  background: var(--chrome);
+  border: 0;
+  border-left: 1px solid var(--line);
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  padding: 10px 0;
+}
+#exp-reopen:hover { color: var(--accent); }
+#exp-reopen[hidden] { display: none; }

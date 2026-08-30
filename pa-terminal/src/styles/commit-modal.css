@@ -1,0 +1,166 @@
+/* コミットモーダル（対象ファイル選択 + 大きなメッセージ欄） */
+#commit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+#commit-overlay[hidden] { display: none; }
+#commit-panel {
+  width: min(980px, 94vw);
+  height: min(680px, 86vh);
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px var(--shadow);
+  overflow: hidden;
+}
+#commit-head,
+#commit-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+#commit-head { border-bottom: 1px solid var(--line); }
+#commit-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; }
+#commit-branch { color: var(--dim); }
+#commit-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#commit-close:hover:enabled { color: var(--text); border-color: var(--line); background: var(--bg); }
+#commit-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 2fr) minmax(360px, 3fr);
+}
+#commit-files-section,
+#commit-message-section {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#commit-files-section { border-right: 1px solid var(--line); }
+.commit-section-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+#commit-select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+#commit-selection-count { color: var(--dim); font-size: 11px; }
+#commit-file-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px;
+}
+.commit-file-choice {
+  display: grid;
+  grid-template-columns: auto 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.commit-file-choice:hover { background: var(--hover); }
+.commit-file-status {
+  font: 700 11px ui-monospace, Menlo, monospace;
+  color: var(--accent);
+  text-align: center;
+}
+.commit-file-status.status-A { color: var(--diff-add-fg); }
+.commit-file-choice-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.commit-file-choice-stats { display: flex; gap: 7px; font-size: 11px; }
+#commit-message-section { gap: 8px; padding: 12px; }
+#commit-message-section > label { flex: none; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+#commit-message {
+  flex: 1;
+  min-height: 220px;
+  width: 100%;
+  resize: none;
+  box-sizing: border-box;
+  padding: 12px;
+  font: 13px/1.55 ui-monospace, Menlo, monospace;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  outline: none;
+}
+#commit-message:focus { border-color: var(--accent); }
+#commit-message::placeholder { color: var(--dim); }
+#commit-shortcut { flex: none; color: var(--dim); font-size: 11px; text-align: right; }
+#commit-push-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 7px;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+#commit-push-row input { accent-color: var(--accent); cursor: pointer; }
+#commit-push-row input:disabled { cursor: default; }
+#commit-error {
+  flex: none;
+  max-height: 5em;
+  overflow: auto;
+  padding: 7px 9px;
+  color: var(--alarm);
+  background: var(--bg);
+  border: 1px solid var(--alarm);
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+#commit-error[hidden] { display: none; }
+#commit-foot { justify-content: flex-end; border-top: 1px solid var(--line); }
+#commit-foot button {
+  min-width: 96px;
+  padding: 5px 13px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+#commit-foot button:hover:enabled { border-color: var(--accent); }
+#commit-foot button:disabled,
+#commit-close:disabled { color: var(--dim); cursor: default; }
+#commit-submit:not(:disabled) { color: var(--chrome); background: var(--accent); border-color: var(--accent); }

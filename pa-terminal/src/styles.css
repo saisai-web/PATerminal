@@ -1,0 +1,29 @@
+/* src/styles.css — 実体は styles/ 以下。
+   import 順 = 分割前の記述順 = カスケード順なので、並べ替えないこと。
+   :root の CSS 変数は base.css（@import はファイル先頭にしか書けないため、
+   このファイルには 1 行もルールを置かない）。 */
+@import "./styles/base.css";
+@import "./styles/sidebar.css";
+@import "./styles/toolbar.css";
+@import "./styles/panes.css";
+@import "./styles/quick-phrase-bar.css";
+@import "./styles/agent-panel.css";
+@import "./styles/diff.css";
+@import "./styles/commit-modal.css";
+@import "./styles/git-modals.css";
+@import "./styles/commit-diff.css";
+@import "./styles/pr-overlay.css";
+@import "./styles/file-viewer.css";
+@import "./styles/explorer.css";
+@import "./styles/git-panel.css";
+@import "./styles/explorer-rows.css";
+@import "./styles/settings.css";
+@import "./styles/quick-phrase-modal.css";
+@import "./styles/history-dialog.css";
+@import "./styles/session-trash.css";
+@import "./styles/takeover.css";
+@import "./styles/agents.css";
+@import "./styles/pair.css";
+@import "./styles/divider-broadcast.css";
+@import "./styles/license.css";
+@import "./styles/rtl.css";   /* 必ず最後 */

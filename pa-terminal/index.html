@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PATerminal</title>
+  </head>
+  <body>
+    <div id="app">
+      <button id="sidebar-reopen" data-i18n-title="sidebar.reopen" title="セッション一覧を開く (Cmd/Ctrl+B)" hidden>Sessions</button>
+      <div id="sidebar">
+        <div id="sidebar-head">
+          <input id="ws-search" type="search" data-i18n-placeholder="sidebar.searchPlaceholder" placeholder="Search sessions..." />
+          <button id="ws-new" data-i18n-title="sidebar.newSession" title="新規セッション (Cmd/Ctrl+T)">+</button>
+          <button id="sidebar-collapse" data-i18n-title="sidebar.collapse" title="セッション一覧をたたむ (Cmd/Ctrl+B)">«</button>
+        </div>
+        <div id="ws-new-form" hidden>
+          <input id="ws-new-name" type="text" data-i18n-placeholder="form.sessionName" placeholder="セッション名" />
+          <input id="ws-new-group" type="text" data-i18n-placeholder="form.group" placeholder="グループ（任意）" list="ws-group-list" />
+          <div id="ws-new-shells"><!-- シェル選択ボタンを JS が生成 --></div>
+        </div>
+        <datalist id="ws-group-list"><!-- 既存グループ名を JS が生成 --></datalist>
+        <!-- 複数選択中の一括操作バー（2件以上選択したときだけ JS が表示する） -->
+        <div id="ws-selection" hidden>
+          <span id="ws-selection-count"></span>
+          <button id="ws-selection-group" type="button"></button>
+          <button id="ws-selection-close" type="button"></button>
+          <button id="ws-selection-clear" type="button"></button>
+        </div>
+        <div id="ws-list" role="listbox" aria-label="Sessions" aria-multiselectable="true"></div>
+        <!-- キーボードでの前後移動は画面に出ないので一覧の下に小さく置く -->
+        <div id="ws-switch-hint" data-i18n="sidebar.switchHint">Ctrl+Tab でセッション移動</div>
+        <div id="sidebar-foot">
+          <button id="settings-open" data-i18n-title="settings.title" title="設定">⚙</button>
+          <button id="license-open" data-i18n-title="license.manage" title="ライセンスを管理">🔑</button>
+        </div>
+        <div id="sidebar-resize" data-i18n-title="sidebar.resize" title="ドラッグで幅を変更（左へ押し込むと閉じる）"></div>
+      </div>
+      <div id="main-col">
+        <!-- トライアル残・期限切れ・自ビルドの新バージョン通知バナー（一度だけ・控えめ） -->
+        <div id="license-banner" hidden>
+          <span id="license-banner-text"></span>
+          <button id="license-banner-buy" data-i18n="license.buy" hidden>購入ページを開く</button>
+          <button id="license-banner-close" data-i18n-title="license.bannerClose" title="閉じる">×</button>
+        </div>
+        <div id="toolbar">
+          <button id="split-right" data-i18n-title="toolbar.splitRight" title="右に分割 (Cmd/Ctrl+Shift+D)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><path d="M14.5 9.5L18 12l-3.5 2.5"/></svg>Split →</button>
+          <button id="split-down" data-i18n-title="toolbar.splitDown" title="下に分割 (Cmd/Ctrl+Shift+S)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M9.5 14.5L12 18l2.5-3.5"/></svg>Split ↓</button>
+          <button id="broadcast" aria-pressed="false" title="キー入力をこのセッション内の全ペインへ同時に送る (Cmd/Ctrl+Shift+B)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.5"/><path d="M16.2 7.8a6 6 0 0 1 0 8.5"/><path d="M4.9 19.1a10 10 0 0 1 0-14.1"/><path d="M19.1 4.9a10 10 0 0 1 0 14.1"/></svg><span id="broadcast-label">一斉入力</span></button>
+          <span id="bc-hint" data-i18n="toolbar.broadcastHint" hidden>入力中の文字がこのセッションの全ペインへ同時に送られています</span>
+          <button id="explorer-toggle" aria-pressed="false" data-i18n-title="toolbar.explorer" title="エクスプローラー (Cmd/Ctrl+E)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a1.8 1.8 0 0 1 1.8-1.8h3.6l1.8 2h7.8A1.8 1.8 0 0 1 20.5 9v8a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17V7z"/></svg>Files</button>
+          <button id="attach-image" data-i18n-title="image.attachTitle" title="画像を選び、パスをフォーカス中のターミナルへ入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M20.5 16l-5.5-5.5-3 3-2-2-6.5 6.5"/></svg><span data-i18n="image.attach">画像</span></button>
+          <button id="quick-phrases-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="quick.toolbarTitle" title="よく使う定型文を管理・入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11.5H9L5 20v-3.5H4V5z"/><line x1="7.3" y1="9" x2="16.7" y2="9"/><line x1="7.3" y1="12.5" x2="13.5" y2="12.5"/></svg><span data-i18n="quick.toolbar">定型文</span></button>
+          <button id="pair-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="pair.toolbarTitle" title="ペアモード: 2つのエージェントペインの間で作業を受け渡します（実装×レビュー / クロスレビュー / ブレスト / ブレスト→共同実装）"><svg class="pair-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7.2" r="3.4"/><path d="M2.2 20.5v-.9a5.3 5.3 0 0 1 5.3-5.3h3a5.3 5.3 0 0 1 5.3 5.3v.9"/><path d="M15.6 4a3.4 3.4 0 0 1 0 6.4"/><path d="M18.6 14.6a5.3 5.3 0 0 1 3.2 4.9v1"/></svg><span id="pair-open-label">ペア</span></button>
+          <button id="takeover-open" aria-haspopup="dialog" aria-expanded="false" aria-controls="history-panel" data-i18n-title="takeover.toolbarTitle" title="別のセッションの claude / codex の履歴を引き継ぐ"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><polyline points="3 4.5 3.3 8.8 7.6 8.5"/><polyline points="12 8 12 12.3 15.3 14.3"/></svg><span data-i18n="takeover.toolbar">履歴</span></button>
+          <button id="auto-enter-toggle" type="button" aria-pressed="false" aria-label="自動Enter" title="自動EnterをON: Enterはフォーカス中のペインだけに送信">
+            <svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v12a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V8"></path><path d="M5 4h6"></path><path d="M15 4h4"></path><path d="M12 10v7"></path><path d="m9.5 14.5 2.5 2.5 2.5-2.5"></path></svg>
+          </button>
+          <span class="spacer"></span>
+          <span id="save-state" class="hint" aria-live="polite"></span>
+        </div>
+        <!-- ペアストリップ（ペアモード中だけ表示。進行と停止はここ） -->
+        <div id="pair-strip" hidden>
+          <span id="pair-strip-icon" aria-hidden="true"><svg class="pair-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.2" r="3.4"/><path d="M2.2 20.5v-.9a5.3 5.3 0 0 1 5.3-5.3h3a5.3 5.3 0 0 1 5.3 5.3v.9"/><path d="M15.6 4a3.4 3.4 0 0 1 0 6.4"/><path d="M18.6 14.6a5.3 5.3 0 0 1 3.2 4.9v1"/></svg></span>
+          <span id="pair-strip-name"></span>
+          <span id="pair-chip-impl" class="pair-chip"></span>
+          <span id="pair-arrow" aria-hidden="true">←</span>
+          <span id="pair-chip-review" class="pair-chip"></span>
+          <span id="pair-strip-round"></span>
+          <span class="pair-round-ctl"><button id="pair-round-dec" type="button">−</button><button id="pair-round-inc" type="button">＋</button></span>
+          <span id="pair-strip-status" aria-live="polite"></span>
+          <button id="pair-turn-back" type="button" hidden></button>
+          <button id="pair-promote" type="button" hidden></button>
+          <button id="pair-handoff" type="button" hidden></button>
+          <button id="pair-pause" type="button"></button>
+          <button id="pair-stop" type="button"></button>
+        </div>
+        <div id="quick-phrase-bar" hidden>
+          <div id="quick-phrase-bar-head">
+            <button id="quick-phrase-collapse" type="button" aria-expanded="true" aria-controls="quick-phrase-bar-content" data-i18n-title="quick.barCollapse" title="定型文バーをたたむ">▾</button>
+            <button id="quick-phrase-bar-title" type="button" data-i18n="quick.toolbar" data-i18n-title="quick.barTitle" title="定型文を管理">定型文</button>
+            <span id="quick-phrase-bar-summary" hidden></span>
+          </div>
+          <div id="quick-phrase-bar-content">
+            <div id="quick-phrase-scroll">
+              <div id="quick-phrase-bar-list" role="toolbar"><!-- 定型文チップは JS が生成 --></div>
+              <div id="quick-phrase-scrollbar" role="scrollbar" aria-controls="quick-phrase-bar-list" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden>
+                <div id="quick-phrase-scroll-thumb"></div>
+              </div>
+            </div>
+            <span id="quick-phrase-bar-hint" aria-live="polite"><!-- ショートカット / 選択中の操作ヒント --></span>
+          </div>
+        </div>
+        <div id="agent-panel" hidden>
+          <div id="agent-head">
+            <button id="agent-collapse" type="button" aria-expanded="true" aria-controls="agent-content" data-i18n-title="agent.collapse" title="変更ストリップをたたむ">▾</button>
+            <button id="agent-title" type="button" data-i18n-title="agent.viewAllChanges" title="すべての変更を一覧表示" disabled>
+              <span id="agent-title-label">ChangeFile</span>
+              <span id="agent-summary" hidden></span>
+            </button>
+          </div>
+          <div id="agent-content">
+            <div id="git-changes" hidden>
+              <div id="git-changes-list"></div>
+            </div>
+            <div id="agent-empty" data-i18n="agent.empty">ターミナルで claude / codex を動かすと、作業フォルダ配下のファイル変更が自動でここに表示されます。</div>
+            <div id="git-actions" hidden>
+              <span id="git-msg" hidden></span>
+              <div id="git-branch-actions" class="git-action-row">
+                <select id="git-local-branch" data-i18n-title="agent.localBranchTitle" title="Local branch to check out"></select>
+                <button id="git-switch-branch" data-i18n="agent.switchBranch" data-i18n-title="agent.switchBranchTitle" title="Check out the selected local branch">Checkout</button>
+                <button id="git-stash" data-i18n="agent.stash" data-i18n-title="agent.stashTitle" title="Stash the changes shown here, including untracked files (git stash push -u)" disabled>Stash</button>
+                <button id="git-worktree" data-i18n="agent.worktree" data-i18n-title="agent.worktreeTitle" title="Choose a base branch and location to create a worktree">Worktree</button>
+              </div>
+              <div id="git-remote-actions" class="git-action-row">
+                <button id="git-commit" data-i18n="agent.commit" data-i18n-title="agent.commitTitle" title="Choose changes and write a commit message" disabled>Commit</button>
+                <button id="git-push" data-i18n="agent.push" data-i18n-title="agent.pushTitle" title="Push the current branch">Push</button>
+                <button id="git-fetch" data-i18n="agent.fetch" data-i18n-title="agent.fetchTitle" title="Fetch updates from all remotes">Fetch</button>
+                <button id="git-pull" data-i18n="agent.pull" data-i18n-title="agent.pullTitle" title="Choose a branch to pull into the current branch">Pull</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="pane-actions" hidden>
+          <button id="session-trash-open" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="history-panel" title="Recently deleted sessions" aria-label="Recently deleted sessions">
+            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"></path><path d="M4 5v5h5"></path><path d="M12 8v4l3 2"></path></svg>
+          </button>
+          <button id="pane-clear" type="button">
+            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg>
+          </button>
+        </div>
+        <div id="grid"></div>
+        <div id="main-foot"></div>
+      </div>
+      <div id="explorer" hidden>
+        <div id="exp-resize" data-i18n-title="exp.resize" title="ドラッグで幅を変更（右へ押し込むと閉じる）"></div>
+        <div id="exp-head">
+          <div id="exp-head-row">
+            <div id="exp-path"></div>
+            <button id="exp-refresh" data-i18n-title="exp.refresh" title="表示中のフォルダを更新">⟳</button>
+            <button id="exp-close" data-i18n-title="exp.close" title="エクスプローラーをたたむ (Cmd/Ctrl+E)">»</button>
+          </div>
+          <div id="exp-tools">
+            <button id="exp-root" data-i18n-title="exp.root" title="ルートに戻る（ターミナルを開いた時のディレクトリ）">⌂</button>
+            <input id="exp-filter" type="search" data-i18n-placeholder="exp.filter" placeholder="配下も含めて検索..." />
+            <button id="exp-fav" aria-pressed="false" data-i18n-title="exp.favToggle" title="表示中のフォルダをお気に入りに追加/解除">☆</button>
+            <button id="exp-hidden" class="is-on" aria-pressed="true" data-i18n-title="exp.hidden" title="隠しファイルの表示切替">.*</button>
+          </div>
+        </div>
+        <div id="exp-favs" hidden></div>
+        <div id="exp-list"></div>
+        <div id="exp-git-resize" data-i18n-title="git.resize" title="ドラッグで高さを変更（ダブルクリックで既定に戻す）" hidden></div>
+        <div id="exp-git" hidden>
+          <div id="exp-git-head">
+            <div id="exp-git-tabs" role="tablist">
+              <button id="exp-git-branch" class="is-active" role="tab" aria-selected="true" data-i18n="git.branch" title="現在のブランチ">Branch</button>
+              <button id="exp-git-issues-tab" role="tab" aria-selected="false" data-i18n="git.issues" data-i18n-title="git.issuesTitle" title="GitHub Issueを表示">Issues</button>
+              <button id="exp-git-prs-tab" role="tab" aria-selected="false" data-i18n="git.prs" data-i18n-title="git.prsTitle" title="GitHub PRを表示">PR</button>
+              <button id="exp-git-worktrees-tab" role="tab" aria-selected="false" data-i18n="git.worktrees" data-i18n-title="git.worktreesTitle" title="このリポジトリのworktreeを管理">Worktree</button>
+            </div>
+            <button id="exp-git-pr" hidden></button>
+            <button id="exp-git-refresh" data-i18n-title="git.refresh" title="PR情報を更新">⟳</button>
+          </div>
+          <div id="exp-git-branch-name" hidden><!-- 現在のブランチ名は JS が入れる --></div>
+          <div id="exp-git-log"><!-- コミット行は JS が生成 --></div>
+          <div id="exp-git-issues" hidden><!-- Issue 一覧は JS が生成 --></div>
+          <div id="exp-git-prs" hidden><!-- PR 一覧は JS が生成 --></div>
+          <div id="exp-git-worktrees" class="wt-list" hidden><!-- worktree 一覧は JS が生成 --></div>
+        </div>
+        <div id="exp-actions">
+          <button id="exp-new-pane" data-i18n="exp.newPane" data-i18n-title="exp.newPaneTitle" title="表示中のパスでフォーカス中ペインを分割">新規ペイン</button>
+          <button id="exp-new-session" data-i18n="exp.newSession" data-i18n-title="exp.newSessionTitle" title="表示中のパスで新規セッション">新規セッション</button>
+        </div>
+      </div>
+      <button id="exp-reopen" data-i18n-title="exp.reopen" title="エクスプローラーを開く (Cmd/Ctrl+E)" hidden>Files</button>
+    </div>
+    <div id="exp-ctx" hidden><!-- フォルダ右クリックメニュー。項目は JS が生成 --></div>
+    <div id="diff-overlay" hidden>
+      <div id="diff-panel" role="dialog" aria-modal="true" aria-labelledby="diff-path">
+        <div id="diff-head">
+          <span id="diff-path"></span>
+          <span id="diff-stats"></span>
+          <button id="diff-close" data-i18n-title="agent.diffClose" title="差分表示を閉じる">×</button>
+        </div>
+        <div id="diff-body"></div>
+      </div>
+    </div>
+    <div id="commit-overlay" hidden>
+      <div id="commit-panel" role="dialog" aria-modal="true" aria-labelledby="commit-title">
+        <div id="commit-head">
+          <span id="commit-title" data-i18n="agent.commitDialogTitle">変更をコミット</span>
+          <span id="commit-branch"></span>
+          <button id="commit-close" data-i18n-title="agent.commitCancel" title="キャンセル">×</button>
+        </div>
+        <div id="commit-body">
+          <section id="commit-files-section">
+            <div class="commit-section-head">
+              <label id="commit-select-all-row">
+                <input id="commit-select-all" type="checkbox" checked />
+                <span data-i18n="agent.commitSelectAll">すべて選択</span>
+              </label>
+              <span id="commit-selection-count" aria-live="polite"></span>
+            </div>
+            <div id="commit-file-list"></div>
+          </section>
+          <section id="commit-message-section">
+            <label for="commit-message" data-i18n="agent.commitMessage">コミットメッセージ</label>
+            <textarea id="commit-message" maxlength="5000" autocomplete="off" spellcheck="false" data-i18n-placeholder="agent.commitMessagePlaceholder" placeholder="変更内容を入力..."></textarea>
+            <span id="commit-shortcut" data-i18n="agent.commitShortcut">Cmd/Ctrl+Enter でコミット</span>
+            <label id="commit-push-row">
+              <input id="commit-push-after" type="checkbox" />
+              <span data-i18n="agent.commitAndPush">コミット後にPush</span>
+            </label>
+            <div id="commit-error" role="alert" hidden></div>
+          </section>
+        </div>
+        <div id="commit-foot">
+          <button id="commit-cancel" data-i18n="agent.commitCancel">キャンセル</button>
+          <button id="commit-submit" data-i18n="agent.commitSelected" disabled>選択した変更をコミット</button>
+        </div>
+      </div>
+    </div>
+    <div id="pull-overlay" class="git-action-overlay" hidden>
+      <div id="pull-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="pull-title">
+        <div class="git-action-head">
+          <span id="pull-title" data-i18n="agent.pullDialogTitle">ブランチをプル</span>
+          <span id="pull-target"></span>
+          <button id="pull-close" data-i18n-title="agent.commitCancel" title="キャンセル">×</button>
+        </div>
+        <div class="git-action-body">
+          <label class="git-action-field" for="pull-branch">
+            <span data-i18n="agent.pullSource">取り込み元のリモートブランチ</span>
+            <select id="pull-branch"></select>
+          </label>
+          <p data-i18n="agent.pullHint">選択したブランチを現在のブランチへ取り込みます。ブランチは切り替えません。</p>
+          <div id="pull-error" class="git-action-error" role="alert" hidden></div>
+        </div>
+        <div class="git-action-foot">
+          <button id="pull-cancel" data-i18n="agent.commitCancel">キャンセル</button>
+          <button id="pull-submit" class="is-primary" data-i18n="agent.pullSelected">このブランチをプル</button>
+        </div>
+      </div>
+    </div>
+    <div id="worktree-overlay" class="git-action-overlay" hidden>
+      <div id="worktree-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="worktree-title">
+        <div class="git-action-head">
+          <span id="worktree-title" data-i18n="agent.worktreeDialogTitle">Worktreeを作成</span>
+          <button id="worktree-close" data-i18n-title="agent.commitCancel" title="キャンセル">×</button>
+        </div>
+        <div class="git-action-body">
+          <div class="git-action-field">
+            <span data-i18n="agent.worktreeRepository">リポジトリ</span>
+            <output id="worktree-root"></output>
+          </div>
+          <div class="git-action-field">
+            <span data-i18n="agent.worktreeSource">作成元</span>
+            <div id="worktree-source" class="wt-loc">
+              <label>
+                <input type="radio" name="worktree-source" value="branch" checked />
+                <span data-i18n="agent.worktreeSourceBranch">ブランチ</span>
+              </label>
+              <label>
+                <input type="radio" name="worktree-source" value="pr" />
+                <span data-i18n="agent.worktreeSourcePr">プルリクエスト</span>
+              </label>
+            </div>
+          </div>
+          <label class="git-action-field" id="worktree-base-field" for="worktree-base">
+            <span data-i18n="agent.worktreeBase">作成元ブランチ</span>
+            <select id="worktree-base"></select>
+          </label>
+          <label class="git-action-field" id="worktree-branch-field" for="worktree-branch">
+            <span data-i18n="agent.worktreeBranch">新しいブランチ</span>
+            <input id="worktree-branch" type="text" maxlength="240" autocomplete="off" spellcheck="false" data-i18n-placeholder="agent.worktreeBranchPlaceholder" placeholder="feature/my-work" />
+          </label>
+          <label class="git-action-field" id="worktree-pr-field" for="worktree-pr" hidden>
+            <span data-i18n="agent.worktreeSourcePr">プルリクエスト</span>
+            <select id="worktree-pr"></select>
+          </label>
+          <div class="git-action-field">
+            <span data-i18n="agent.worktreeLocationMode">置き場所</span>
+            <div id="worktree-loc" class="wt-loc">
+              <label>
+                <input type="radio" name="worktree-loc" value="inside" />
+                <span data-i18n="agent.worktreeInside">リポジトリ配下</span>
+              </label>
+              <label>
+                <input type="radio" name="worktree-loc" value="outside" checked />
+                <span data-i18n="agent.worktreeOutside">リポジトリ外</span>
+              </label>
+            </div>
+          </div>
+          <label class="git-action-field" for="worktree-directory">
+            <span id="worktree-directory-label">格納先（リポジトリ外）</span>
+            <input id="worktree-directory" type="text" maxlength="512" autocomplete="off" spellcheck="false" value="~/worktrees" />
+          </label>
+          <div class="git-action-field">
+            <span data-i18n="agent.worktreeLocation">作成される場所</span>
+            <output id="worktree-location"></output>
+          </div>
+          <p id="worktree-pr-hint" hidden data-i18n="agent.worktreePrHint">PRのブランチでworktreeを作り、そのセッションを開きます。同じブランチのworktreeが既にあれば作らずに再利用します。</p>
+          <p id="worktree-ignore-hint" hidden data-i18n="agent.worktreeIgnoreHint">格納先がignore対象でなければ、ルートの.gitignoreへ自動で追記します。</p>
+          <p id="worktree-external-hint" data-i18n="agent.worktreeExternalHint">リポジトリ外なので.gitignoreは変更しません。</p>
+          <div id="worktree-error" class="git-action-error" role="alert" hidden></div>
+          <div class="git-action-field wt-list-field">
+            <span data-i18n="agent.worktreeExisting">既存のworktree</span>
+            <div id="worktree-list" class="wt-list"></div>
+          </div>
+        </div>
+        <div class="git-action-foot">
+          <button id="worktree-cancel" data-i18n="agent.commitCancel">キャンセル</button>
+          <button id="worktree-submit" class="is-primary" data-i18n="agent.worktreeCreate">作成</button>
+        </div>
+      </div>
+    </div>
+    <div id="file-overlay" hidden>
+      <div id="file-panel" role="dialog" aria-modal="true" aria-labelledby="file-path">
+        <div id="file-head">
+          <span id="file-path"></span>
+          <span id="file-note" hidden></span>
+          <button id="file-save" data-i18n="file.save" data-i18n-title="file.saveTitle" title="ファイルを保存 (Cmd/Ctrl+S)" disabled>保存</button>
+          <button id="file-close" data-i18n-title="file.close" title="閉じる (Esc)">×</button>
+        </div>
+        <textarea id="file-body" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+        <img id="file-image" alt="" hidden />
+      </div>
+    </div>
+    <div id="pr-overlay" hidden>
+      <div id="pr-panel" role="dialog" aria-modal="true" aria-labelledby="pr-title">
+        <div id="pr-head">
+          <span id="pr-state"></span>
+          <span id="pr-title"></span>
+          <button id="pr-open-gh" data-i18n="git.openOnGitHub" data-i18n-title="git.openOnGitHubTitle" title="このPRをGitHubで開く">GitHub で開く</button>
+          <button id="pr-close" data-i18n-title="git.prClose" title="PR表示を閉じる">×</button>
+        </div>
+        <div id="pr-overview"></div>
+        <div id="pr-tabs" role="tablist">
+          <button id="pr-files-tab" role="tab" aria-selected="true"></button>
+          <button id="pr-conversation-tab" role="tab" aria-selected="false"></button>
+        </div>
+        <div id="pr-files-view">
+          <div id="pr-files-status" hidden></div>
+          <div id="pr-files"><!-- 変更ファイル行は JS が生成 --></div>
+        </div>
+        <div id="pr-body" hidden><!-- コメントカードは JS が生成 --></div>
+      </div>
+    </div>
+    <div id="issue-overlay" hidden>
+      <div id="issue-panel" role="dialog" aria-modal="true" aria-labelledby="issue-title">
+        <div id="issue-head">
+          <span id="issue-state" class="issue-state"></span>
+          <span id="issue-title"></span>
+          <button id="issue-open-gh" data-i18n="issue.openOnGitHub">GitHub で開く</button>
+          <button id="issue-close" data-i18n-title="issue.close" title="Issue表示を閉じる">×</button>
+        </div>
+        <div id="issue-content"><!-- Issue 詳細は JS が生成 --></div>
+      </div>
+    </div>
+    <div id="quick-phrases-overlay" hidden>
+      <div id="quick-phrases-panel" role="dialog" aria-modal="true" aria-labelledby="quick-phrases-title">
+        <div id="quick-phrases-head">
+          <span id="quick-phrases-title" data-i18n="quick.title">定型文</span>
+          <button id="quick-phrases-close" data-i18n-title="quick.close" title="定型文を閉じる">×</button>
+        </div>
+        <p id="quick-phrases-hint" data-i18n="quick.hint">クリックするとフォーカス中のターミナルへ入力します。Enter は自動送信しません。</p>
+        <div id="quick-phrases-list" role="list"></div>
+        <div id="quick-phrases-empty"></div>
+        <form id="quick-phrases-form">
+          <div id="quick-phrase-form-main">
+            <input id="quick-phrase-input" type="text" maxlength="500" autocomplete="off" spellcheck="false" data-i18n-placeholder="quick.placeholder" placeholder="よく使う一言を入力..." />
+            <div id="quick-phrase-form-actions">
+              <button id="quick-phrase-cancel" type="button" hidden></button>
+              <button id="quick-phrase-submit" type="submit"></button>
+            </div>
+          </div>
+          <div id="quick-phrase-scope" role="radiogroup">
+            <span id="quick-phrase-scope-title"></span>
+            <label class="quick-phrase-scope-opt">
+              <input id="quick-phrase-scope-global" type="radio" name="quick-phrase-scope" value="global" checked />
+              <span id="quick-phrase-scope-global-label"></span>
+            </label>
+            <label class="quick-phrase-scope-opt">
+              <input id="quick-phrase-scope-repo" type="radio" name="quick-phrase-scope" value="repo" />
+              <span id="quick-phrase-scope-repo-label"></span>
+            </label>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div id="history-overlay" hidden>
+      <div id="history-panel" role="dialog" aria-modal="true" aria-labelledby="history-title">
+        <div id="history-head">
+          <span id="history-title" data-i18n="takeover.title">履歴から引き継ぐ</span>
+          <button id="history-close" type="button" data-i18n-title="takeover.close" title="履歴を閉じる">×</button>
+        </div>
+        <div id="history-tabs" role="tablist">
+          <button id="history-tab-takeover" class="history-tab" type="button" role="tab" aria-selected="true" aria-controls="takeover-panel" data-i18n="takeover.toolbar">履歴</button>
+          <button id="history-tab-trash" class="history-tab" type="button" role="tab" aria-selected="false" aria-controls="session-trash-panel" data-i18n="trash.title" tabindex="-1">最近削除したセッション</button>
+        </div>
+        <section id="takeover-panel" class="history-tab-panel" role="tabpanel" aria-labelledby="history-tab-takeover">
+          <div id="takeover-history-status" aria-live="polite" hidden></div>
+          <div id="takeover-history" role="list"></div>
+        </section>
+        <section id="session-trash-panel" class="history-tab-panel" role="tabpanel" aria-labelledby="history-tab-trash" hidden>
+          <p id="session-trash-hint"></p>
+          <div id="session-trash-list" role="list"></div>
+          <div id="session-trash-empty"></div>
+          <div id="session-trash-error" role="alert" hidden></div>
+          <div id="session-trash-foot">
+            <button id="session-trash-clear-cancel" type="button" hidden></button>
+            <button id="session-trash-clear" type="button" hidden></button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div id="auto-enter-overlay" hidden>
+      <div id="auto-enter-panel" role="dialog" aria-modal="true" aria-labelledby="auto-enter-title">
+        <div id="auto-enter-head">
+          <span id="auto-enter-title" data-i18n="autoEnter.label">自動Enter</span>
+          <button id="auto-enter-close" type="button" data-i18n-title="settings.close" title="設定を閉じる">×</button>
+        </div>
+        <p id="auto-enter-hint" data-i18n="settings.autoEnterToggle">選択したセッションの全ペインへEnterを送る</p>
+        <label id="auto-enter-all-row">
+          <input id="auto-enter-all" type="checkbox" />
+          <span data-i18n="settings.autoEnterHint">全セッションで自動Enterを有効にする</span>
+        </label>
+        <div id="auto-enter-list" role="group"></div>
+      </div>
+    </div>
+    <div id="pair-overlay" class="git-action-overlay" hidden>
+      <div id="pair-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="pair-title">
+        <div class="git-action-head">
+          <span id="pair-title" data-i18n="pair.title">ペアモード</span>
+          <button id="pair-close" data-i18n-title="pair.close" title="閉じる">×</button>
+        </div>
+        <div class="git-action-body">
+          <p data-i18n="pair.hint">2人のエージェントに何をさせるかを選びます。実装の区切りは帯の受け渡しボタンであなたが渡し、相手の返答は静止検知で自動転送します。受け渡しボタンはいつでも使え、受け渡しは Enter まで送信されます。</p>
+          <div id="pair-running" hidden>
+            <span id="pair-running-text"></span>
+            <button id="pair-modal-stop" type="button"></button>
+          </div>
+          <form id="pair-form">
+            <div class="pair-group-label" data-i18n="pair.kindLabel">モード</div>
+            <div id="pair-kind" class="wt-loc" role="radiogroup">
+              <label>
+                <input type="radio" name="pair-kind" id="pair-kind-implement" value="implement" checked />
+                <span class="pair-kind-text">
+                  <span data-i18n="pair.kindImplement">実装 × レビュー</span>
+                  <small class="pair-kind-desc" data-i18n="pair.kindImplementDesc">片方が実装します。ひと区切りつくたびに、もう片方が diff をレビューして指摘を送り返します。すべての変更にもう一組の目が入ります。</small>
+                </span>
+              </label>
+              <label>
+                <input type="radio" name="pair-kind" id="pair-kind-cross" value="cross" />
+                <span class="pair-kind-text">
+                  <span data-i18n="pair.kindCross">クロスレビュー</span>
+                  <small class="pair-kind-desc" data-i18n="pair.kindCrossDesc">2人が同じ変更を独立にレビューし、指摘を突き合わせて議論した後、エージェントAが1本の統合リストにまとめます。どちらもファイルは編集しません（レビュー専用）。</small>
+                </span>
+              </label>
+              <label>
+                <input type="radio" name="pair-kind" id="pair-kind-brainstorm" value="brainstorm" />
+                <span class="pair-kind-text">
+                  <span data-i18n="pair.kindBrainstorm">ブレスト</span>
+                  <small class="pair-kind-desc" data-i18n="pair.kindBrainstormDesc">2人がお題についてアイデアを出し合い、互いに発展させた後、エージェントAが有望案をまとめます。コードは書きません。</small>
+                </span>
+              </label>
+              <label>
+                <input type="radio" name="pair-kind" id="pair-kind-coop" value="coop" />
+                <span class="pair-kind-text">
+                  <span data-i18n="pair.kindCoop">ブレスト → 共同実装</span>
+                  <small class="pair-kind-desc" data-i18n="pair.kindCoopDesc">まずお題をブレストし、エージェントAが結論を重ならない2人分の作業に分担。両方が並んで実装し、途中で互いに同期します。</small>
+                </span>
+              </label>
+            </div>
+            <div class="pair-group-label" data-i18n="pair.placeLabel">組み方</div>
+            <div id="pair-mode" class="wt-loc" role="radiogroup">
+              <label>
+                <input type="radio" name="pair-mode" id="pair-mode-replace" value="replace" checked />
+                <span data-i18n="pair.modeReplace">このセッションをペアセッションにする（今のペインは閉じる）</span>
+              </label>
+              <label>
+                <input type="radio" name="pair-mode" id="pair-mode-current" value="current" />
+                <span data-i18n="pair.modeCurrent">このセッションの2ペインで組む</span>
+              </label>
+              <label>
+                <input type="radio" name="pair-mode" id="pair-mode-new" value="new" />
+                <span data-i18n="pair.modeNew">新しいペアセッションを作る</span>
+              </label>
+              <label id="pair-mode-attach-wrap">
+                <input type="radio" name="pair-mode" id="pair-mode-attach" value="attach" />
+                <span data-i18n="pair.modeAttach">フォーカス中のペインの隣にレビュー役を追加する（そのペインが実装役になります）</span>
+              </label>
+            </div>
+            <div id="pair-current-fields">
+              <label class="git-action-field" for="pair-impl-pane">
+                <span id="pair-impl-pane-label" data-i18n="pair.implPane">実装役のペイン</span>
+                <select id="pair-impl-pane"></select>
+              </label>
+              <label class="git-action-field" for="pair-review-pane">
+                <span id="pair-review-pane-label" data-i18n="pair.reviewPane">レビュー役のペイン</span>
+                <select id="pair-review-pane"></select>
+              </label>
+            </div>
+            <div id="pair-new-fields" hidden>
+              <div id="pair-new-cwd-field" hidden>
+                <label class="git-action-field" for="pair-new-worktree">
+                  <span data-i18n="agent.worktreeExisting">既存のworktree</span>
+                  <select id="pair-new-worktree"></select>
+                </label>
+                <label class="git-action-field" for="pair-new-cwd">
+                  <span data-i18n="pair.cwd">作成先（任意）</span>
+                  <div class="pair-cwd-row">
+                    <input id="pair-new-cwd" type="text" maxlength="1024" autocomplete="off" spellcheck="false" data-i18n-placeholder="pair.cwdPlaceholder" placeholder="空欄なら現在のセッションの場所" />
+                    <button id="pair-new-cwd-browse" type="button" data-i18n="takeover.browse">参照…</button>
+                  </div>
+                </label>
+              </div>
+              <label class="git-action-field" for="pair-impl-cmd" id="pair-impl-cmd-field">
+                <span id="pair-impl-cmd-label" data-i18n="pair.implCmd">実装役の起動コマンド</span>
+                <input id="pair-impl-cmd" type="text" maxlength="200" autocomplete="off" spellcheck="false" value="claude" />
+              </label>
+              <label class="git-action-field" for="pair-review-cmd">
+                <span id="pair-review-cmd-label" data-i18n="pair.reviewCmd">レビュー役の起動コマンド</span>
+                <input id="pair-review-cmd" type="text" maxlength="200" autocomplete="off" spellcheck="false" value="codex" />
+              </label>
+            </div>
+            <div id="pair-style-field" hidden>
+              <div class="pair-group-label" data-i18n="pair.styleLabel">議論のスタイル</div>
+              <div id="pair-style" class="wt-loc" role="radiogroup">
+                <label>
+                  <input type="radio" name="pair-style" id="pair-style-yesand" value="yesAnd" checked />
+                  <span data-i18n="pair.styleYesAnd">アイデアに乗っかって発展させる（Yes, and）</span>
+                </label>
+                <label>
+                  <input type="radio" name="pair-style" id="pair-style-critic" value="critic" />
+                  <span data-i18n="pair.styleCritic">批判役（エージェントBが常に穴を探す）</span>
+                </label>
+              </div>
+            </div>
+            <label class="git-action-field" for="pair-rounds">
+              <span id="pair-rounds-label" data-i18n="pair.rounds">レビューの回数</span>
+              <input id="pair-rounds" type="number" min="1" max="10" step="1" value="2" />
+            </label>
+            <label class="git-action-field" for="pair-sync" id="pair-sync-field" hidden>
+              <span data-i18n="pair.roundsSync">実装中の同期回数</span>
+              <input id="pair-sync" type="number" min="1" max="10" step="1" value="2" />
+            </label>
+            <label class="git-action-field" for="pair-task">
+              <span id="pair-task-label" data-i18n="pair.task">最初のタスク（任意）</span>
+              <div class="pair-task-row">
+                <textarea id="pair-task" maxlength="4000" autocomplete="off" spellcheck="false" data-i18n-placeholder="pair.taskPlaceholder" placeholder="開始時に実装役へ送るタスク..."></textarea>
+                <button id="pair-task-quick" type="button" data-i18n-title="pair.taskQuickPhrase" title="定型文を挿入">📋</button>
+              </div>
+            </label>
+            <div id="pair-error" class="git-action-error" role="alert" hidden></div>
+            <div class="git-action-foot">
+              <button id="pair-start" type="submit" class="is-primary" data-i18n="pair.start">ペアモードを開始</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div id="broadcast-overlay" class="git-action-overlay" hidden>
+      <div id="broadcast-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="broadcast-dialog-title">
+        <div class="git-action-head">
+          <span id="broadcast-dialog-title" data-i18n="bc.title">一斉入力の送信先</span>
+          <button id="broadcast-dialog-close" type="button" data-i18n-title="bc.close" title="閉じる">×</button>
+        </div>
+        <div class="git-action-body">
+          <p data-i18n="bc.hint">選んだセッションの全ペインへ、打鍵・定型文・画像パスが同時に送られます。送信先は一斉入力を切ると忘れます（保存しません）。</p>
+          <div id="broadcast-select-row">
+            <label id="broadcast-select-all-row">
+              <input id="broadcast-select-all" type="checkbox" />
+              <span data-i18n="bc.selectAll">すべてのセッションを選ぶ</span>
+            </label>
+            <span id="broadcast-count" aria-live="polite"></span>
+          </div>
+          <div id="broadcast-ws-list" role="group"></div>
+        </div>
+        <div class="git-action-foot">
+          <button id="broadcast-cancel" type="button" data-i18n="bc.cancel">キャンセル</button>
+          <button id="broadcast-start" type="button" class="is-primary" data-i18n="bc.start">一斉入力を開始</button>
+        </div>
+      </div>
+    </div>
+    <div id="settings-overlay" hidden>
+      <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div id="settings-head">
+          <span id="settings-title" data-i18n="settings.title">設定</span>
+          <button id="settings-close" data-i18n-title="settings.close" title="設定を閉じる">×</button>
+        </div>
+        <!-- 左に項目一覧、右に選択中セクションだけを表示する2ペイン構成
+             （diff オーバーレイの「変更ファイル一覧 + 選択中ファイル」と同じ流儀） -->
+        <div id="settings-body">
+          <nav id="settings-nav" aria-labelledby="settings-title">
+            <button type="button" class="settings-nav-item" data-section="theme" data-i18n="settings.theme">カラーテーマ</button>
+            <button type="button" class="settings-nav-item" data-section="language" data-i18n="settings.language">言語</button>
+            <button type="button" class="settings-nav-item" data-section="notifications" data-i18n="settings.notifications">通知</button>
+            <button type="button" class="settings-nav-item" data-section="pair" data-i18n="settings.pairSection">ペアモードの既定コマンド</button>
+            <button type="button" class="settings-nav-item" data-section="worktree" data-i18n="settings.worktreeSection">Worktreeの既定の置き場所</button>
+            <button type="button" class="settings-nav-item" data-section="license" data-i18n="settings.licenseSection">ライセンス</button>
+            <button type="button" class="settings-nav-item" data-section="update" data-i18n="settings.update">アップデート</button>
+          </nav>
+          <div id="settings-content">
+            <section data-section="theme">
+              <h3 data-i18n="settings.theme">カラーテーマ</h3>
+              <div id="settings-themes"><!-- プリセットボタンを JS が生成 --></div>
+            </section>
+            <section data-section="language" hidden>
+              <h3 data-i18n="settings.language">言語</h3>
+              <div id="settings-langs"><!-- 日本語 / English ボタンを JS が生成 --></div>
+            </section>
+            <section data-section="notifications" hidden>
+              <h3 data-i18n="settings.notifications">通知</h3>
+              <label id="settings-notif-row">
+                <input type="checkbox" id="settings-notif" />
+                <span data-i18n="settings.notifyToggle">完了をデスクトップ通知する（見ていないセッションのみ）</span>
+              </label>
+            </section>
+            <section data-section="pair" hidden>
+              <h3 data-i18n="settings.pairSection">ペアモードの既定コマンド</h3>
+              <p class="settings-hint" data-i18n="settings.pairHint">
+                ペアモードの実装役・レビュー役を起動する既定コマンドです。
+              </p>
+              <div id="settings-pair-cmds">
+                <label class="settings-field" for="settings-pair-impl">
+                  <span data-i18n="pair.implCmd">実装役の起動コマンド</span>
+                  <input id="settings-pair-impl" type="text" maxlength="200" autocomplete="off" spellcheck="false" />
+                </label>
+                <button id="settings-pair-swap" type="button" data-i18n-title="settings.pairSwap" title="入れ替え">⇄</button>
+                <label class="settings-field" for="settings-pair-review">
+                  <span data-i18n="pair.reviewCmd">レビュー役の起動コマンド</span>
+                  <input id="settings-pair-review" type="text" maxlength="200" autocomplete="off" spellcheck="false" />
+                </label>
+              </div>
+            </section>
+            <section data-section="worktree" hidden>
+              <h3 data-i18n="settings.worktreeSection">Worktreeの既定の置き場所</h3>
+              <p class="settings-hint" data-i18n="settings.worktreeHint">
+                Worktreeボタン・Issue実行・ペアモードから新しくworktreeを作るときに使われます。
+              </p>
+              <div class="settings-field">
+                <span data-i18n="agent.worktreeLocationMode">置き場所</span>
+                <div id="settings-worktree-loc" class="wt-loc">
+                  <label>
+                    <input type="radio" name="settings-worktree-loc" value="inside" />
+                    <span data-i18n="agent.worktreeInside">リポジトリ配下</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="settings-worktree-loc" value="outside" />
+                    <span data-i18n="agent.worktreeOutside">リポジトリ外</span>
+                  </label>
+                </div>
+              </div>
+              <label class="settings-field" for="settings-worktree-dir">
+                <span id="settings-worktree-dir-label">格納先</span>
+                <input id="settings-worktree-dir" type="text" maxlength="512" autocomplete="off" spellcheck="false" />
+              </label>
+            </section>
+            <section id="settings-license" data-section="license" hidden>
+              <h3 data-i18n="settings.licenseSection">ライセンス</h3>
+              <!-- 実体は専用モーダル（#license-manage-overlay）。設定からは入口だけ置く -->
+              <div class="settings-legal-actions">
+                <button id="settings-license-manage" data-i18n="license.manage">ライセンスを管理</button>
+                <button id="settings-eula-open" type="button">EULA Version 1.0</button>
+                <button id="settings-third-party-open" type="button">Third-Party Notices</button>
+              </div>
+            </section>
+            <section data-section="update" hidden>
+              <h3 data-i18n="settings.update">アップデート</h3>
+              <div id="settings-update-row">
+                <span id="settings-version"></span>
+                <button id="settings-check-update" data-i18n="settings.checkUpdate">アップデートを確認</button>
+              </div>
+              <div id="settings-update-result" aria-live="polite"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 公式ビルドの初回起動ゲート。閉じる操作は持たず、同意後にだけ boot() する。 -->
+    <div id="eula-overlay" hidden>
+      <div id="eula-panel" role="dialog" aria-modal="true" aria-labelledby="eula-title">
+        <div id="eula-head">
+          <span id="eula-title">End User License Agreement</span>
+          <div>
+            <button id="eula-open-web" type="button">Open web version</button>
+            <button id="eula-close" type="button" hidden>Close</button>
+          </div>
+        </div>
+        <div id="eula-body">
+          <p id="eula-meta"></p>
+          <p id="eula-intro"></p>
+          <pre id="eula-text" tabindex="0"></pre>
+          <label id="eula-agree-row">
+            <input id="eula-agree-check" type="checkbox" />
+            <span id="eula-agree-label"></span>
+          </label>
+          <div id="eula-error" role="alert" hidden></div>
+        </div>
+        <div id="eula-foot">
+          <button id="eula-decline" type="button">Decline and quit</button>
+          <button id="eula-accept" class="is-primary" type="button" disabled>Agree and start PATerminal</button>
+        </div>
+      </div>
+    </div>
+    <!-- ライセンス管理モーダル。サイドバーの 🔑・設定内の入口・購入モーダルの
+         「ライセンスキーを入力」から開く（設定パネルとは独立） -->
+    <div id="license-manage-overlay" hidden>
+      <div id="license-manage-panel" role="dialog" aria-modal="true" aria-labelledby="license-manage-title">
+        <div id="license-manage-head">
+          <span id="license-manage-title" data-i18n="settings.licenseSection">ライセンス</span>
+          <button id="license-manage-close" data-i18n-title="license.bannerClose" title="閉じる">×</button>
+        </div>
+        <div id="license-manage-body">
+          <div id="settings-license-status">
+            <span id="settings-license-dot" aria-hidden="true"></span>
+            <div id="settings-license-state"></div>
+          </div>
+          <div id="settings-license-keyrow">
+            <input
+              id="settings-license-key"
+              type="text"
+              maxlength="512"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="license.keyPlaceholder"
+              placeholder="ライセンスキーを貼り付け"
+            />
+            <button id="settings-license-register" data-i18n="license.register">登録</button>
+          </div>
+          <div id="settings-license-msg" aria-live="polite" hidden></div>
+          <div id="settings-license-devices" hidden>
+            <p class="settings-hint" id="settings-license-devices-title" data-i18n="license.devicesTitle">登録デバイス</p>
+            <div id="settings-license-device-list"></div>
+          </div>
+          <div id="settings-license-buyrow">
+            <button id="settings-license-buy" class="is-primary" data-i18n="license.buy" hidden>購入ページを開く</button>
+            <button id="settings-license-retrial" data-i18n="license.retrialStart" hidden>7日間の再トライアルを開始</button>
+            <button id="settings-license-remove" data-i18n="license.remove" hidden>キーを解除</button>
+          </div>
+          <label id="settings-update-notify-row" hidden>
+            <input type="checkbox" id="settings-update-notify" />
+            <span data-i18n="license.updateNotifyToggle">新バージョンの通知（自ビルド）</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <!-- ソフトロックの購入案内。ロック中の機能入口をクリックしたときだけ開く -->
+    <div id="license-overlay" class="git-action-overlay" hidden>
+      <div id="license-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="license-title">
+        <div class="git-action-head">
+          <span id="license-title" data-i18n="license.modalTitle">ライセンス</span>
+          <button id="license-close" data-i18n-title="license.bannerClose" title="閉じる">×</button>
+        </div>
+        <div class="git-action-body">
+          <p id="license-modal-msg" data-i18n="license.lockedMsg">
+            期限が切れました。ご購入でロックされた機能が戻ります。
+          </p>
+          <p class="settings-hint" data-i18n="license.selfBuildNote">
+            ソースからのビルドは個人利用なら引き続き無料です（GitHub リポジトリ参照）。
+          </p>
+          <div id="license-modal-error" class="git-action-error" role="alert" hidden></div>
+        </div>
+        <div class="git-action-foot">
+          <button id="license-retrial" data-i18n="license.retrialStart" hidden>7日間の再トライアルを開始</button>
+          <button id="license-enter-key" data-i18n="license.enterKey">ライセンスキーを入力</button>
+          <button id="license-buy" class="is-primary" data-i18n="license.buy">購入ページを開く</button>
+        </div>
+      </div>
+    </div>
+    <!-- 初回ガイド（トライアル中に一度だけ。閉じたら二度と自動表示しない） -->
+    <div id="guide-panel" hidden>
+      <div id="guide-head">
+        <span data-i18n="license.guideTitle">PATerminal でできること</span>
+        <button id="guide-close" data-i18n-title="license.guideClose" title="閉じる">×</button>
+      </div>
+      <ul id="guide-list">
+        <li><button id="guide-panes" data-i18n="license.guidePanes">ペインを3枚以上に分割して並列に</button></li>
+        <li><button id="guide-pair" data-i18n="license.guidePair">ペアモードで実装×レビュー</button></li>
+        <li><button id="guide-git" data-i18n="license.guideGit">Git 管制</button></li>
+        <li><button id="guide-takeover" data-i18n="license.guideTakeover">会話の引き継ぎ</button></li>
+      </ul>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

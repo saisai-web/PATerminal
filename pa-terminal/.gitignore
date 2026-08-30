@@ -1,0 +1,10 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+# Release時に公開updater鍵を注入する生成設定。実値入りの作業ファイルは追跡しない。
+src-tauri/tauri.ci.conf.json
+
+# 調査用の使い捨てスクリプト。絶対パスを直書きしたものがリポジトリに紛れないよう、
+# この種のファイルは追跡しない（本来はスクラッチパッド側に置くこと）
+.tmp-*

@@ -1,0 +1,173 @@
+/* --- 定型文バー（変更ストリップのすぐ上、登録が1件でもあるときだけ表示） --- */
+#quick-phrase-bar {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+#quick-phrase-bar[hidden] { display: none; }
+#quick-phrase-bar.is-collapsed { align-items: center; }
+/* 帯の空白クリックでも開閉する（quick-phrases.ts の barHitAreas と対応）。
+   クリックしても開閉しない場所（チップ以外の文言）は pointer にしない */
+#quick-phrase-bar,
+#quick-phrase-bar-head,
+#quick-phrase-bar-content,
+#quick-phrase-bar-list { cursor: pointer; }
+#quick-phrase-bar-hint { cursor: default; }
+
+#quick-phrase-bar-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* たたむとチップを1行の横スクロールにする（変更ストリップと同じ扱い） */
+#quick-phrase-bar-content {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+#quick-phrase-bar-content[hidden] { display: none; }
+#quick-phrase-bar.is-collapsed #quick-phrase-bar-content {
+  flex-basis: 0;
+  width: 0;
+  align-items: center;
+  overflow: hidden;
+}
+
+#quick-phrase-scroll {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+#quick-phrase-bar.is-collapsed #quick-phrase-scroll {
+  flex: 1 1 0;
+  width: 0;
+  max-width: 100%;
+}
+
+#quick-phrase-collapse {
+  flex: none;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 4px;
+  cursor: pointer;
+}
+#quick-phrase-collapse:hover { color: var(--text); border-color: var(--line); background: var(--hover); }
+#quick-phrase-collapse:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* 1行表示の間だけ、隠れた行を含む登録件数を見出しの右に出す */
+#quick-phrase-bar-summary {
+  min-width: 0;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#quick-phrase-bar-summary[hidden] { display: none; }
+
+#quick-phrase-bar-title {
+  flex: none;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+  padding: 3px 5px;
+  cursor: pointer;
+}
+#quick-phrase-bar-title:hover { color: var(--text); border-color: var(--line); background: var(--hover); }
+#quick-phrase-bar-title:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* 全展開では全チップを折り返して表示する */
+#quick-phrase-bar-list {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
+}
+#quick-phrase-bar.is-collapsed #quick-phrase-bar-list {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+#quick-phrase-bar.is-collapsed #quick-phrase-bar-list::-webkit-scrollbar { display: none; }
+
+/* macOS の overlay scrollbar 設定に依存しない専用の横スクロールレール。 */
+#quick-phrase-scrollbar {
+  position: relative;
+  height: 5px;
+  margin-top: 2px;
+  background: color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+#quick-phrase-scrollbar[hidden] { display: none; }
+#quick-phrase-scroll-thumb {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  min-width: 24px;
+  background: var(--dim);
+  border-radius: 999px;
+  cursor: grab;
+}
+#quick-phrase-scroll-thumb:hover,
+#quick-phrase-scrollbar:focus-visible #quick-phrase-scroll-thumb {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+#quick-phrase-scroll-thumb:active { cursor: grabbing; }
+#quick-phrase-scrollbar:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+
+.quick-phrase-chip {
+  flex: none;
+  max-width: 24em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.quick-phrase-chip:hover { border-color: var(--accent); }
+/* このリポジトリ専用の定型文（汎用と一目で区別できるよう破線にする） */
+.quick-phrase-chip.is-repo { border-style: dashed; }
+.quick-phrase-chip:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+/* Cmd/Ctrl+P のキーボード選択中の1件（focus 枠だけだと WebView では見落としやすい） */
+.quick-phrase-chip.is-active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* ショートカットの案内。選択中は操作ヒントに切り替わる */
+#quick-phrase-bar-hint {
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+#quick-phrase-bar-hint.is-active { color: var(--accent); }

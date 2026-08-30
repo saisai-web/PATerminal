@@ -1,0 +1,92 @@
+name: rust
+
+# Rust のユニットテストと Windows 固有コードのコンパイル確認。
+# 重い（apt + cargo、Windows はコールドで8分超）ので test.yml から分離し、
+# `pa-terminal/src-tauri/` を触った push / PR のときだけ走らせる。
+# フロントのみの変更で Rust の結果が変わることはない（Cargo.lock も paths に含む）。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pa-terminal/src-tauri/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "pa-terminal/src-tauri/**"
+      - ".github/workflows/rust.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  # PR は同ブランチへの push で前の実行を打ち切って良いが、main への push（squash merge等）を
+  # 打ち切ると Rust (Windows) の Post 側キャッシュ保存まで到達できず、キャッシュが更新されないまま
+  # 以降の PR が毎回コールドビルド（8分超）になる。main への push だけは打ち切らず完走させる
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # build-essential / curl / file / wget は GitHub の ubuntu ランナーに
+      # プリインストール済みなので入れ直さない（apt の時間短縮）
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: pa-terminal/src-tauri -> target
+
+      - name: Unit tests
+        working-directory: pa-terminal/src-tauri
+        run: cargo test --locked
+
+      # 公式ビルド系統（license の official feature）のコンパイル確認。
+      # ロジックは official を bool 引数で受ける純粋関数なのでテストはデフォルト
+      # features の cargo test で全部回る（ここは cfg! の値が変わるだけの check で足りる）
+      - name: Check official feature
+        working-directory: pa-terminal/src-tauri
+        run: cargo check --locked --features official
+
+  # Windows 固有のコード（pty/cwd.rs の PEB 読み取り・pty/agent.rs の Toolhelp32・
+  # pty/shell.rs の起動引数）と、公開ヘッダに無い NT オフセットのコンパイル時アサートは、
+  # このジョブでしか CI のコンパイル対象にならない（release.yml はタグ時のみ）。
+  # フロントは OS 非依存（OS 差は PATERMINAL_TEST_OS で frontend ジョブから回す）なので
+  # Rust だけを走らせる。
+  rust-windows:
+    name: Rust (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: pa-terminal/src-tauri -> target
+          key: windows
+
+      - name: Unit tests
+        working-directory: pa-terminal/src-tauri
+        # --lib のみ: main.rs のバイナリは pa_terminal_lib::run() を呼ぶだけでテストが無く、
+        # ここも一緒にビルド/リンクすると Windows では数十秒級の追加コストになる。
+        # Windows 固有のコンパイル時アサート・単体テストは lib クレート側にあるので --lib で足りる
+        run: cargo test --locked --lib

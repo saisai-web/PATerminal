@@ -1,0 +1,42 @@
+:root {
+  --bg: #07090b;
+  --chrome: #11151a;
+  --line: #1e252d;
+  --text: #d6dbe0;
+  --dim: #6b7885;
+  --accent: #6ee7d0;
+  --alarm: #f0a04b;
+  --hover: #171c22;
+  --active-bg: #1a2027;
+  --pane-bg: #0d1013;
+  --focus-border: #2f3b46;
+  --pulse: #7a5528;
+  --on-accent: #07090b;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --diff-add-bg: #12351f;
+  --diff-add-fg: #7ee787;
+  --diff-del-bg: #47201f;
+  --diff-del-fg: #ff8f88;
+  --ws-color-red: #e06c75;
+  --ws-color-orange: #e5a55b;
+  --ws-color-yellow: #d9c07c;
+  --ws-color-green: #8cc265;
+  --ws-color-blue: #61afef;
+  --ws-color-purple: #c678dd;
+  --divider: 6px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.4 "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  overflow: hidden;
+}
+
+#app { display: flex; flex-direction: row; height: 100%; }
+
+#main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }

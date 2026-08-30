@@ -1,0 +1,287 @@
+/* --- 変更ストリップ（ターミナル上側、git 変更の自動表示） --- */
+#agent-panel {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+#agent-panel[hidden] { display: none; }
+#agent-panel.is-collapsed {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  padding-block: 3px;
+}
+/* 帯の非操作領域全体で開閉する（agent-panel.ts の collapseExclusions と対応）。 */
+#agent-panel,
+#agent-head,
+#agent-content,
+#git-changes,
+#git-changes-list,
+#agent-empty,
+#git-actions,
+.git-action-row { cursor: pointer; }
+#git-actions select,
+#git-msg { cursor: default; }
+
+#agent-content {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* たたむと個別の変更一覧を隠し、操作バーだけを見出し横へ置く */
+#agent-content[hidden] { display: none; }
+#agent-panel.is-collapsed #agent-content {
+  flex-direction: row;
+  align-items: center;
+  overflow: hidden;
+  gap: 6px;
+}
+
+#agent-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+#agent-collapse {
+  flex: none;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 5px 7px;
+  cursor: pointer;
+}
+#agent-collapse:hover { color: var(--text); border-color: var(--line); background: var(--hover); }
+#agent-collapse:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* 全変更一覧ボタン内の件数と増減 */
+#agent-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#agent-summary[hidden] { display: none; }
+.agent-summary-stats { display: flex; gap: 7px; }
+#agent-summary > span:first-child { color: var(--text); font-weight: 600; }
+
+#agent-title {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  width: 112px;
+  min-height: 36px;
+  justify-content: center;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+#agent-title-label { text-transform: uppercase; letter-spacing: 1px; }
+#agent-title:not(:disabled):hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--hover);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+#agent-title:not(:disabled):focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+#agent-title:disabled { cursor: default; }
+
+#git-changes {
+  order: 1;
+  min-width: 0;
+  overflow: visible;
+}
+#git-changes[hidden] { display: none; }
+#git-changes-list { display: flex; flex-wrap: wrap; gap: 4px; }
+#agent-panel.is-collapsed #git-changes {
+  display: none;
+}
+
+#agent-empty { flex: 1; color: var(--dim); padding-top: 3px; }
+#agent-empty[hidden] { display: none; }
+#agent-panel.is-collapsed #agent-empty {
+  display: none;
+}
+
+/* 変更ファイルのチップ（クリックで diff オーバーレイ） */
+.agent-file-row {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.agent-file-row:hover { border-color: var(--accent); }
+.agent-file-name { flex: none; color: var(--text); }
+.agent-file-dir {
+  color: var(--dim);
+  max-width: 12em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  direction: rtl; /* 長いパスは末尾側を残す */
+}
+.agent-file-adds { flex: none; color: var(--diff-add-fg); }
+.agent-file-dels { flex: none; color: var(--diff-del-fg); }
+
+/* ストリップの git 操作（ブランチ系と同期系を分け、狭い幅では行内も折り返す） */
+#git-actions {
+  order: -1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+}
+#git-actions[hidden] { display: none; }
+#agent-panel.is-collapsed #git-actions {
+  flex: 1 1 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  overflow: hidden;
+  white-space: normal;
+}
+#agent-panel.is-collapsed #git-msg { display: none; }
+#agent-panel.is-collapsed .git-action-row {
+  display: flex;
+  width: 100%;
+  flex-wrap: nowrap;
+  gap: 1px;
+  padding: 1px;
+  background: var(--bg);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  white-space: nowrap;
+}
+#agent-panel.is-collapsed #git-actions button {
+  flex: 1 0 60px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 17px;
+  background: var(--chrome);
+  border-color: transparent;
+  border-radius: 2px;
+}
+#agent-panel.is-collapsed #git-local-branch {
+  flex: 1 0 60px;
+  width: 60px;
+  max-width: none;
+  height: 17px;
+  font-size: 11px;
+  padding-block: 0;
+  border-color: transparent;
+  border-radius: 2px;
+}
+.git-action-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(68px, 100%), 1fr));
+  align-items: center;
+  gap: 1px;
+  width: min(100%, 400px);
+  min-width: 0;
+  padding: 1px;
+  background: var(--bg);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+#git-actions button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+#git-actions button:hover:enabled,
+#git-local-branch:hover {
+  position: relative;
+  z-index: 1;
+  color: var(--accent);
+  background: var(--hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+#git-actions button:focus-visible,
+#git-local-branch:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+#git-actions button:disabled { color: var(--dim); cursor: default; }
+#git-local-branch {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 19px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+#git-msg {
+  align-self: flex-start;
+  color: var(--dim);
+  max-width: min(22em, 100%);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* エラーだけは git の出力を全文出す（1行に詰めて省略すると原因が読めない）。
+   長い出力は帯を押し広げないよう内側スクロールに閉じ込める */
+#git-msg.err {
+  color: var(--alarm);
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 8em;
+  overflow: auto;
+  text-overflow: clip;
+  user-select: text;
+}
+#git-msg[hidden] { display: none; }

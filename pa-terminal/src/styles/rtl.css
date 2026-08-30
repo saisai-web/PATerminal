@@ -1,0 +1,28 @@
+/* ===== RTL 言語（アラビア語など）=====
+   UI 全体は applyStaticTexts() が html[dir=rtl] を立てて反転するが、
+   ターミナル出力・差分・パス・コードは中身が LTR なので書字方向を戻す。
+   （行番号や +/- のマークが行末に回り込むのを防ぐ） */
+[dir="rtl"] #grid,
+[dir="rtl"] .xterm,
+[dir="rtl"] #exp-path,
+[dir="rtl"] #exp-list,
+[dir="rtl"] #exp-favs,
+[dir="rtl"] #exp-git-log,
+[dir="rtl"] #exp-git-branch-name,
+[dir="rtl"] #diff-path,
+[dir="rtl"] #diff-body,
+[dir="rtl"] #file-body,
+[dir="rtl"] #commit-message,
+[dir="rtl"] .commit-file-choice-path,
+[dir="rtl"] .commit-file-nav-path,
+[dir="rtl"] .pr-comment-loc,
+[dir="rtl"] .pr-comment-code,
+[dir="rtl"] .ws-git {
+  direction: ltr;
+}
+/* 上の LTR 固定内でも、行そのものは左寄せに戻す */
+[dir="rtl"] #diff-body,
+[dir="rtl"] #exp-list,
+[dir="rtl"] #exp-favs,
+[dir="rtl"] #exp-git-log,
+[dir="rtl"] #exp-git-branch-name { text-align: left; }

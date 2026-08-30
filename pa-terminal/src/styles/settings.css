@@ -1,0 +1,321 @@
+/* --- 設定モーダル --- */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+#settings-overlay[hidden] { display: none; }
+
+/* --- 自動Enter対象セッション --- */
+#auto-enter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+#auto-enter-overlay[hidden] { display: none; }
+#auto-enter-panel {
+  box-sizing: border-box;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+#auto-enter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+#auto-enter-title { color: var(--text); font-weight: 700; }
+#auto-enter-close {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+#auto-enter-close:hover { color: var(--text); border-color: var(--line); background: var(--bg); }
+#auto-enter-hint { margin: 0 0 8px; color: var(--dim); font-size: 11px; line-height: 1.5; }
+#auto-enter-all-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+#auto-enter-all-row input { flex: none; accent-color: var(--accent); }
+#auto-enter-list { display: flex; flex-direction: column; gap: 4px; }
+.auto-enter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 7px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.auto-enter-row:hover { border-color: var(--dim); }
+.auto-enter-row.is-active { border-color: var(--accent); }
+.auto-enter-row input { flex: none; accent-color: var(--accent); }
+.auto-enter-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 左に項目一覧、右に選択中セクションの2ペイン構成（diff オーバーレイと同じ流儀） */
+#settings-panel {
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  width: 640px;
+  max-width: calc(100vw - 24px);
+  height: min(520px, 86vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* スクロールは #settings-nav / #settings-content が個別に持つ */
+  box-shadow: 0 16px 48px var(--shadow);
+  padding: 0; /* 余白はヘッダと各 section が持つ */
+}
+#settings-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+#settings-title { color: var(--text); font-weight: 700; font-size: 14px; }
+#settings-close {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+#settings-close:hover { color: var(--text); border-color: var(--line); background: var(--bg); }
+
+#settings-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr);
+}
+
+/* 左: 項目一覧 */
+#settings-nav {
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+.settings-nav-item {
+  font: inherit;
+  text-align: left;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 10px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.settings-nav-item:hover { color: var(--text); background: var(--hover); }
+.settings-nav-item.is-active {
+  color: var(--text);
+  background: var(--active-bg);
+  border-color: var(--line);
+}
+.settings-nav-item:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* 右: 選択中セクションだけを表示 */
+#settings-content { min-width: 0; overflow-y: auto; }
+#settings-content section { margin: 0; padding: 16px 18px; }
+#settings-content section[hidden] { display: none; }
+#settings-content h3 {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+/* 横幅が広がったので折り返すグリッドで並べる */
+#settings-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+/* 言語は 17 種類あるので折り返すグリッド（横スクロールは出さない） */
+#settings-langs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 5px;
+}
+.settings-choice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.settings-choice:hover {
+  border-color: var(--dim);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.settings-choice.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+}
+#settings-langs .settings-choice { justify-content: center; text-align: center; overflow: hidden; }
+.settings-swatch {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}
+.settings-swatch-accent {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: -18px; /* pane-bg スウォッチに重ねる */
+  translate: 5px 0;
+}
+
+#settings-update-row { display: flex; align-items: center; gap: 8px; }
+#settings-notif-row {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); font-size: 12px; cursor: pointer;
+}
+#settings-notif-row input { accent-color: var(--accent); }
+#settings-version { color: var(--dim); flex: 1; }
+.settings-legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#settings-check-update,
+#settings-open-release,
+#settings-license-manage,
+#settings-eula-open,
+#settings-third-party-open {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+#settings-check-update:hover,
+#settings-open-release:hover,
+#settings-license-manage:hover,
+#settings-eula-open:hover,
+#settings-third-party-open:hover {
+  border-color: var(--dim);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+#settings-check-update:disabled { color: var(--dim); cursor: default; }
+#settings-update-result { margin-top: 8px; color: var(--dim); }
+#settings-update-result .update-new { color: var(--accent); }
+#settings-update-result button { margin: 8px 8px 0 0; }
+#settings-update-result .update-notes {
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text);
+  font-size: 12px;
+}
+#settings-update-result .update-warning,
+#settings-update-result .update-error { color: var(--alarm); }
+#settings-update-progress { margin-top: 8px; color: var(--text); }
+#settings-update-result:empty { display: none; }
+
+.settings-hint { margin: 0 0 8px; color: var(--dim); font-size: 11px; line-height: 1.5; }
+.settings-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.settings-field:last-child { margin-bottom: 0; }
+.settings-field > span { color: var(--dim); font-size: 11px; }
+.settings-field input[type="text"] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  font: 12px ui-monospace, Menlo, monospace;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.settings-field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+#settings-pair-cmds { display: flex; align-items: flex-end; gap: 6px; }
+#settings-pair-cmds .settings-field { flex: 1; min-width: 0; margin-bottom: 0; }
+#settings-pair-swap {
+  flex: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+#settings-pair-swap:hover { color: var(--text); border-color: var(--dim); }
+
+/* 狭い画面ではナビを上段の横スクロール列にする（commit-diff と同じ退避） */
+@media (max-width: 560px) {
+  #settings-panel { height: min(560px, 90vh); }
+  #settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  #settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .settings-nav-item { flex: none; white-space: nowrap; }
+}

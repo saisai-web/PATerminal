@@ -1,0 +1,63 @@
+name: full-ui
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-ui
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Full UI regression
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pa-terminal/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: pa-terminal
+        run: npm ci
+
+      - name: Full UI tests
+        working-directory: pa-terminal
+        env:
+          PATERMINAL_TEST_URL: http://127.0.0.1:1420/
+        run: |
+          npx vite --host 127.0.0.1 --port 1420 --strictPort > "$RUNNER_TEMP/vite.log" 2>&1 &
+          vite_pid=$!
+          cleanup() {
+            kill "$vite_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PATERMINAL_TEST_URL" >/dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$vite_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            sed -n '1,200p' "$RUNNER_TEMP/vite.log"
+            exit 1
+          fi
+
+          npm run test:ui

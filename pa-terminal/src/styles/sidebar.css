@@ -1,0 +1,558 @@
+/* --- sidebar --- */
+#sidebar {
+  position: relative; /* #sidebar-resize の基準 */
+  /* 既定幅は sidebar.ts の SIDEBAR_DEFAULT_W と同じ値にする（ダブルクリックで戻す先） */
+  width: 280px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome);
+  border-right: 1px solid var(--line);
+  min-height: 0;
+}
+#sidebar[hidden] { display: none; }
+#sidebar.will-close { opacity: 0.35; } /* 押し込み中の「離すと閉じる」予告 */
+
+/* 右端ハンドル。エクスプローラーの #exp-resize と左右対称に作る */
+#sidebar-resize {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
+}
+#sidebar-resize:hover, #sidebar-resize.is-dragging { background: var(--accent); }
+
+/* サイドバーをたたんでいる間だけ左端に出る再オープンタブ。
+   エクスプローラー側の #exp-reopen と左右対称に作る */
+#sidebar-reopen {
+  flex: none;
+  width: 22px;
+  font: inherit;
+  color: var(--dim);
+  background: var(--chrome);
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  padding: 10px 0;
+}
+#sidebar-reopen:hover { color: var(--accent); }
+#sidebar-reopen[hidden] { display: none; }
+
+#sidebar-head {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+#ws-search {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+#ws-new {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  width: 28px;
+  cursor: pointer;
+}
+#ws-new:hover { border-color: var(--dim); }
+
+#sidebar-collapse {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  width: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+#sidebar-collapse:hover, #sidebar-collapse:focus-visible {
+  color: var(--text); border-color: var(--dim); outline: none;
+}
+
+#ws-new-form { padding: 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+#ws-new-form[hidden] { display: none; }
+#ws-new-name {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px;
+}
+#ws-new-shells { display: flex; flex-direction: column; gap: 4px; }
+#ws-new-shells button,
+#ws-create-group {
+  font: inherit; color: var(--text); background: transparent; text-align: left;
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; cursor: pointer;
+}
+#ws-new-shells button:hover,
+#ws-create-group:hover { border-color: var(--accent); }
+#ws-create-group[hidden] { display: none; }
+
+#ws-new-group {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px;
+}
+
+#ws-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+
+/* キーボードでのセッション移動の案内。一覧と足元のボタンの間に小さく出すだけ */
+#ws-switch-hint {
+  flex: none;
+  padding: 2px 8px 4px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#sidebar-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+  background: var(--chrome);
+}
+#settings-open,
+#license-open {
+  font: inherit;
+  font-size: 14px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  width: 30px;
+  height: 26px;
+  cursor: pointer;
+}
+#settings-open { margin-left: auto; }
+#settings-open:hover,
+#license-open:hover { color: var(--text); border-color: var(--dim); }
+#settings-open:focus-visible,
+#license-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* --- セッショングループ --- */
+.ws-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--dim);
+  user-select: none;
+}
+.ws-group[draggable="true"] { cursor: grab; }
+.ws-group[draggable="true"]:active { cursor: grabbing; }
+.ws-group:hover { background: var(--hover); }
+.ws-group-arrow { flex: none; width: 1em; }
+.ws-group-name {
+  color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+}
+.ws-group-count { margin-left: auto; flex: none; }
+.ws-group-members { margin-left: 14px; }
+
+/* --- インライン編集（セッション名 / ペイン名 / グループ名） --- */
+.inline-edit {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  min-width: 0;
+  width: 100%;
+}
+.pane-bar .inline-edit { width: auto; max-width: 14em; }
+
+/* --- グループ割当のコンテキストメニュー --- */
+#ctx-menu {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  padding: 8px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+#ctx-menu button {
+  font: inherit; color: var(--text); background: transparent; text-align: left;
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; cursor: pointer;
+}
+#ctx-menu button:hover { border-color: var(--accent); }
+#ctx-menu .ctx-sep { height: 1px; background: var(--line); margin: 2px 0; }
+/* セッション複製の数量ステッパー（− N + ）。複製ボタンのすぐ下に置く */
+#ctx-menu .ctx-count { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
+#ctx-menu .ctx-count-label { flex: 1; font-size: 12px; color: var(--muted); }
+#ctx-menu .ctx-count-btn { flex: 0 0 auto; min-width: 26px; padding: 2px 6px; text-align: center; }
+#ctx-menu .ctx-count-btn:disabled { opacity: 0.4; cursor: default; border-color: var(--line); }
+#ctx-menu .ctx-count-value {
+  min-width: 2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* セッション背景色。文字ラベルより直感的に選べるスウォッチを、現在値のリング付きで並べる */
+#ctx-menu .ctx-color-picker { padding: 2px; }
+#ctx-menu .ctx-color-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--dim);
+  font-size: 12px;
+}
+#ctx-menu .ctx-color-options {
+  display: grid;
+  grid-template-columns: repeat(7, 24px);
+  gap: 5px;
+}
+#ctx-menu .ctx-color-option {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: color-mix(in srgb, var(--ws-color-value, var(--line)) 65%, var(--line));
+  background: var(--ws-color-value, var(--bg));
+  text-align: center;
+}
+#ctx-menu .ctx-color-option:hover,
+#ctx-menu .ctx-color-option:focus-visible {
+  border-color: var(--text);
+  outline: none;
+  transform: translateY(-1px);
+}
+#ctx-menu .ctx-color-option.is-current {
+  box-shadow: 0 0 0 2px var(--chrome), 0 0 0 4px var(--accent);
+}
+#ctx-menu .ctx-color-option.is-current::after {
+  content: "✓";
+  display: grid;
+  place-items: center;
+  position: absolute;
+  inset: 0;
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px var(--shadow);
+}
+#ctx-menu .ctx-color-option[data-ws-color="default"]::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 10px;
+  height: 2px;
+  background: var(--alarm);
+  transform: rotate(-45deg);
+}
+#ctx-menu .ctx-color-option[data-ws-color="default"].is-current::after {
+  color: var(--text);
+  text-shadow: none;
+}
+
+/* 1セッションあたりの高さは名前 / 常設メモ欄 / cwd / git バッジが窮屈にならない程度に取る */
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none; /* Shift+クリックの範囲選択で文字列選択にならないように */
+}
+.ws-item:hover { background: var(--hover); }
+.ws-item.is-active { background: var(--active-bg); border-color: var(--line); }
+/* 色IDは保存可能な固定値だけ。実色はテーマプリセットのCSS変数から解決する */
+.ws-item[data-ws-color] {
+  background: color-mix(in srgb, var(--ws-color-value) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ws-color-value) 30%, transparent);
+}
+.ws-item[data-ws-color]:hover {
+  background: color-mix(in srgb, var(--ws-color-value) 22%, var(--hover));
+}
+.ws-item[data-ws-color].is-active {
+  background: color-mix(in srgb, var(--ws-color-value) 28%, var(--active-bg));
+}
+.ws-item[data-ws-color="red"],
+#ctx-menu .ctx-color-option[data-ws-color="red"] { --ws-color-value: var(--ws-color-red); }
+.ws-item[data-ws-color="orange"],
+#ctx-menu .ctx-color-option[data-ws-color="orange"] { --ws-color-value: var(--ws-color-orange); }
+.ws-item[data-ws-color="yellow"],
+#ctx-menu .ctx-color-option[data-ws-color="yellow"] { --ws-color-value: var(--ws-color-yellow); }
+.ws-item[data-ws-color="green"],
+#ctx-menu .ctx-color-option[data-ws-color="green"] { --ws-color-value: var(--ws-color-green); }
+.ws-item[data-ws-color="blue"],
+#ctx-menu .ctx-color-option[data-ws-color="blue"] { --ws-color-value: var(--ws-color-blue); }
+.ws-item[data-ws-color="purple"],
+#ctx-menu .ctx-color-option[data-ws-color="purple"] { --ws-color-value: var(--ws-color-purple); }
+/* 複数選択（Ctrl/Cmd+クリック・Shift+クリック）は左端のアクセントバーで示す。
+   アクティブ表示の背景色は潰さない（選択の中でどれが表示中かを見分けられるように）。
+   色は必ず CSS 変数経由 */
+.ws-item.is-selected {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+/* --- 複数選択時の一括操作バー --- */
+#ws-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 11px;
+}
+#ws-selection[hidden] { display: none; } /* display:flex が UA の [hidden] を潰すため明示 */
+#ws-selection-count { color: var(--text); font-weight: 700; margin-right: auto; }
+#ws-selection button {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+#ws-selection button:hover { border-color: var(--accent); }
+#ws-selection-close:hover { border-color: var(--alarm); color: var(--alarm); }
+
+/* --- サイドバーのドラッグ&ドロップ --- */
+.ws-item.is-drag-src, .ws-group.is-drag-src { opacity: 0.4; }
+.ws-item.drop-before, .ws-group.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
+.ws-item.drop-after, .ws-group.drop-after { box-shadow: 0 2px 0 0 var(--accent); }
+.ws-group.drop-into { background: var(--hover); box-shadow: inset 0 0 0 1px var(--accent); }
+#ws-list.drop-end { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
+.ws-avatar {
+  position: relative;
+  width: 26px; height: 26px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+/* セッションの稼働インジケータ（アバター右下のドット）。色は必ず CSS 変数 */
+.ws-item.is-attn .ws-avatar::after,
+.ws-item.is-wait .ws-avatar::after,
+.ws-item.is-busy .ws-avatar::after {
+  content: "";
+  position: absolute; right: -2px; bottom: -2px;
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 2px solid var(--chrome);
+}
+.ws-item.is-attn .ws-avatar::after { background: var(--alarm); }
+/* 入力待ちは既読にしても消えない（応答するまで続く状態なので attn より優先） */
+.ws-item.is-wait .ws-avatar::after {
+  background: var(--alarm);
+  animation: ws-dot-pulse 2.4s ease-in-out infinite;
+}
+/* busy を attn / wait より優先（後勝ち）: 出力が再開したらパルスに戻す */
+.ws-item.is-busy .ws-avatar::after {
+  background: var(--accent);
+  animation: ws-dot-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ws-dot-pulse {
+  50% { opacity: 0.35; }
+}
+
+/* 行間は grid の gap で取る（各行は1行固定なので margin ではなくここで揃える） */
+.ws-meta { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.ws-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ws-name {
+  flex: 1; min-width: 0;
+  color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-status {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.ws-status[hidden] { display: none; }
+.ws-item.is-busy .ws-status { color: var(--accent); }
+.ws-item.is-wait .ws-status { color: var(--alarm); }
+.ws-note-field { position: relative; min-width: 0; }
+.ws-note-field.is-locked::after {
+  position: absolute;
+  inset-inline-end: 2px;
+  top: 50%;
+  margin: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+/* メモの1行表示。クリックで直下に編集ポップオーバーを開く（欄内では編集しない）。
+   以前の常設 input と同じ一行の高さ・見た目を保ち、長文は … で省く（全文は title） */
+.ws-note-display {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0 5px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: start;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border: 0;
+  border-inline-start: 2px solid var(--accent);
+  border-radius: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-note-display.is-empty { color: var(--dim); }
+.ws-note-display:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ws-note-display:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* メモの表示・編集ポップオーバー（右クリックメニューと同じ浮動層の小さなカード） */
+.ws-note-popover {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  padding: 10px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--shadow);
+}
+.ws-note-popover-name {
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-note-popover-input {
+  box-sizing: border-box;
+  width: 100%;
+  /* 120字上限（3〜4行）が内側スクロールにならない高さを確保する */
+  min-height: 4.8em;
+  resize: none;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.ws-note-popover-input::placeholder { color: var(--dim); opacity: 1; }
+.ws-note-popover-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.ws-note-popover-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 10px;
+}
+.ws-note-popover-count { flex: none; font-variant-numeric: tabular-nums; }
+/* cwd は必ず1行。末尾2階層が長い場合も折り返さず … で省く（全文は title） */
+.ws-sub {
+  color: var(--dim); font-size: 11px;
+  white-space: nowrap;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* セッション項目の git バッジ（repo · N files +a -d / ⎇ branch）。色は必ず CSS 変数。
+   1行目はリポジトリ名だけを … で縮め、変更数（· N +a -d）は常に残す。
+   2行目のブランチ名は専用行に置き、長ければ折り返して全文を出す */
+.ws-git {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 1px 6px;
+  min-width: 0;
+  color: var(--dim); font-size: 11px;
+  line-height: 1.4;
+  overflow: hidden;
+}
+.ws-git[hidden] { display: none; } /* display:grid が UA の [hidden] を潰すため明示 */
+.ws-git-repo {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-git-branch {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ws-git-files { white-space: nowrap; }
+.ws-git-add { color: var(--diff-add-fg); white-space: nowrap; }
+.ws-git-del { color: var(--diff-del-fg); white-space: nowrap; }
+
+.ws-pin,
+.ws-close {
+  flex: none;
+  font: inherit; color: var(--dim); background: none; border: 0; cursor: pointer;
+  padding: 2px;
+}
+.ws-pin {
+  opacity: 0.9;
+}
+.ws-close {
+  visibility: hidden;
+}
+.ws-item:hover .ws-close { visibility: visible; }
+.ws-pin:hover,
+.ws-pin:focus-visible,
+.ws-close:hover { color: var(--text); opacity: 1; }

@@ -1,0 +1,81 @@
+/* diff 行（オーバーレイ内） */
+.diff-line {
+  padding: 0 12px;
+  white-space: pre;
+  color: var(--text);
+}
+.diff-line.add { background: var(--diff-add-bg); color: var(--diff-add-fg); }
+.diff-line.del { background: var(--diff-del-bg); color: var(--diff-del-fg); }
+.diff-line.skip { color: var(--dim); text-align: center; user-select: none; }
+.diff-line.file { color: var(--accent); background: var(--bg); font-weight: 600; margin-top: 6px; }
+.diff-line.hunk { color: var(--accent); }
+.diff-line.meta { color: var(--dim); }
+.diff-line.empty { color: var(--dim); padding-top: 12px; text-align: center; }
+
+/* diff オーバーレイ（設定モーダルと同じ操作系） */
+#diff-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+#diff-overlay[hidden] { display: none; }
+#diff-panel {
+  width: min(920px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px var(--shadow);
+  overflow: hidden;
+}
+#diff-panel.is-commit {
+  width: min(1440px, 96vw);
+  height: min(920px, 92vh);
+  max-height: 92vh;
+}
+#diff-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+#diff-path {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  direction: rtl;
+}
+#diff-path.commit-title { direction: ltr; }
+#diff-stats { flex: none; display: flex; gap: 8px; }
+#diff-close {
+  flex: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+#diff-close:hover { color: var(--text); border-color: var(--line); background: var(--bg); }
+#diff-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--pane-bg);
+  padding: 6px 0;
+}
+#diff-body.is-commit { overflow: hidden; padding: 0; }
+

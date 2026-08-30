@@ -1,0 +1,281 @@
+/* --- ペアモード（ツールバーボタン + ペアストリップ + 設定モーダルの固有部分） --- */
+
+/* ペアアイコン（二人組の SVG）。stroke: currentColor なのでボタン・ストリップの文字色に追従する */
+.pair-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+/* display/align/gap は #toolbar button（toolbar.css）が担う */
+
+/* 稼働中のツールバーボタンはミニインジケータになる（ラウンド数を載せて点滅） */
+#pair-open.is-on {
+  color: var(--chrome);
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: pair-btn-pulse 1.8s ease-in-out infinite;
+}
+@keyframes pair-btn-pulse {
+  50% { opacity: 0.72; }
+}
+
+/* ペアストリップ: ツールバー直下の横帯。ペアモード中だけ表示する */
+#pair-strip {
+  flex: none;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+#pair-strip[hidden] { display: none; }
+#pair-strip-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+#pair-strip-icon .pair-icon {
+  width: 15px;
+  height: 15px;
+}
+#pair-strip-name {
+  flex: none;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pair-chip {
+  flex: none;
+  padding: 2px 9px;
+  color: var(--dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* いま動いている側。サイドバーの is-busy と同じ「accent のパルス」の視覚言語 */
+.pair-chip.is-turn {
+  color: var(--text);
+  border-color: var(--accent);
+  animation: pair-turn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes pair-turn-pulse {
+  0%, 100% { box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent); }
+  50% { box-shadow: 0 0 1px transparent; }
+}
+/* 矢印 = 直近の受け渡しの向き（← 実装役が作業中 / → レビュー役が作業中 / ✓ 完了） */
+#pair-arrow {
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+#pair-strip-round {
+  flex: none;
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* ラウンド上限の増減ステッパー（表示のすぐ右に詰めて置く） */
+.pair-round-ctl {
+  flex: none;
+  display: inline-flex;
+  gap: 3px;
+}
+.pair-round-ctl button {
+  padding: 2px 7px;
+  line-height: 1;
+}
+.pair-round-ctl button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-color: var(--line);
+}
+#pair-strip-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#pair-strip-status.is-alarm { color: var(--alarm); }
+#pair-strip button {
+  flex: none;
+  padding: 2px 10px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+#pair-strip button:hover { border-color: var(--accent); }
+#pair-strip button[hidden] { display: none; }
+/* 受け渡しボタン（稼働中は常設。フェーズごとにラベルが変わる） */
+#pair-handoff {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+/* implTurn の diff 取得中（二度押し防止で disabled） */
+#pair-handoff:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-color: var(--line);
+}
+/* ブレスト完了後だけ出る「実装へ進む」。受け渡しボタンと同じ強調 */
+#pair-promote {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* モード・組み方の選択は縦に並べる（ラベルの見た目は wt-loc を借用） */
+#pair-kind,
+#pair-mode,
+#pair-style {
+  flex-direction: column;
+  gap: 8px;
+}
+/* ラジオ群の小見出し（モード / 組み方 / 議論のスタイル） */
+.pair-group-label {
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+/* モードのラベル + 説明文（説明はわかりやすさ優先で常時表示する） */
+.pair-kind-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pair-kind-desc {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+#pair-style-field[hidden],
+#pair-sync-field[hidden],
+#pair-mode-attach-wrap[hidden],
+#pair-impl-cmd-field[hidden] { display: none; }
+
+/* 設定モーダルの固有部分（枠・フィールドは git-action-* を共用する） */
+#pair-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#pair-form[hidden] { display: none; }
+#pair-task {
+  min-height: 64px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 6px 8px;
+  font: 12px ui-monospace, Menlo, monospace;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  outline: none;
+}
+#pair-task:focus { border-color: var(--accent); }
+.pair-task-row {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.pair-task-row textarea {
+  flex: 1;
+  min-width: 0;
+}
+.pair-task-row button {
+  flex: none;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pair-task-row button:hover { border-color: var(--accent); }
+#pair-current-fields,
+#pair-new-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#pair-current-fields[hidden],
+#pair-new-fields[hidden] { display: none; }
+#pair-new-cwd-field[hidden] { display: none; }
+#pair-new-cwd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#pair-new-worktree {
+  min-width: 0;
+}
+.pair-cwd-row {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+}
+.pair-cwd-row input {
+  flex: 1;
+  min-width: 0;
+}
+.pair-cwd-row button {
+  flex: none;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pair-cwd-row button:hover:enabled { border-color: var(--accent); }
+.pair-cwd-row button:disabled { opacity: 0.55; cursor: wait; }
+/* 稼働中に開いたときの表示（フォームの代わりに状態 + 停止だけを出す） */
+#pair-running {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--pane-bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+#pair-running[hidden] { display: none; }
+#pair-running-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+#pair-running button {
+  flex: none;
+  padding: 3px 12px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--alarm);
+  background: var(--bg);
+  border: 1px solid var(--alarm);
+  border-radius: 4px;
+  cursor: pointer;
+}

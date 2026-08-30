@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "eulaVersion": "1.0",
+  "effectiveDate": "2026-08-24",
+  "authoritativeLocale": "en",
+  "translationsAreInformational": true,
+  "canonicalUrl": "https://paralellterminal.com/eula",
+  "locales": [
+    {
+      "locale": "en",
+      "path": "LICENSE.md",
+      "webPath": "/eula",
+      "role": "authoritative",
+      "isTranslation": false,
+      "sha256": "a44d783487a5e3185cabb86541ad4bbab4642d79a19f34107785d523ea967399"
+    },
+    {
+      "locale": "ja",
+      "path": "legal/eula/ja.md",
+      "webPath": "/ja/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "84b968e19af7b430153b867e1450d6a19ac627a50b6b7469077230e696a6b862"
+    },
+    {
+      "locale": "zh-Hans",
+      "path": "legal/eula/zh-Hans.md",
+      "webPath": "/zh-Hans/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "1308cf83fa670fb9fbf8c8c8b07a06b4acd40f4c6234d2e2161d003ee3b1aacd"
+    },
+    {
+      "locale": "zh-Hant",
+      "path": "legal/eula/zh-Hant.md",
+      "webPath": "/zh-Hant/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "c361082bf57be5ab34c16543199d0e3e40e9d2a43ff69b45405e79d935d15f22"
+    },
+    {
+      "locale": "ko",
+      "path": "legal/eula/ko.md",
+      "webPath": "/ko/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "b7ee6e4ad42ac941ae81af89a82dab89cced3af1374a67ee7e68984fa21d34a9"
+    },
+    {
+      "locale": "es",
+      "path": "legal/eula/es.md",
+      "webPath": "/es/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "1222fc937ab7d8d549a7b19630e87fd46d9a118ce16ee39572c74412d22748a2"
+    },
+    {
+      "locale": "pt-BR",
+      "path": "legal/eula/pt-BR.md",
+      "webPath": "/pt-BR/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "1ef3633bd79aea85dd12b3a063886beaf3cbc89afb60d900207348f0d11b380a"
+    },
+    {
+      "locale": "fr",
+      "path": "legal/eula/fr.md",
+      "webPath": "/fr/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "3cba2111c60bd44d6c2f689ad50bda51a2428638c82b7abfa5d75656b4702157"
+    },
+    {
+      "locale": "de",
+      "path": "legal/eula/de.md",
+      "webPath": "/de/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "992bfb3f1b23601fddab61b93be3439b3da0b0a723bc37847c9e62e8dce88a9f"
+    },
+    {
+      "locale": "it",
+      "path": "legal/eula/it.md",
+      "webPath": "/it/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "b14534ca4a242b50c14f403f4b6665d1e535e2da7c9538ad616b067f6b827c67"
+    },
+    {
+      "locale": "ru",
+      "path": "legal/eula/ru.md",
+      "webPath": "/ru/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "5a25eda38405dec79ce59057ff2a79712736d413551561542d1399da4d0b468a"
+    },
+    {
+      "locale": "ar",
+      "path": "legal/eula/ar.md",
+      "webPath": "/ar/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "289fa7f8ab3c0e20626cc06b685707ff289b1e5050b26d20fa4e81c53dc8aad7"
+    },
+    {
+      "locale": "hi",
+      "path": "legal/eula/hi.md",
+      "webPath": "/hi/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "f008350c4054d03da95753ab381ae518586b9e98b276ff36b633979304d4e37e"
+    },
+    {
+      "locale": "id",
+      "path": "legal/eula/id.md",
+      "webPath": "/id/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "9408fe72b02a7e41ac0fb249c3ff903f596924737248963aa01f75280e7fc129"
+    },
+    {
+      "locale": "vi",
+      "path": "legal/eula/vi.md",
+      "webPath": "/vi/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "8c49b61a77747f47c424c3c979d83a44caf60b52cae739ad82eb743313db7937"
+    },
+    {
+      "locale": "th",
+      "path": "legal/eula/th.md",
+      "webPath": "/th/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "550ac412f1b2ac0f47f976ef142d605d07bbb832d50797f2a2165306000e30cd"
+    },
+    {
+      "locale": "tr",
+      "path": "legal/eula/tr.md",
+      "webPath": "/tr/eula",
+      "role": "informational-translation",
+      "isTranslation": true,
+      "sha256": "1c2213f8653b53b789a0f8b701aee4e0e4d568ce85198b11ea778c8ccd003057"
+    }
+  ]
+}

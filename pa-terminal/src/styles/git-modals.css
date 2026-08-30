@@ -1,0 +1,269 @@
+/* Pull / Worktree の小型操作モーダル */
+.git-action-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+.git-action-overlay[hidden] { display: none; }
+.git-action-panel {
+  width: min(580px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px var(--shadow);
+  overflow: hidden;
+}
+.git-action-head,
+.git-action-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.git-action-head { border-bottom: 1px solid var(--line); }
+.git-action-head > span:first-child { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; }
+.git-action-head > span:not(:first-child) { color: var(--dim); }
+.git-action-head > button {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.git-action-head > button:hover:enabled { color: var(--text); border-color: var(--line); background: var(--bg); }
+.git-action-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+.git-action-field {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+/* display を指定した要素には UA の [hidden] が効かない（作成元の出し分けで使う） */
+.git-action-field[hidden] { display: none; }
+.git-action-field > span { color: var(--dim); font-size: 11px; }
+.git-action-field input,
+.git-action-field select,
+.git-action-field output {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: 12px ui-monospace, Menlo, monospace;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  outline: none;
+}
+.git-action-field output {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.git-action-field input:focus,
+.git-action-field select:focus { border-color: var(--accent); }
+.git-action-body > p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.git-action-error {
+  max-height: 8em;
+  overflow: auto;
+  padding: 7px 9px;
+  color: var(--alarm);
+  background: var(--bg);
+  border: 1px solid var(--alarm);
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+.git-action-error[hidden] { display: none; }
+
+/* worktree の作成先モード（配下 / 外）と、共有の worktree 一覧 */
+.wt-loc { display: flex; flex-wrap: wrap; gap: 14px; }
+.wt-loc label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.wt-loc input { accent-color: var(--accent); cursor: pointer; }
+.wt-list-field { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.wt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+/* 一覧の先頭に固定する操作バー（全選択 + 一括削除）。スクロールしても隠れないよう sticky */
+.wt-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.wt-bar[hidden] { display: none; }
+.wt-bar-all {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+.wt-bar-all input, .wt-check { accent-color: var(--accent); cursor: pointer; }
+.wt-check { flex: none; }
+.wt-bulk-error { flex-basis: 100%; }
+.wt-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.wt-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.wt-branch {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wt-tag {
+  padding: 0 5px;
+  color: var(--dim);
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.wt-tag.is-warn { color: var(--alarm); border-color: var(--alarm); }
+.wt-path {
+  overflow: hidden;
+  color: var(--dim);
+  font: 11px ui-monospace, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wt-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.wt-actions:empty { display: none; }
+.wt-actions button {
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.wt-actions button:hover:enabled { border-color: var(--accent); }
+.wt-actions button:disabled { color: var(--dim); cursor: default; }
+.wt-actions button.is-danger:not(:disabled) { color: var(--alarm); border-color: var(--alarm); }
+.wt-issue-link {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+.wt-issue-controls { width: 100%; }
+.wt-issue-controls select {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 2px 6px;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+}
+.wt-issue-status {
+  color: var(--dim);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+.wt-issue-status.is-success { color: var(--accent); }
+.wt-issue-status.is-error { color: var(--alarm); }
+.wt-del { line-height: 1; }
+.wt-force[hidden] { display: none; }
+.wt-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.wt-confirm[hidden] { display: none; }
+.wt-confirm > span { color: var(--alarm); font-size: 11px; }
+.wt-error {
+  max-height: 6em;
+  overflow: auto;
+  padding: 5px 7px;
+  color: var(--alarm);
+  background: var(--bg);
+  border: 1px solid var(--alarm);
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+.wt-error[hidden] { display: none; }
+.wt-empty { padding: 6px 2px; color: var(--dim); font-size: 11px; }
+.wt-empty.is-error { color: var(--alarm); }
+.wt-hint { padding: 2px; color: var(--dim); font-size: 11px; }
+.git-action-foot { justify-content: flex-end; border-top: 1px solid var(--line); }
+.git-action-foot button {
+  min-width: 96px;
+  padding: 5px 13px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.git-action-foot button:hover:enabled { border-color: var(--accent); }
+.git-action-foot button:disabled,
+.git-action-head > button:disabled { color: var(--dim); cursor: default; }
+.git-action-foot .is-primary:not(:disabled) {
+  color: var(--chrome);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  #commit-panel { width: 96vw; height: 92vh; }
+  #commit-body { grid-template-columns: 1fr; grid-template-rows: minmax(180px, 2fr) minmax(260px, 3fr); }
+  #commit-files-section { border-right: 0; border-bottom: 1px solid var(--line); }
+  .git-action-field { grid-template-columns: 1fr; gap: 5px; }
+}

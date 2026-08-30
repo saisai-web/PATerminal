@@ -1,0 +1,155 @@
+/* コミット差分: 左でファイルを選び、右で行番号付きパッチを読む */
+.commit-diff {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  background: var(--pane-bg);
+}
+.commit-file-nav {
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome);
+  border-right: 1px solid var(--line);
+}
+.commit-file-nav-title {
+  flex: none;
+  padding: 10px 12px 8px;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+.commit-file-nav-list { min-height: 0; overflow: auto; padding: 6px; }
+.commit-file-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.commit-file-nav-item:hover { color: var(--text); background: var(--hover); }
+.commit-file-nav-item.is-active {
+  color: var(--text);
+  background: var(--active-bg);
+  border-color: var(--line);
+}
+.commit-file-nav-item:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.commit-file-nav-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commit-file-nav-stats { flex: none; display: flex; gap: 6px; font-size: 10px; }
+.commit-patches {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  scroll-behavior: smooth;
+}
+.commit-file {
+  width: max-content;
+  min-width: 100%;
+  margin-bottom: 14px;
+  overflow: clip;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.commit-file-head {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  min-width: min(900px, calc(96vw - 286px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--text);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+.commit-file-path { min-width: 0; font-weight: 700; }
+.commit-file-head .commit-file-nav-stats { margin-left: auto; font-size: 11px; }
+.commit-file-old-path {
+  max-width: 38%;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commit-file-code { min-width: 100%; padding: 4px 0; font-size: 13px; line-height: 21px; }
+.commit-diff-line {
+  min-width: 100%;
+  display: grid;
+  grid-template-columns: 54px 54px 28px minmax(max-content, 1fr);
+  color: var(--text);
+}
+.commit-diff-line.add { color: var(--diff-add-fg); background: var(--diff-add-bg); }
+.commit-diff-line.del { color: var(--diff-del-fg); background: var(--diff-del-bg); }
+.commit-diff-line.hunk {
+  margin: 4px 0;
+  color: var(--accent);
+  background: var(--active-bg);
+}
+.commit-diff-line.meta { color: var(--dim); }
+.commit-line-no,
+.commit-line-mark {
+  position: sticky;
+  z-index: 1;
+  background: inherit;
+  user-select: none;
+}
+.commit-line-no {
+  color: var(--dim);
+  text-align: right;
+  padding: 0 9px 0 4px;
+  border-right: 1px solid var(--line);
+}
+.commit-line-no.old { left: 0; }
+.commit-line-no.new { left: 54px; }
+.commit-line-mark { left: 108px; text-align: center; font-weight: 700; }
+.commit-line-code { padding: 0 16px 0 8px; white-space: pre; }
+.commit-line-wide {
+  grid-column: 1 / -1;
+  position: sticky;
+  left: 0;
+  min-width: min(900px, calc(96vw - 286px));
+  padding: 0 12px;
+  white-space: pre;
+}
+.commit-diff-truncated {
+  position: sticky;
+  left: 0;
+  padding: 12px;
+  color: var(--dim);
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  #diff-panel.is-commit { width: 98vw; height: 94vh; max-height: 94vh; }
+  .commit-diff { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .commit-file-nav { border-right: 0; border-bottom: 1px solid var(--line); }
+  .commit-file-nav-title { padding: 6px 10px; }
+  .commit-file-nav-list { display: flex; gap: 4px; padding: 5px; }
+  .commit-file-nav-item { width: min(220px, 72vw); flex: none; }
+  .commit-file-head, .commit-line-wide { min-width: 720px; }
+}
+

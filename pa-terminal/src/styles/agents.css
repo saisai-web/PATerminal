@@ -1,0 +1,62 @@
+/* エージェント終了時のワンクリック再開バナー（features/agents/watch.ts）。
+   ペイン右上（ペインバーの下）に重ねる。色は必ず CSS 変数経由 */
+
+.pane-resume {
+  position: absolute;
+  top: 28px;
+  right: 8px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 16px);
+  padding: 4px 6px 4px 10px;
+  background: var(--chrome);
+  border: 1px solid var(--alarm);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px var(--shadow);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.pane-resume-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dim);
+}
+
+.pane-resume-btn {
+  flex: none;
+  padding: 2px 10px;
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pane-resume-btn:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pane-resume-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pane-resume-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}

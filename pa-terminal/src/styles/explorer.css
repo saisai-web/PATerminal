@@ -1,0 +1,173 @@
+/* --- エクスプローラーパネル（読み取り専用） --- */
+#explorer {
+  width: 260px;
+  flex: none;
+  position: relative; /* #exp-resize の基準 */
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome);
+  border-left: 1px solid var(--line);
+}
+#explorer[hidden] { display: none; }
+#explorer.will-close { opacity: 0.35; } /* 押し込み中の「離すと閉じる」予告 */
+
+#exp-resize {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
+}
+#exp-resize:hover, #exp-resize.is-dragging { background: var(--accent); }
+
+#exp-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+#exp-head-row { display: flex; align-items: center; gap: 6px; }
+#exp-path {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+#exp-path::-webkit-scrollbar { display: none; }
+.exp-path-part {
+  flex: none;
+  min-width: 0;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: inherit;
+  color: var(--dim);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+.exp-path-part:hover, .exp-path-part:focus-visible { color: var(--accent); background: var(--hover); outline: none; }
+.exp-path-part[aria-current="location"] { color: var(--text); }
+.exp-path-sep { flex: none; color: var(--dim); }
+#exp-head-row > button {
+  flex: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+#exp-head-row > button:hover, #exp-head-row > button:focus-visible {
+  color: var(--text); border-color: var(--line); background: var(--bg); outline: none;
+}
+#exp-refresh:disabled { cursor: progress; opacity: 0.55; }
+#exp-tools { display: flex; gap: 6px; }
+#exp-filter {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+#exp-tools button {
+  font: inherit; color: var(--dim); background: transparent;
+  border: 1px solid var(--line); border-radius: 3px; padding: 2px 8px; cursor: pointer;
+}
+#exp-tools button:hover { border-color: var(--dim); }
+#exp-tools button.is-on { color: var(--accent); border-color: var(--accent); }
+
+/* お気に入りディレクトリ一覧（登録があるときだけ表示） */
+#exp-favs {
+  flex: none;
+  max-height: 30%;
+  overflow-y: auto;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.exp-fav-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+}
+.exp-fav-row:hover { background: var(--hover); }
+/* 先頭常設の「セッションの現在地」ピン。お気に入りと同じ見た目でマーカーだけアクセント色 */
+.exp-session-row .exp-fav-name { color: var(--accent); }
+.exp-fav-name {
+  /* 名前の内容幅を基準にして、競合時は右側の親パスを先に縮める。 */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.exp-fav-del {
+  flex: none;
+  font: inherit;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+.exp-fav-del:hover { color: var(--text); border-color: var(--line); background: var(--bg); }
+
+/* フォルダ右クリックメニュー */
+#exp-ctx {
+  position: fixed;
+  z-index: 100;
+  min-width: 170px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+.exp-ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.exp-ctx-item:hover { background: var(--hover); }
+.exp-ctx-sep { height: 1px; background: var(--line); margin: 3px 4px; }
+.exp-ctx-title {
+  color: var(--dim);
+  font-size: 11px;
+  padding: 3px 8px 4px;
+  max-width: 280px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+#exp-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px; }

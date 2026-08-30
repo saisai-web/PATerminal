@@ -1,0 +1,84 @@
+/* --- 共通履歴ダイアログ（会話履歴 / 最近削除したセッション） --- */
+#history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--shadow);
+}
+#history-overlay[hidden] { display: none; }
+
+#history-panel {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(720px, 84vh);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+#history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#history-title { font-weight: 700; font-size: 15px; }
+#history-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+#history-close:hover { color: var(--text); border-color: var(--line); background: var(--bg); }
+
+#history-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.history-tab {
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 8px 14px;
+  overflow: hidden;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  border-radius: 6px 6px 0 0;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.history-tab:hover { color: var(--text); background: var(--bg); }
+.history-tab[aria-selected="true"] {
+  color: var(--accent);
+  background: var(--chrome);
+  border-color: var(--line);
+  border-bottom-color: var(--chrome);
+}
+.history-tab:focus-visible,
+#history-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.history-tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-tab-panel[hidden] { display: none; }

@@ -1,0 +1,36 @@
+{
+  "name": "pa-terminal",
+  "private": true,
+  "version": "0.2.2",
+  "type": "module",
+  "scripts": {
+    "check:architecture": "node scripts/check-source-layout.mjs",
+    "generate:eula-manifest": "node scripts/eula-manifest.mjs",
+    "check:eula": "node scripts/eula-manifest.mjs --check",
+    "generate:third-party-notices": "node scripts/generate-third-party-notices.mjs",
+    "check:third-party-notices": "node scripts/generate-third-party-notices.mjs --check",
+    "test:release-helpers": "node --test scripts/release-helpers.test.mjs",
+    "test:ui": "node ui-test.mjs",
+    "test:ui:smoke": "node ui-test.mjs --smoke",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "node scripts/tauri-cli.mjs",
+    "start": "tauri dev"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-serialize": "^0.13.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}
