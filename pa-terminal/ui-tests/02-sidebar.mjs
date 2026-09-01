@@ -129,9 +129,9 @@ const visAfterClose = await page.locator(".workspace-layer:not([hidden]) .pane")
 check("close session via ×", wsCount2 === 1, `items=${wsCount2}`);
 check("remaining session becomes active", visAfterClose === pAfter, `visible=${visAfterClose}`);
 
-// --- 17. アバターは頭文字（画像やロゴを使っていない） ---
+// --- 17. アバターは頭文字（行内の操作アイコンは検査対象外） ---
 const avatarText = await page.locator(".ws-item .ws-avatar").first().textContent();
-const avatarImgs = await page.locator(".ws-item img, .ws-item svg").count();
+const avatarImgs = await page.locator(".ws-item .ws-avatar img, .ws-item .ws-avatar svg").count();
 check("avatar is initial letter, no logo images", avatarText?.length === 1 && avatarImgs === 0,
   `avatar="${avatarText}" imgs=${avatarImgs}`);
 
