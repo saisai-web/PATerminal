@@ -1,7 +1,7 @@
 // ============================================================
-// 画像パスのターミナル入力
+// 画像・ファイルパスのターミナル入力
 // ネイティブ選択で得た絶対パスを、フォーカス中ペインのシェル向けに引用して挿入する。
-// Claude / Codex 側へは画像データではなく通常のファイルパスとして渡す。
+// Claude / Codex 側へはファイルデータではなく通常のファイルパスとして渡す。
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
@@ -26,12 +26,14 @@ const IMAGE_EXTENSIONS = [
 ];
 
 const attachImageBtn = document.querySelector<HTMLButtonElement>("#attach-image")!;
+const attachFileBtn = document.querySelector<HTMLButtonElement>("#attach-file")!;
 
-export function initImageAttachments(): void {
-  attachImageBtn.onclick = () => void chooseImages();
+export function initPathAttachments(): void {
+  attachImageBtn.onclick = () => void choosePaths(attachImageBtn, true);
+  attachFileBtn.onclick = () => void choosePaths(attachFileBtn, false);
 }
 
-async function chooseImages(): Promise<void> {
+async function choosePaths(button: HTMLButtonElement, imagesOnly: boolean): Promise<void> {
   const ws = getActiveWs();
   const focusedId = getFocusedId();
   const pane = focusedId ? ws?.panes.get(focusedId) : undefined;
@@ -44,14 +46,16 @@ async function chooseImages(): Promise<void> {
     // 終了済みプロセス等では OSC 7 / 起動時 cwd の値をそのまま使う。
   }
 
-  attachImageBtn.disabled = true;
+  button.disabled = true;
   try {
     const selected = await open({
       directory: false,
       multiple: true,
-      title: t("image.attachTitle"),
+      title: imagesOnly ? t("image.attachTitle") : t("file.attachTitle"),
       defaultPath,
-      filters: [{ name: t("image.attach"), extensions: IMAGE_EXTENSIONS }],
+      ...(imagesOnly
+        ? { filters: [{ name: t("image.attach"), extensions: IMAGE_EXTENSIONS }] }
+        : {}),
     });
     const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
     if (!paths.length || !pane.alive || !ws.panes.has(pane.id)) return;
@@ -62,9 +66,9 @@ async function chooseImages(): Promise<void> {
     else pane.write(data);
     pane.focus();
   } catch (e) {
-    console.error("image picker failed:", e);
+    console.error(`${imagesOnly ? "image" : "file"} picker failed:`, e);
     pane.focus();
   } finally {
-    attachImageBtn.disabled = false;
+    button.disabled = false;
   }
 }

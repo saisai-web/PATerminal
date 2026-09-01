@@ -21,10 +21,16 @@ mod testutil;
 mod worktree;
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init());
+
+    // The base config intentionally has no signed-updater settings. Only official
+    // release builds receive tauri.ci.conf.json with the public key and endpoint.
+    #[cfg(feature = "official")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    builder
         .manage(pty::Panes::default())
         .manage(license::LicenseState::default())
         .manage(system::update::PendingUpdate::default())
@@ -81,6 +87,7 @@ pub fn run() {
             crate::github::pr::pr_diff,
             crate::github::issue::issue_list,
             crate::github::issue::issue_info,
+            crate::github::issue::issue_create,
             crate::github::issue::issue_link_branch,
             // ライセンス / トライアル / ソフトロック
             crate::license::eula_status,

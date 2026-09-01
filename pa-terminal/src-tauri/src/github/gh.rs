@@ -102,7 +102,18 @@ pub(crate) async fn gh_json(
     args: &[&str],
     timeout_secs: u64,
 ) -> Result<serde_json::Value, String> {
-    let stdout = run_gh(root, args, timeout_secs).await?;
+    gh_json_program(&gh_program(), root, args, timeout_secs).await
+}
+
+/// 実行ファイルを明示する JSON 版。Issue 作成の単体テストでも、gh の起動・エラー整形を
+/// 本番と同じ経路のままスタブへ差し替えられるようにする。
+pub(crate) async fn gh_json_program(
+    program: &str,
+    root: &str,
+    args: &[&str],
+    timeout_secs: u64,
+) -> Result<serde_json::Value, String> {
+    let stdout = run_gh_program(program, root, args, timeout_secs).await?;
     serde_json::from_slice(&stdout).map_err(|e| format!("could not parse gh output: {e}"))
 }
 

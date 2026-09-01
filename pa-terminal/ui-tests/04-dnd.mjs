@@ -67,18 +67,18 @@ check("drag reorders within group", dndMembers2.join(",") === "Session 1,api,web
   await page.waitForTimeout(300);
 }
 const dndMembers3 = await page.locator(".ws-group-members .ws-item .ws-name").allTextContents();
-const dndLastItem = await page.locator("#ws-list > .ws-item .ws-name").last().textContent();
+const dndLastItem = await page.locator(".ws-whole-members > .ws-item .ws-name").last().textContent();
 check("drag to empty area ungroups and moves to end",
   dndMembers3.join(",") === "api,web" && dndLastItem === "Session 1",
   `members=${dndMembers3.join(",")} last="${dndLastItem}"`);
 
 // --- 25e. グループ見出しをドラッグ → 配下のセッションごと子グループへ移動 ---
-const originalGroupId = await page.locator("#ws-list > .ws-group").first().getAttribute("data-group-id");
+const originalGroupId = await page.locator(".ws-whole-members > .ws-group").first().getAttribute("data-group-id");
 const listBox = await page.locator("#ws-list").boundingBox();
 await page.mouse.click(listBox.x + listBox.width / 2, listBox.y + listBox.height - 8, { button: "right" });
 await page.locator("#ctx-menu button", { hasText: "グループを作成" }).click();
 await page.waitForTimeout(200);
-const rootGroupIds = await page.locator("#ws-list > .ws-group").evaluateAll((els) =>
+const rootGroupIds = await page.locator(".ws-whole-members > .ws-group").evaluateAll((els) =>
   els.map((el) => el.getAttribute("data-group-id")),
 );
 const targetGroupId = rootGroupIds.find((id) => id && id !== originalGroupId);
@@ -110,7 +110,7 @@ check("dragging a group nests its whole session tree",
   await page.waitForTimeout(300);
 }
 const movedRootState = await page.evaluate((sourceId) => {
-  const source = document.querySelector(`#ws-list > .ws-group[data-group-id="${sourceId}"]`);
+  const source = document.querySelector(`.ws-whole-members > .ws-group[data-group-id="${sourceId}"]`);
   const members = source?.nextElementSibling;
   return {
     root: !!source,
@@ -123,7 +123,7 @@ check("dragging a group to the empty list area restores it as a root group",
 
 // --- 25g. 見出し上端へのドロップで、同じ階層内の前後順も変えられる ---
 await dragGroupTo(originalGroup, targetGroup, "top");
-const reorderedRootIds = await page.locator("#ws-list > .ws-group").evaluateAll((els) =>
+const reorderedRootIds = await page.locator(".ws-whole-members > .ws-group").evaluateAll((els) =>
   els.map((el) => el.getAttribute("data-group-id")),
 );
 check("dragging a group to a header edge reorders its whole tree",

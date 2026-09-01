@@ -22,8 +22,8 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 3px;
+  padding: 4px;
   border-bottom: 1px solid var(--line);
 }
 #exp-git-tabs {
@@ -31,18 +31,26 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#exp-git-tabs::-webkit-scrollbar { display: none; }
+.exp-git-tab-item {
+  flex: none;
+  display: flex;
+  align-items: center;
 }
 #exp-git-tabs button {
   min-width: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--dim);
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 3px 3px 0 0;
-  padding: 2px 6px;
+  padding: 2px 3px;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -53,11 +61,39 @@
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
-/* 4タブとも固定ラベルなので伸縮させない（ブランチ名を出していた頃は Branch だけ伸ばしていた） */
-#exp-git-branch, #exp-git-issues-tab {
-  flex: none;
+/* 各タブの左に、同じ機能を広いモーダルで使う入口を常設する。 */
+#exp-git-tabs .exp-git-expand {
+  width: 18px;
+  height: 20px;
+  padding: 3px 2px;
+  color: var(--dim);
+  border-bottom-color: transparent;
+  border-radius: 3px;
+  line-height: 1;
 }
-#exp-git-pr, #exp-git-refresh {
+#exp-git-tabs .exp-git-expand:hover,
+#exp-git-tabs .exp-git-expand:focus-visible {
+  color: var(--accent);
+  background: var(--hover);
+  outline: none;
+}
+.exp-git-expand svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+#exp-git-tabs .exp-git-expand.is-locked {
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+#exp-git-tabs .exp-git-expand.is-locked::after {
+  margin-inline-start: 0;
+  font-size: 9px;
+}
+#exp-git-pr, #exp-git-refresh, #exp-git-create-issue {
   flex: none;
   font: inherit;
   font-size: 11px;
@@ -69,7 +105,13 @@
   cursor: pointer;
 }
 #exp-git-refresh:hover { color: var(--text); border-color: var(--dim); }
-#exp-git-pr[hidden] { display: none; }
+#exp-git-pr[hidden], #exp-git-create-issue[hidden] { display: none; }
+#exp-git-create-issue {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+#exp-git-create-issue:hover:enabled { color: var(--text); background: var(--hover); }
+#exp-git-create-issue:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
 #exp-git-pr.pr-open { color: var(--diff-add-fg); border-color: var(--diff-add-fg); }
 #exp-git-pr.pr-merged { color: var(--accent); border-color: var(--accent); }
 #exp-git-pr.pr-closed { color: var(--diff-del-fg); border-color: var(--diff-del-fg); }
@@ -223,6 +265,126 @@
   cursor: pointer;
 }
 .pr-list-retry:hover { border-color: var(--dim); }
+
+/* Branch / Issue / PR / Worktree の拡大モーダル。
+   詳細・差分モーダル（z-index 210+）はこの上に重ね、一覧へ戻らず続けて操作できる。 */
+#git-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--shadow);
+}
+#git-panel-overlay[hidden] { display: none; }
+#git-panel-modal {
+  width: min(1080px, 94vw);
+  height: min(800px, 88vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 10px 34px var(--shadow);
+}
+#git-panel-modal-head {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 7px 12px;
+  border-bottom: 1px solid var(--line);
+}
+#git-panel-modal-mark {
+  flex: none;
+  padding: 1px 7px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  font: 10px ui-monospace, Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+#git-panel-modal-title {
+  flex: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+#git-panel-modal-root {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font: 11px ui-monospace, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#git-panel-modal-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#git-panel-modal-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+#git-panel-modal-close:hover,
+#git-panel-modal-close:focus-visible {
+  color: var(--text);
+  background: var(--hover);
+  border-color: var(--line);
+  outline: none;
+}
+#git-panel-modal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--pane-bg);
+}
+#git-panel-modal-body > #exp-git-log,
+#git-panel-modal-body > #exp-git-issues,
+#git-panel-modal-body > #exp-git-prs,
+#git-panel-modal-body > #exp-git-worktrees {
+  padding: 12px 14px 16px;
+}
+#git-panel-modal-body .git-commit-row,
+#git-panel-modal-body .issue-row,
+#git-panel-modal-body .pr-list-row {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+#git-panel-modal-body .issue-row-title,
+#git-panel-modal-body .pr-list-title,
+#git-panel-modal-body .wt-branch { font-size: 13px; }
+#git-panel-modal-body .wt-list { gap: 8px; }
+#git-panel-modal-body .wt-row { gap: 5px; padding: 10px 12px; }
+#git-panel-modal-body .wt-actions button { padding: 4px 10px; }
+
+@media (max-width: 680px) {
+  #git-panel-modal {
+    width: 100vw;
+    height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+  #git-panel-modal-root { display: none; }
+}
 
 /* Issue 詳細モーダル（一覧はエクスプローラー内に残す） */
 #issue-overlay {
@@ -380,6 +542,95 @@
 .issue-session-actions button:disabled { color: var(--dim); cursor: progress; border-color: var(--line); }
 .issue-run-message { margin-top: 5px; color: var(--dim); font-size: 10px; white-space: normal; word-break: break-word; }
 .issue-run-message.is-error { color: var(--alarm); }
+
+/* Issue 作成モーダル（枠・フッタは git-action-* を共用） */
+#issue-create-panel { width: min(680px, 94vw); }
+.issue-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.issue-create-field > span,
+#issue-create-attachments-title {
+  color: var(--dim);
+  font-size: 11px;
+}
+.issue-create-field input,
+.issue-create-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  outline: none;
+  font: 12px ui-monospace, Menlo, monospace;
+}
+.issue-create-field textarea {
+  min-height: 180px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.issue-create-field input:focus,
+.issue-create-field textarea:focus { border-color: var(--accent); }
+#issue-create-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--pane-bg);
+}
+#issue-create-attachments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#issue-create-add-files,
+.issue-create-file button {
+  flex: none;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+#issue-create-add-files { padding: 3px 9px; font-size: 11px; }
+#issue-create-add-files:hover:enabled,
+.issue-create-file button:hover:enabled { color: var(--accent); border-color: var(--accent); }
+#issue-create-add-files:disabled,
+.issue-create-file button:disabled { color: var(--dim); cursor: default; }
+#issue-create-file-list { display: flex; flex-direction: column; gap: 4px; }
+.issue-create-files-empty { color: var(--dim); font-size: 11px; }
+.issue-create-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--chrome);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.issue-create-file > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.issue-create-file button { width: 22px; height: 22px; padding: 0; }
+#issue-create-attachments > p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
 
 @media (max-width: 680px) {
   #issue-open-gh { display: none; }

@@ -5,26 +5,33 @@ const { page, check, MOD, pAfter } = ctx;
 // セッションサイドバー
 // ============================================================
 
-// --- 9. 左上の + はフォームを出さず、自動採番して即時作成 ---
+// --- 9. 検索欄横の + は即時作成せず、場所フライアウトを開く ---
+const countBeforePlus = await page.locator(".ws-item").count();
 await page.click("#ws-new");
+await page.waitForTimeout(200);
+check("+ opens the location flyout", await page.locator("#loc-flyout").isVisible());
+check("+ does not create a session before choosing an action",
+  (await page.locator(".ws-item").count()) === countBeforePlus);
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(400);
 const plusCreatedName = await page.locator(".ws-item.is-active .ws-name").textContent();
-check("+ creates an auto-numbered session immediately", plusCreatedName === "Session 2",
+check("+ default action creates an auto-numbered session", plusCreatedName === "Session 2",
   `active="${plusCreatedName}"`);
-check("+ does not open new-session form", await page.locator("#ws-new-form").isHidden());
 await page.click("#ws-new");
-await page.waitForTimeout(300);
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+await page.waitForTimeout(400);
 const plusNextName = await page.locator(".ws-item.is-active .ws-name").textContent();
-check("+ advances the automatic session number", plusNextName === "Session 3",
+check("+ default action advances the automatic session number", plusNextName === "Session 3",
   `active="${plusNextName}"`);
 // 作る位置は「表示中セッションの直後」。末尾へ積まない
 // 行中央には常設メモ input があるため、行の中央ではなく名前を明示して切り替える。
 await page.locator(".ws-item", { hasText: "Session 1" }).locator(".ws-name").click();
 await page.waitForTimeout(300);
 await page.click("#ws-new");
-await page.waitForTimeout(300);
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+await page.waitForTimeout(400);
 const plusOrder = await page.locator(".ws-item .ws-name").allTextContents();
-check("+ inserts the new session right after the active one",
+check("+ default action inserts the new session right after the active one",
   plusOrder.join(",") === "Session 1,Session 4,Session 2,Session 3",
   `order=${JSON.stringify(plusOrder)}`);
 for (const name of ["Session 4", "Session 2", "Session 3"]) {

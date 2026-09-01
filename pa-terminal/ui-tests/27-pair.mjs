@@ -315,9 +315,12 @@ await page.waitForTimeout(600);
       (await writeCount(reviewId)) === reviewBeforeEmpty);
     check("no changes to review: note shown in the status",
       (await page.locator("#pair-strip-status").textContent()).includes("渡しませんでした"));
+    // サイドバーの定期監視が直後にレビュー役を走査することがあるため、
+    // handoff 自身が最初に実装役の cwd を解決したことを確認する。
+    const reviewSummaryCalls = await page.evaluate(() => window.__gitSummaryCalls ?? []);
     check("pair review resolves git summary from the implementer pane",
-      (await page.evaluate(() => window.__gitSummaryCalls)).includes("/repo/no-changes")
-        && !(await page.evaluate(() => window.__gitSummaryCalls)).includes("/repo/reviewer"));
+      reviewSummaryCalls[0] === "/repo/no-changes",
+      `calls=${JSON.stringify(reviewSummaryCalls)}`);
     check("no changes to review: round does not advance",
       (await page.locator("#pair-strip-round").textContent()) === "ラウンド 0/2");
     check("no changes to review: stays on implementer turn",

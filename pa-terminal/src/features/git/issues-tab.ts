@@ -12,6 +12,7 @@ import { formatDate, statusEl } from "./git-log";
 import { fetchPrList, fetchPrListIfStale, renderPrList, resetPrList } from "./pr-tab";
 import { closePrOverlay } from "./pr-overlay";
 import { getWorktreePrefs, updateWorktreePrefs, worktreeDirFor } from "./worktree";
+import { syncIssueCreateRoot } from "./issue-create";
 import type { WorktreeBranch, WorktreeBranches, WorktreeLocation, WorktreeResult } from "./worktree";
 import type { GitLog, IssueBranchLink, IssueInfo, IssueList, IssueSummary } from "./git-panel-types";
 
@@ -82,6 +83,7 @@ export function updateIssueTarget(res: GitLog | null): void {
     return;
   }
   issueRoot = root;
+  syncIssueCreateRoot();
   issueListData = null;
   issueListFetchedAt = 0;
   resetPrList();
@@ -99,6 +101,15 @@ export function updateIssueTarget(res: GitLog | null): void {
   } else if (getActiveTab() === "worktrees") {
     renderWorktreesTab(root);
   }
+}
+
+/** 作成完了後はキャッシュを破棄し、GitHubから取り直した一覧へ新しいIssueを反映する。 */
+export async function refreshIssuesAfterCreate(root: string): Promise<void> {
+  if (root !== issueRoot) return;
+  issueListData = null;
+  issueListFetchedAt = 0;
+  renderIssues();
+  await fetchIssueList(root);
 }
 
 async function fetchIssueList(root: string): Promise<void> {
@@ -403,21 +414,29 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.disabled = issueBranches.length === 0;
+  checkbox.checked = issueBranches.length > 0;
   toggle.append(checkbox, document.createTextNode(t("issue.useWorktree")));
 
   const fields = document.createElement("div");
   fields.className = "issue-worktree-fields";
-  fields.hidden = true;
+  fields.hidden = !checkbox.checked;
   const baseLabel = document.createElement("label");
   baseLabel.textContent = t("issue.baseBranch");
   const base = document.createElement("select");
+  const prefs = getWorktreePrefs();
+  const preferredBase = issueBranches.some((b) => b.reference === prefs.issueBaseRef)
+    ? prefs.issueBaseRef
+    : issueBranches.find((b) => b.current)?.reference ?? issueBranches[0]?.reference;
   for (const b of issueBranches) {
     const option = document.createElement("option");
     option.value = b.reference;
     option.textContent = b.name;
-    option.selected = b.current;
+    option.selected = b.reference === preferredBase;
     base.append(option);
   }
+  base.onchange = () => {
+    if (base.value) updateWorktreePrefs({ issueBaseRef: base.value });
+  };
   const branchLabel = document.createElement("label");
   branchLabel.textContent = t("issue.newBranch");
   const branch = document.createElement("input");
@@ -425,7 +444,6 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
   branch.className = "issue-worktree-branch";
   branch.value = issueBranchName(issue);
   // 置き場所（リポジトリ配下 / 外）。前回使ったモードと格納先を初期値にする
-  const prefs = getWorktreePrefs();
   const locLabel = document.createElement("label");
   locLabel.textContent = t("issue.worktreeLocationMode");
   const loc = document.createElement("div");
@@ -559,6 +577,7 @@ window.addEventListener(
   (e) => {
     if (!issueOverlay.hidden && e.key === "Escape") {
       e.stopPropagation();
+      e.preventDefault();
       closeIssueOverlay();
     }
   },

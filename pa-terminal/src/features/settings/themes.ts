@@ -6,15 +6,52 @@ import type { ITheme } from "@xterm/xterm";
 
 export type ThemeId = "dark" | "light" | "solarized-dark" | "dracula" | "nord";
 
+type RequiredXtermColor =
+  | "background"
+  | "foreground"
+  | "cursor"
+  | "cursorAccent"
+  | "selectionBackground"
+  | "selectionForeground"
+  | "selectionInactiveBackground"
+  | "black"
+  | "red"
+  | "green"
+  | "yellow"
+  | "blue"
+  | "magenta"
+  | "cyan"
+  | "white"
+  | "brightBlack"
+  | "brightRed"
+  | "brightGreen"
+  | "brightYellow"
+  | "brightBlue"
+  | "brightMagenta"
+  | "brightCyan"
+  | "brightWhite";
+
+/**
+ * TUI が使う色を xterm の既定パレットへ退避させない完全なテーマ。
+ * claude / codex は通常色・明色・反転背景を広く使うため、全色を必須にする。
+ */
+export type TerminalTheme = ITheme & Required<Pick<ITheme, RequiredXtermColor>>;
+
 export type ThemePreset = {
   id: ThemeId;
   /** テーマ名は固有名詞なので翻訳しない */
   label: string;
   ui: Record<string, string>;
-  xterm: ITheme;
+  xterm: TerminalTheme;
 };
 
 export const DEFAULT_THEME: ThemeId = "dark";
+
+/**
+ * ANSI 前景色とセル背景色が近い場合、描画時に前景色を補正する下限。
+ * 13px の通常文字でも輪郭が明確になるよう WCAG AA (4.5) より少し余裕を持たせる。
+ */
+export const XTERM_MINIMUM_CONTRAST_RATIO = 5;
 
 const UI_KEYS = [
   "bg",
@@ -52,13 +89,13 @@ export const THEMES: ThemePreset[] = [
       chrome: "#11151a",
       line: "#1e252d",
       text: "#d6dbe0",
-      dim: "#6b7885",
+      dim: "#7f8c99",
       accent: "#6ee7d0",
       alarm: "#f0a04b",
       hover: "#171c22",
       "active-bg": "#1a2027",
       "pane-bg": "#0d1013",
-      "focus-border": "#2f3b46",
+      "focus-border": "#526273",
       pulse: "#7a5528",
       "on-accent": "#07090b",
       shadow: "rgba(0, 0, 0, 0.5)",
@@ -77,8 +114,11 @@ export const THEMES: ThemePreset[] = [
       background: "#0d1013",
       foreground: "#d6dbe0",
       cursor: "#6ee7d0",
-      selectionBackground: "#2a3540",
-      black: "#0d1013",
+      cursorAccent: "#07090b",
+      selectionBackground: "#34404c",
+      selectionForeground: "#f4f7fa",
+      selectionInactiveBackground: "#202933",
+      black: "#3b4652",
       red: "#e06c75",
       green: "#8cc265",
       yellow: "#d9c07c",
@@ -86,6 +126,14 @@ export const THEMES: ThemePreset[] = [
       magenta: "#c678dd",
       cyan: "#56b6c2",
       white: "#d6dbe0",
+      brightBlack: "#8995a1",
+      brightRed: "#ff7b86",
+      brightGreen: "#a7d982",
+      brightYellow: "#f0d58d",
+      brightBlue: "#7cc4ff",
+      brightMagenta: "#dc91ef",
+      brightCyan: "#72d1dc",
+      brightWhite: "#f4f7fa",
     },
   },
   {
@@ -96,13 +144,13 @@ export const THEMES: ThemePreset[] = [
       chrome: "#e9ebee",
       line: "#d0d5da",
       text: "#24292f",
-      dim: "#6e7a86",
-      accent: "#0d8577",
-      alarm: "#b45309",
+      dim: "#586573",
+      accent: "#087568",
+      alarm: "#9a4308",
       hover: "#dde1e6",
       "active-bg": "#d2d8de",
       "pane-bg": "#ffffff",
-      "focus-border": "#8fa0ae",
+      "focus-border": "#7b8e9d",
       pulse: "#e0b880",
       "on-accent": "#ffffff",
       shadow: "rgba(0, 0, 0, 0.2)",
@@ -120,16 +168,27 @@ export const THEMES: ThemePreset[] = [
     xterm: {
       background: "#ffffff",
       foreground: "#24292f",
-      cursor: "#0d8577",
-      selectionBackground: "#c8d1da",
+      cursor: "#087568",
+      cursorAccent: "#ffffff",
+      selectionBackground: "#b7c6d5",
+      selectionForeground: "#17212b",
+      selectionInactiveBackground: "#d8e0e8",
       black: "#24292f",
-      red: "#c0392b",
-      green: "#3f8b26",
-      yellow: "#b58900",
-      blue: "#0969da",
-      magenta: "#8250df",
-      cyan: "#1b7c83",
-      white: "#6e7a86",
+      red: "#b42318",
+      green: "#247619",
+      yellow: "#735c00",
+      blue: "#055cc4",
+      magenta: "#6f42c1",
+      cyan: "#006d77",
+      white: "#5e6975",
+      brightBlack: "#424b55",
+      brightRed: "#d1242f",
+      brightGreen: "#1a7f37",
+      brightYellow: "#8a6900",
+      brightBlue: "#0969da",
+      brightMagenta: "#8250df",
+      brightCyan: "#087f8c",
+      brightWhite: "#343a40",
     },
   },
   {
@@ -140,9 +199,9 @@ export const THEMES: ThemePreset[] = [
       chrome: "#073642",
       line: "#0e4a5a",
       text: "#93a1a1",
-      dim: "#586e75",
-      accent: "#2aa198",
-      alarm: "#cb4b16",
+      dim: "#8e9fa2",
+      accent: "#35b5aa",
+      alarm: "#ef7d45",
       hover: "#0a3540",
       "active-bg": "#0e4250",
       "pane-bg": "#002b36",
@@ -151,9 +210,9 @@ export const THEMES: ThemePreset[] = [
       "on-accent": "#002b36",
       shadow: "rgba(0, 0, 0, 0.5)",
       "diff-add-bg": "#0a3d2e",
-      "diff-add-fg": "#859900",
+      "diff-add-fg": "#b4c938",
       "diff-del-bg": "#3d1a14",
-      "diff-del-fg": "#dc322f",
+      "diff-del-fg": "#ff786f",
       "ws-color-red": "#dc322f",
       "ws-color-orange": "#cb4b16",
       "ws-color-yellow": "#b58900",
@@ -164,16 +223,27 @@ export const THEMES: ThemePreset[] = [
     xterm: {
       background: "#002b36",
       foreground: "#93a1a1",
-      cursor: "#2aa198",
-      selectionBackground: "#073642",
-      black: "#073642",
-      red: "#dc322f",
-      green: "#859900",
-      yellow: "#b58900",
-      blue: "#268bd2",
-      magenta: "#d33682",
-      cyan: "#2aa198",
+      cursor: "#35b5aa",
+      cursorAccent: "#002b36",
+      selectionBackground: "#0e4a5a",
+      selectionForeground: "#eee8d5",
+      selectionInactiveBackground: "#073642",
+      black: "#586e75",
+      red: "#f15b50",
+      green: "#9fb300",
+      yellow: "#d3a91a",
+      blue: "#48a8e8",
+      magenta: "#ed5aa6",
+      cyan: "#35b5aa",
       white: "#eee8d5",
+      brightBlack: "#8e9fa2",
+      brightRed: "#ff786f",
+      brightGreen: "#b4c938",
+      brightYellow: "#f2c94c",
+      brightBlue: "#70bff0",
+      brightMagenta: "#ff7fba",
+      brightCyan: "#68d1c5",
+      brightWhite: "#fff7df",
     },
   },
   {
@@ -184,7 +254,7 @@ export const THEMES: ThemePreset[] = [
       chrome: "#282a36",
       line: "#44475a",
       text: "#f8f8f2",
-      dim: "#6272a4",
+      dim: "#8996c5",
       accent: "#bd93f9",
       alarm: "#ffb86c",
       hover: "#343746",
@@ -209,8 +279,11 @@ export const THEMES: ThemePreset[] = [
       background: "#282a36",
       foreground: "#f8f8f2",
       cursor: "#f8f8f2",
+      cursorAccent: "#21222c",
       selectionBackground: "#44475a",
-      black: "#21222c",
+      selectionForeground: "#ffffff",
+      selectionInactiveBackground: "#343746",
+      black: "#44475a",
       red: "#ff5555",
       green: "#50fa7b",
       yellow: "#f1fa8c",
@@ -218,6 +291,14 @@ export const THEMES: ThemePreset[] = [
       magenta: "#ff79c6",
       cyan: "#8be9fd",
       white: "#f8f8f2",
+      brightBlack: "#8996c5",
+      brightRed: "#ff6e6e",
+      brightGreen: "#69ff94",
+      brightYellow: "#ffffa5",
+      brightBlue: "#d6acff",
+      brightMagenta: "#ff92df",
+      brightCyan: "#a4ffff",
+      brightWhite: "#ffffff",
     },
   },
   {
@@ -228,9 +309,9 @@ export const THEMES: ThemePreset[] = [
       chrome: "#2e3440",
       line: "#3b4252",
       text: "#d8dee9",
-      dim: "#7b88a1",
+      dim: "#96a3b8",
       accent: "#88c0d0",
-      alarm: "#d08770",
+      alarm: "#dc927a",
       hover: "#333a47",
       "active-bg": "#3b4252",
       "pane-bg": "#2e3440",
@@ -241,7 +322,7 @@ export const THEMES: ThemePreset[] = [
       "diff-add-bg": "#2e4238",
       "diff-add-fg": "#a3be8c",
       "diff-del-bg": "#452c31",
-      "diff-del-fg": "#bf616a",
+      "diff-del-fg": "#e1848c",
       "ws-color-red": "#bf616a",
       "ws-color-orange": "#d08770",
       "ws-color-yellow": "#ebcb8b",
@@ -253,15 +334,26 @@ export const THEMES: ThemePreset[] = [
       background: "#2e3440",
       foreground: "#d8dee9",
       cursor: "#d8dee9",
+      cursorAccent: "#2e3440",
       selectionBackground: "#434c5e",
-      black: "#3b4252",
-      red: "#bf616a",
+      selectionForeground: "#eceff4",
+      selectionInactiveBackground: "#3b4252",
+      black: "#4c566a",
+      red: "#e1848c",
       green: "#a3be8c",
       yellow: "#ebcb8b",
       blue: "#81a1c1",
-      magenta: "#b48ead",
+      magenta: "#c39bbd",
       cyan: "#88c0d0",
       white: "#e5e9f0",
+      brightBlack: "#96a3b8",
+      brightRed: "#f0969e",
+      brightGreen: "#b7d7a0",
+      brightYellow: "#f7dba0",
+      brightBlue: "#9fc5e8",
+      brightMagenta: "#d8b4d3",
+      brightCyan: "#a4d8e3",
+      brightWhite: "#f4f7fb",
     },
   },
 ];

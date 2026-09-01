@@ -9,6 +9,10 @@ const { browser, check, MOD, BASE_URL } = ctx;
 const pageSw = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 pageSw.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await pageSw.addInitScript(() => {
+  const bravoScrollback = Array.from(
+    { length: 80 },
+    (_, index) => `bravo-history-${String(index).padStart(2, "0")}`,
+  ).join("\r\n") + "\r\n";
   window.__mockSessionLoad = JSON.stringify({
     version: 5,
     activeId: "a",
@@ -18,7 +22,7 @@ await pageSw.addInitScript(() => {
       { id: "a", name: "Alpha", shellKind: "default", broadcast: false,
         root: { kind: "leaf", title: "a" } },
       { id: "b", name: "Bravo", shellKind: "default", broadcast: false,
-        root: { kind: "leaf", title: "b" } },
+        root: { kind: "leaf", title: "b", scrollback: bravoScrollback } },
       { id: "c", name: "Charlie", group: "g", shellKind: "default", broadcast: false,
         root: { kind: "leaf", title: "c" } },
       { id: "d", name: "Delta", shellKind: "default", broadcast: false,
@@ -44,6 +48,20 @@ check("sidebar shows the Ctrl+Tab hint",
     (await pageSw.locator("#ws-switch-hint").textContent()).includes("Ctrl+Tab"),
   await pageSw.locator("#ws-switch-hint").textContent());
 
+// --- 数字ショートカット: 以前の操作選択を残さず、移動先だけを選択表示する ---
+// active の Alpha を通常クリックして selectedWsIds に入れてから直接 setActive を通る
+// ショートカットで切り替える。修正前は Alpha と Bravo の2件に is-selected が残った。
+await pageSw.locator(".ws-item", { hasText: "Alpha" }).locator(".ws-name").click();
+await pageSw.keyboard.press(`${MOD}+2`);
+await pageSw.waitForTimeout(300);
+const digitSelected = await pageSw.locator(".ws-item.is-selected .ws-name").allTextContents();
+check("numeric session switching leaves only the active session selected",
+  (await activeName()) === "Bravo" && digitSelected.join(",") === "Bravo",
+  `active="${await activeName()}" selected=${digitSelected.join(",")}`);
+// 後続の巡回テストは保存データの初期 active から始める。
+await pageSw.keyboard.press(`${MOD}+1`);
+await pageSw.waitForTimeout(300);
+
 await focusTerminal();
 check("starts in the terminal", await inTerminal());
 
@@ -59,6 +77,26 @@ check("focus stays in the terminal after switching", await inTerminal());
 check("switching selects only that session in the sidebar",
   (await pageSw.locator(".ws-item.is-selected").count()) === 1 &&
     (await pageSw.locator(".ws-item.is-selected .ws-name").textContent()) === "Bravo");
+
+// 一度遡ったターミナルでも、別セッションから開き直したときは最新出力へ戻る。
+const viewportBeforeReopen = await pageSw.locator(
+  ".workspace-layer:not([hidden]) .xterm-viewport",
+).evaluate((el) => {
+  el.scrollTop = 0;
+  return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight };
+});
+check("the session-switch regression has enough terminal scrollback",
+  viewportBeforeReopen.top === 0 && viewportBeforeReopen.height > viewportBeforeReopen.client,
+  JSON.stringify(viewportBeforeReopen));
+await pageSw.locator(".ws-item", { hasText: "Alpha" }).click();
+await pageSw.locator(".ws-item", { hasText: "Bravo" }).click();
+await pageSw.waitForTimeout(200);
+const viewportAfterReopen = await pageSw.locator(
+  ".workspace-layer:not([hidden]) .xterm-viewport",
+).evaluate((el) => ({ top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }));
+check("reopening a session always shows the latest terminal output",
+  viewportAfterReopen.top >= viewportAfterReopen.height - viewportAfterReopen.client - 1,
+  JSON.stringify(viewportAfterReopen));
 
 await pageSw.keyboard.press("Control+Tab");
 await pageSw.waitForTimeout(300);

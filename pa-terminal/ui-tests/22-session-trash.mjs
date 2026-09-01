@@ -42,6 +42,7 @@ await page.click("#history-close");
 
 // 別セッションを消しても、既に見た分と合わせて履歴に積み上がる
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(150);
 await page.locator(".ws-item.is-active .ws-name").dblclick();
 await page.locator(".ws-item.is-active .inline-edit").fill("Second delete");

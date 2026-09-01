@@ -1,11 +1,23 @@
-//! GitHub Issue（Issue タブの一覧・詳細と、既存ブランチの linked branch 化）。
+//! GitHub Issue（Issue タブの一覧・作成・詳細と、既存ブランチの linked branch 化）。
 
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use super::gh::{gh_json, gh_program, run_gh_program, GH_VIEW_TIMEOUT_SECS};
+use super::gh::{gh_json, gh_json_program, gh_program, run_gh_program, GH_VIEW_TIMEOUT_SECS};
 use crate::git::{git_output_text, git_remotes, run_git};
+
+const ISSUE_ATTACHMENT_RELEASE_TAG: &str = "paterminal-issue-attachments-v1";
+const ISSUE_ATTACHMENT_RELEASE_NAME: &str = "PATerminal Issue Attachments";
+const ISSUE_ATTACHMENT_RELEASE_MARKER: &str =
+    "Managed by PATerminal. Files linked from issues are stored in this release.";
+const MAX_ISSUE_ATTACHMENTS: usize = 10;
+const MAX_ISSUE_TITLE_CHARS: usize = 256;
+const MAX_ISSUE_BODY_CHARS: usize = 65_536;
+const GH_MUTATION_TIMEOUT_SECS: u64 = 60;
+const GH_UPLOAD_TIMEOUT_SECS: u64 = 120;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +60,389 @@ pub(crate) struct IssueInfo {
     body: Option<String>,
     labels: Vec<String>,
     comments: Vec<IssueComment>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct IssueCreated {
+    number: i64,
+    url: String,
+}
+
+struct AttachmentTempDir(PathBuf);
+
+impl Drop for AttachmentTempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+struct StagedAttachment {
+    original_name: String,
+    asset_name: String,
+    path: PathBuf,
+    image: bool,
+}
+
+fn sanitize_attachment_name(name: &str) -> String {
+    let mut cleaned = String::with_capacity(name.len().min(120));
+    let mut last_was_separator = false;
+    for c in name.chars() {
+        if cleaned.len() >= 120 {
+            break;
+        }
+        if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') {
+            cleaned.push(c);
+            last_was_separator = false;
+        } else if !last_was_separator {
+            cleaned.push('_');
+            last_was_separator = true;
+        }
+    }
+    let cleaned = cleaned.trim_matches(['.', '_']);
+    if cleaned.is_empty() {
+        "attachment".into()
+    } else {
+        cleaned.into()
+    }
+}
+
+fn is_inline_image(path: &Path) -> bool {
+    let Some(ext) = path.extension().and_then(|x| x.to_str()) else {
+        return false;
+    };
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "tif" | "tiff" | "avif"
+    )
+}
+
+async fn stage_attachments(
+    paths: Vec<String>,
+    nonce: u128,
+) -> Result<(AttachmentTempDir, Vec<StagedAttachment>), String> {
+    if paths.len() > MAX_ISSUE_ATTACHMENTS {
+        return Err(format!(
+            "at most {MAX_ISSUE_ATTACHMENTS} attachments can be added to one issue"
+        ));
+    }
+    let directory =
+        std::env::temp_dir().join(format!("paterminal-issue-{}-{nonce}", std::process::id()));
+    std::fs::create_dir(&directory)
+        .map_err(|e| format!("could not prepare issue attachments: {e}"))?;
+    let temp = AttachmentTempDir(directory);
+    let mut seen = HashSet::new();
+    let mut staged = Vec::with_capacity(paths.len());
+    for (index, input) in paths.into_iter().enumerate() {
+        let canonical = std::fs::canonicalize(&input)
+            .map_err(|e| format!("could not read attachment {input}: {e}"))?;
+        if !seen.insert(canonical.clone()) {
+            return Err(format!("attachment was selected more than once: {input}"));
+        }
+        let metadata = tokio::fs::metadata(&canonical)
+            .await
+            .map_err(|e| format!("could not read attachment {input}: {e}"))?;
+        if !metadata.is_file() {
+            return Err(format!("attachment is not a file: {input}"));
+        }
+        let original_name = canonical
+            .file_name()
+            .and_then(|x| x.to_str())
+            .filter(|x| !x.is_empty())
+            .ok_or_else(|| format!("attachment has no usable file name: {input}"))?
+            .to_string();
+        let asset_name = format!(
+            "issue-{nonce}-{:02}-{}",
+            index + 1,
+            sanitize_attachment_name(&original_name)
+        );
+        let destination = temp.0.join(&asset_name);
+        tokio::fs::copy(&canonical, &destination)
+            .await
+            .map_err(|e| format!("could not prepare attachment {original_name}: {e}"))?;
+        staged.push(StagedAttachment {
+            original_name,
+            asset_name,
+            path: destination,
+            image: is_inline_image(&canonical),
+        });
+    }
+    Ok((temp, staged))
+}
+
+fn release_is_missing(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("release not found") || lower.contains("no release found")
+}
+
+async fn ensure_attachment_release(program: &str, root: &str) -> Result<(), String> {
+    match gh_json_program(
+        program,
+        root,
+        &[
+            "release",
+            "view",
+            ISSUE_ATTACHMENT_RELEASE_TAG,
+            "--json",
+            "name,body",
+        ],
+        GH_VIEW_TIMEOUT_SECS,
+    )
+    .await
+    {
+        Ok(value) => {
+            let name = value["name"].as_str().unwrap_or("");
+            let body = value["body"].as_str().unwrap_or("");
+            if name != ISSUE_ATTACHMENT_RELEASE_NAME
+                || !body.contains(ISSUE_ATTACHMENT_RELEASE_MARKER)
+            {
+                return Err(format!(
+                    "release tag {ISSUE_ATTACHMENT_RELEASE_TAG} is already used by another release"
+                ));
+            }
+            Ok(())
+        }
+        Err(error) if release_is_missing(&error) => {
+            run_gh_program(
+                program,
+                root,
+                &[
+                    "release",
+                    "create",
+                    ISSUE_ATTACHMENT_RELEASE_TAG,
+                    "--title",
+                    ISSUE_ATTACHMENT_RELEASE_NAME,
+                    "--notes",
+                    ISSUE_ATTACHMENT_RELEASE_MARKER,
+                    "--prerelease",
+                    "--latest=false",
+                ],
+                GH_MUTATION_TIMEOUT_SECS,
+            )
+            .await?;
+            Ok(())
+        }
+        Err(error) => Err(format!("could not inspect the attachment release: {error}")),
+    }
+}
+
+async fn cleanup_uploaded_assets(program: &str, root: &str, names: &[String]) {
+    for name in names {
+        let _ = run_gh_program(
+            program,
+            root,
+            &[
+                "release",
+                "delete-asset",
+                ISSUE_ATTACHMENT_RELEASE_TAG,
+                name,
+                "--yes",
+            ],
+            GH_MUTATION_TIMEOUT_SECS,
+        )
+        .await;
+    }
+}
+
+async fn upload_attachments(
+    program: &str,
+    root: &str,
+    attachments: &[StagedAttachment],
+) -> Result<(Vec<(String, String, bool)>, Vec<String>), String> {
+    if attachments.is_empty() {
+        return Ok((vec![], vec![]));
+    }
+    ensure_attachment_release(program, root).await?;
+    let mut uploaded = Vec::with_capacity(attachments.len());
+    for attachment in attachments {
+        let path = attachment.path.to_string_lossy().into_owned();
+        if let Err(error) = run_gh_program(
+            program,
+            root,
+            &["release", "upload", ISSUE_ATTACHMENT_RELEASE_TAG, &path],
+            GH_UPLOAD_TIMEOUT_SECS,
+        )
+        .await
+        {
+            cleanup_uploaded_assets(program, root, &uploaded).await;
+            return Err(format!(
+                "could not upload attachment {}: {error}",
+                attachment.original_name
+            ));
+        }
+        uploaded.push(attachment.asset_name.clone());
+    }
+
+    let value = match gh_json_program(
+        program,
+        root,
+        &[
+            "release",
+            "view",
+            ISSUE_ATTACHMENT_RELEASE_TAG,
+            "--json",
+            "assets",
+        ],
+        GH_VIEW_TIMEOUT_SECS,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            cleanup_uploaded_assets(program, root, &uploaded).await;
+            return Err(format!("could not resolve attachment links: {error}"));
+        }
+    };
+    let assets = value["assets"].as_array().cloned().unwrap_or_default();
+    let mut links = Vec::with_capacity(attachments.len());
+    for attachment in attachments {
+        let url = assets
+            .iter()
+            .find(|asset| asset["name"].as_str() == Some(&attachment.asset_name))
+            .and_then(|asset| asset["url"].as_str())
+            .filter(|url| url.starts_with("https://") || url.starts_with("http://"))
+            .ok_or_else(|| {
+                format!(
+                    "GitHub did not return a link for attachment {}",
+                    attachment.original_name
+                )
+            });
+        let url = match url {
+            Ok(url) => url,
+            Err(error) => {
+                cleanup_uploaded_assets(program, root, &uploaded).await;
+                return Err(error);
+            }
+        };
+        links.push((
+            attachment.original_name.clone(),
+            url.to_string(),
+            attachment.image,
+        ));
+    }
+    Ok((links, uploaded))
+}
+
+fn markdown_label(name: &str) -> String {
+    name.replace('\\', "\\\\").replace(']', "\\]")
+}
+
+fn append_attachment_links(body: &str, links: &[(String, String, bool)]) -> String {
+    if links.is_empty() {
+        return body.to_string();
+    }
+    let mut result = body.trim_end().to_string();
+    if !result.is_empty() {
+        result.push_str("\n\n");
+    }
+    result.push_str("## Attachments\n\n");
+    for (name, url, image) in links {
+        let label = markdown_label(name);
+        if *image {
+            result.push_str(&format!("![{label}]({url})\n\n"));
+        } else {
+            result.push_str(&format!("- [{label}]({url})\n"));
+        }
+    }
+    result
+}
+
+fn parse_issue_created(stdout: &[u8]) -> IssueCreated {
+    let text = String::from_utf8_lossy(stdout);
+    let url = text
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| line.starts_with("https://") || line.starts_with("http://"))
+        .unwrap_or("")
+        .trim_end_matches('/')
+        .to_string();
+    let number = url
+        .rsplit('/')
+        .next()
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0);
+    IssueCreated { number, url }
+}
+
+async fn issue_create_with_program(
+    program: &str,
+    root: String,
+    title: String,
+    body: String,
+    attachment_paths: Vec<String>,
+    nonce: u128,
+) -> Result<IssueCreated, String> {
+    if !PathBuf::from(&root).is_dir() {
+        return Err("repository directory does not exist".into());
+    }
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("issue title is required".into());
+    }
+    if title.chars().count() > MAX_ISSUE_TITLE_CHARS {
+        return Err(format!(
+            "issue title must be at most {MAX_ISSUE_TITLE_CHARS} characters"
+        ));
+    }
+    if body.chars().count() > MAX_ISSUE_BODY_CHARS {
+        return Err(format!(
+            "issue body must be at most {MAX_ISSUE_BODY_CHARS} characters"
+        ));
+    }
+
+    let (temp, staged) = stage_attachments(attachment_paths, nonce).await?;
+    let (links, uploaded) = upload_attachments(program, &root, &staged).await?;
+    let body = append_attachment_links(&body, &links);
+    if body.chars().count() > MAX_ISSUE_BODY_CHARS {
+        cleanup_uploaded_assets(program, &root, &uploaded).await;
+        return Err(format!(
+            "issue body and attachment links exceed {MAX_ISSUE_BODY_CHARS} characters"
+        ));
+    }
+    let body_path = temp.0.join("issue-body.md");
+    tokio::fs::write(&body_path, body.as_bytes())
+        .await
+        .map_err(|e| format!("could not prepare the issue body: {e}"))?;
+    let body_path = body_path.to_string_lossy().into_owned();
+    let created = run_gh_program(
+        program,
+        &root,
+        &[
+            "issue",
+            "create",
+            "--title",
+            title,
+            "--body-file",
+            &body_path,
+        ],
+        GH_MUTATION_TIMEOUT_SECS,
+    )
+    .await;
+    match created {
+        Ok(stdout) => Ok(parse_issue_created(&stdout)),
+        Err(error) => {
+            cleanup_uploaded_assets(program, &root, &uploaded).await;
+            Err(error)
+        }
+    }
+}
+
+/// Issue 作成。添付は gh にネイティブ API が無いため、PATerminal 管理用の prerelease へ
+/// release asset として保存し、生成した GitHub URL を本文末尾へ追記する。
+#[tauri::command]
+pub(crate) async fn issue_create(
+    root: String,
+    title: String,
+    body: String,
+    attachment_paths: Vec<String>,
+) -> Result<IssueCreated, String> {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("system clock error: {e}"))?
+        .as_millis();
+    let gh = gh_program();
+    issue_create_with_program(&gh, root, title, body, attachment_paths, nonce).await
 }
 
 fn json_labels(v: &serde_json::Value) -> Vec<String> {
@@ -286,9 +681,115 @@ pub(crate) async fn issue_link_branch(
 
 #[cfg(test)]
 mod tests {
-    use super::issue_link_branch_with_program;
+    use super::{
+        append_attachment_links, issue_create_with_program, issue_link_branch_with_program,
+        parse_issue_created, sanitize_attachment_name,
+    };
     use crate::testutil::{gh_stub, test_git, TempRepo};
     use std::fs;
+
+    #[test]
+    fn attachment_names_and_markdown_are_safe() {
+        assert_eq!(sanitize_attachment_name("画面 shot].png"), "shot_.png");
+        assert_eq!(sanitize_attachment_name("..."), "attachment");
+        let body = append_attachment_links(
+            "Details\n\n",
+            &[
+                (
+                    "screen].png".into(),
+                    "https://github.com/o/r/releases/download/assets/screen.png".into(),
+                    true,
+                ),
+                (
+                    "trace.log".into(),
+                    "https://github.com/o/r/releases/download/assets/trace.log".into(),
+                    false,
+                ),
+            ],
+        );
+        assert!(body.starts_with("Details\n\n## Attachments\n\n"));
+        assert!(body.contains(
+            "![screen\\].png](https://github.com/o/r/releases/download/assets/screen.png)"
+        ));
+        assert!(body
+            .contains("- [trace.log](https://github.com/o/r/releases/download/assets/trace.log)"));
+    }
+
+    #[test]
+    fn parses_created_issue_url_without_treating_output_as_shell_text() {
+        let created = parse_issue_created(
+            b"Creating issue in acme/app\nhttps://github.example/acme/app/issues/73\n",
+        );
+        assert_eq!(created.number, 73);
+        assert_eq!(created.url, "https://github.example/acme/app/issues/73");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn issue_create_uploads_files_and_links_them_from_the_body() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let repo = TempRepo::new();
+        let tools = TempRepo::new();
+        let attachment = repo.0.join("screen shot].png");
+        fs::write(&attachment, b"not-a-real-png").unwrap();
+        let command_log = tools.0.join("commands.log");
+        let body_log = tools.0.join("body.md");
+        let gh = tools.0.join("gh");
+        let script = format!(
+            r#"#!/bin/sh
+printf '<%s>\n' "$@" >> '{}'
+if [ "$1" = release ] && [ "$2" = view ]; then
+  if [ "$5" = name,body ]; then
+    printf '%s\n' '{{"name":"PATerminal Issue Attachments","body":"Managed by PATerminal. Files linked from issues are stored in this release."}}'
+  else
+    printf '%s\n' '{{"assets":[{{"name":"issue-42-01-screen_shot_.png","url":"https://github.com/acme/app/releases/download/assets/screen.png"}}]}}'
+  fi
+  exit 0
+fi
+if [ "$1" = release ] && [ "$2" = upload ]; then
+  exit 0
+fi
+if [ "$1" = issue ] && [ "$2" = create ]; then
+  cp "$6" '{}'
+  printf '%s\n' 'https://github.com/acme/app/issues/73'
+  exit 0
+fi
+exit 1
+"#,
+            command_log.display(),
+            body_log.display(),
+        );
+        fs::write(&gh, script).unwrap();
+        let mut permissions = fs::metadata(&gh).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&gh, permissions).unwrap();
+
+        let created = issue_create_with_program(
+            &gh.to_string_lossy(),
+            repo.0.to_string_lossy().into_owned(),
+            "  UI is broken  ".into(),
+            "Steps to reproduce".into(),
+            vec![attachment.to_string_lossy().into_owned()],
+            42,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(created.number, 73);
+        let commands = fs::read_to_string(command_log).unwrap();
+        assert!(commands.contains("<release>\n<upload>"), "{commands}");
+        assert!(
+            commands.contains("issue-42-01-screen_shot_.png"),
+            "{commands}"
+        );
+        assert!(commands.contains("<issue>\n<create>"), "{commands}");
+        let body = fs::read_to_string(body_log).unwrap();
+        assert!(body.starts_with("Steps to reproduce\n\n## Attachments"));
+        assert!(body.contains("![screen shot\\].png]"), "{body}");
+        assert!(body.contains("https://github.com/acme/app/releases/download/assets/screen.png"));
+        assert!(!body.contains(&attachment.to_string_lossy().to_string()));
+    }
 
     #[tokio::test]
     async fn issue_link_pushes_only_the_selected_local_branch() {

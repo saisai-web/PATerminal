@@ -7,10 +7,12 @@ const { page, check, MOD, dragItemTo } = ctx;
 // ============================================================
 
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(250);
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(350);
-const selFixture = await page.locator("#ws-list > .ws-item .ws-name").allTextContents();
+const selFixture = await page.locator(".ws-whole-members > .ws-item .ws-name").allTextContents();
 check("multi-select fixture adds two ungrouped sessions",
   selFixture.join(",") === "Session 1,Session 2,Session 3", `items=${selFixture.join(",")}`);
 
@@ -68,7 +70,7 @@ check("right-click inside the selection keeps it", selStillSelected === 2,
 
 // --- 25j. 複数選択をまとめてグループ見出しへドラッグ → 全部が加入 ---
 await dragItemTo(
-  page.locator("#ws-list > .ws-item", { hasText: "Session 3" }),
+  page.locator(".ws-whole-members > .ws-item", { hasText: "Session 3" }),
   page.locator(".ws-group", { hasText: "team" }),
   "center",
 );

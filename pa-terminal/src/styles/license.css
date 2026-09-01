@@ -23,7 +23,7 @@
   background: color-mix(in srgb, var(--alarm) 14%, var(--bg));
   border-bottom: 1px solid color-mix(in srgb, var(--alarm) 40%, transparent);
   font-size: 12px;
-  color: var(--fg);
+  color: var(--text);
 }
 #license-banner-text {
   flex: 1;

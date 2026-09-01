@@ -7,9 +7,10 @@ import { initTakeover } from "./features/agents/takeover";
 import { initAgentPanel } from "./features/git/agent-panel";
 import { initGitPanel } from "./features/git/git-panel";
 import { initWsGit } from "./features/sidebar/ws-git";
+import { initSidebarRecentSort, initSidebarStatusFilter } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
-import { initImageAttachments } from "./features/attachments/image-attachments";
-import { initWorktreePrefs } from "./features/git/worktree";
+import { initPathAttachments } from "./features/attachments/path-attachments";
+import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
 import { initWorktreeDialog } from "./features/git/worktree-dialog";
 import { updateWsActivity } from "./app/activity";
 import "./terminal/diag";
@@ -35,11 +36,9 @@ import {
 import { closePane, firstLeaf, restartPane, splitPane } from "./terminal/tree";
 import {
   closeWorkspace,
-  createWorkspace,
   createWorkspaceBesideActive,
   newSessionCwd,
   onActiveWorkspaceChange,
-  placeAfter,
   setActive,
   workspaceCwd,
 } from "./workspace/workspace";
@@ -69,6 +68,11 @@ const broadcastBtn = document.querySelector<HTMLButtonElement>("#broadcast")!;
 const bcHintEl = document.querySelector<HTMLSpanElement>("#bc-hint")!;
 const splitRightBtn = document.querySelector<HTMLButtonElement>("#split-right")!;
 const splitDownBtn = document.querySelector<HTMLButtonElement>("#split-down")!;
+
+// Whole 直上のセッション状態フィルター。モジュール間の循環評価が完了してから接続する。
+initSidebarStatusFilter();
+// Whole 行の「最近操作した順」トグル（同上）
+initSidebarRecentSort();
 
 // 通知ゲート用のフォーカス追跡（メニュー閉じ処理とは独立に持つ）
 window.addEventListener("focus", () => {
@@ -110,7 +114,7 @@ initBroadcastDialog({
     if (ws && fid) ws.panes.get(fid)?.focus();
   },
 });
-initImageAttachments();
+initPathAttachments();
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。
   insert: (text) => {
@@ -134,12 +138,12 @@ initQuickPhrases({
   },
 });
 initWorktreePrefs({ onChange: scheduleSave });
+const openWorktreeSession = ({ name, cwd }: { name: string; cwd: string }) => {
+  createWorkspaceBesideActive(name, "default", { cwd });
+};
+initWorktreeList({ openSession: openWorktreeSession });
 initWorktreeDialog({
-  openSession: ({ name, cwd }) => {
-    const current = getActiveWs();
-    const ws = createWorkspace(name, "default", { cwd, group: current?.group });
-    if (current) placeAfter(ws, current);
-  },
+  openSession: openWorktreeSession,
 });
 const sessionTrashTab = initSessionTrash({
   restore: restoreDeletedWorkspace,
@@ -344,11 +348,11 @@ initHistoryDialog({
 // ドラッグ中は矩形だけ追従し、止まってから1回だけ refit する（TUI へ SIGWINCH を連射しない）
 window.addEventListener("resize", () => scheduleLayout());
 
-// エクスプローラーは起動時デフォルト表示（× で閉じ、Files ボタン / Cmd+E で開き直す）
+// エクスプローラーは起動時デフォルト非表示（右端アイコン / Cmd+E で開く）
 async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
-  setExplorerOpen(true, { save: false });
+  setExplorerOpen(false, { save: false });
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・
   // 自ビルドの新バージョン通知はその後に起動する
   initLicenseBanner({ layout: () => layout() });

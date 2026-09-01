@@ -43,4 +43,4 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 ed25519-dalek = "2"
 base64 = "0.22"
 # pr_info の gh CLI 実行用（タイムアウト付き・executor を塞がない）。tauri 経由で既に依存ツリーにある
-tokio = { version = "1", features = ["process", "time", "macros"] }
+tokio = { version = "1", features = ["process", "time", "macros", "fs"] }

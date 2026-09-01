@@ -9,8 +9,11 @@ import {
   createGroup,
   createParentGroup,
   groupDescendantIds,
+  isWorkspaceEntry,
   nextGroupName,
   renameGroup,
+  setSidebarEntryOrder,
+  sidebarEntries,
 } from "../../workspace/groups";
 import { t } from "../../i18n";
 import type { MsgKey } from "../../i18n";
@@ -22,6 +25,7 @@ import {
   clearWsSelection,
 } from "./sidebar-selection";
 import { renderSidebar } from "./sidebar";
+import { attachLocationFlyout } from "./new-session-location";
 import { collapsedGroups, groups, workspaces } from "../../workspace/state";
 import {
   WORKSPACE_BACKGROUND_COLORS,
@@ -251,8 +255,8 @@ export function openGroupMenu(
 }
 
 /** グループ見出しの右クリックメニュー。
-    新規セッションはそのグループへ、新規グループは子階層へ、いずれもクイック作成として
-    フォームを出さず自動採番の名前で即時作成する。
+    新規セッションはそのグループへ、新規グループは子階層へ、いずれも見出し直下の行へ
+    クイック作成する。表示中セッションや選択中セッションは挿入位置に使わない。
     「解散」= 直下のセッションと子グループを親へ移す（セッションは閉じない）。
     「グループごと全セッションを閉じる」= 子階層のセッションも全部閉じる（× と同じ・確認なし） */
 export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
@@ -265,8 +269,18 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   session.title = t("ctx.createSessionInGroupTitle");
   session.onclick = () => {
     closeGroupMenu();
-    void quickCreateWorkspace({ group: group.id });
+    // 見出しが作成先を明示しているので、表示中セッションは配置基準にしない。
+    void quickCreateWorkspace({ group: group.id, after: null, at: 0 });
   };
+  // カーソルを当てると場所フライアウト。配置はクリック時と同じで cwd だけ差し替える
+  attachLocationFlyout(
+    session,
+    (cwd) => {
+      closeGroupMenu();
+      void quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd });
+    },
+    { submenu: true },
+  );
 
   const child = document.createElement("button");
   child.textContent = t("ctx.createGroup");
@@ -275,7 +289,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   child.onclick = () => {
     closeGroupMenu();
     if (!requireFeature()) return;
-    createGroup(nextGroupName(), group.id);
+    createGroup(nextGroupName(), group.id, 0);
   };
 
   const renameBtn = document.createElement("button");
@@ -295,12 +309,19 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   dissolve.title = t("ctx.dissolveGroupTitle");
   dissolve.onclick = () => {
     closeGroupMenu();
-    for (const w of workspaces) if (w.group === group.id) w.group = group.parentId;
-    for (const childGroup of groups) {
-      if (childGroup.parentId === group.id) childGroup.parentId = group.parentId;
+    // 見出しを外した後も、直下の行は見出しがあった位置を引き継ぐ。
+    const parentEntries = sidebarEntries(group.parentId);
+    const at = parentEntries.indexOf(group);
+    const children = sidebarEntries(group.id);
+    for (const entry of children) {
+      if (isWorkspaceEntry(entry)) entry.group = group.parentId;
+      else entry.parentId = group.parentId;
     }
     const index = groups.indexOf(group);
     if (index >= 0) groups.splice(index, 1);
+    const remaining = sidebarEntries(group.parentId).filter((entry) => !children.includes(entry));
+    remaining.splice(Math.max(0, at), 0, ...children);
+    setSidebarEntryOrder(remaining);
     collapsedGroups.delete(group.id);
     renderSidebar();
     scheduleSave();
@@ -329,10 +350,11 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   showCtxMenu(menu, x, y);
 }
 
-/** サイドバー余白（項目の外）の右クリックメニュー。
-    新規セッションは表示中セッションと同じ階層へ作り、新規グループはトップレベルへ作る。
+/** サイドバー余白（項目の外）と仮想の Whole 枠の作成メニュー。
+    at が無い余白操作では、新規セッションを表示中セッションと同じ階層へ作る。
+    Whole 枠は at=0 を渡し、セッションもグループも最上位の先頭へ作る。
     どちらもフォームを出さず自動採番の名前で即時作成する */
-export function openListCtxMenu(x: number, y: number) {
+export function openListCtxMenu(x: number, y: number, at?: number) {
   closeGroupMenu();
   const menu = document.createElement("div");
   menu.id = "ctx-menu";
@@ -341,14 +363,25 @@ export function openListCtxMenu(x: number, y: number) {
   session.title = t("ctx.createSessionTitle");
   session.onclick = () => {
     closeGroupMenu();
-    void quickCreateWorkspace();
+    // Whole は保存上の group ID を持たないため、after: null で「トップレベル」を
+    // 明示する。これが無いと active セッションの group へ補完されてしまう。
+    void quickCreateWorkspace(at === undefined ? undefined : { after: null, at });
   };
+  // カーソルを当てると場所フライアウト。配置はクリック時と同じで cwd だけ差し替える
+  attachLocationFlyout(
+    session,
+    (cwd) => {
+      closeGroupMenu();
+      void quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd });
+    },
+    { submenu: true },
+  );
   const group = document.createElement("button");
   group.textContent = t("ctx.createGroup");
   group.title = t("ctx.createGroupTitle");
   group.onclick = () => {
     closeGroupMenu();
-    createGroup(nextGroupName());
+    createGroup(nextGroupName(), undefined, at);
   };
   menu.append(session, group);
   showCtxMenu(menu, x, y);

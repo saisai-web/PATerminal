@@ -10,6 +10,57 @@ import type { Workspace, WorkspaceGroup } from "./types";
 
 const groupDatalist = document.querySelector<HTMLDataListElement>("#ws-group-list")!;
 
+export type SidebarEntry = Workspace | WorkspaceGroup;
+
+export function isWorkspaceEntry(entry: SidebarEntry): entry is Workspace {
+  return "panes" in entry;
+}
+
+/** 同じ親階層のセッションとグループを、共通の表示順で返す。
+    旧データに sidebarOrder が無い間は、従来どおりセッション→グループの順にする。 */
+export function sidebarEntries(parentId?: string): SidebarEntry[] {
+  const entries: SidebarEntry[] = [
+    ...workspaces.filter((workspace) => workspace.group === parentId),
+    ...groups.filter((group) => group.parentId === parentId),
+  ];
+  const fallbackOrder = (entry: SidebarEntry) =>
+    isWorkspaceEntry(entry) ? workspaces.indexOf(entry) : workspaces.length + groups.indexOf(entry);
+  return entries.sort((a, b) => {
+    const aOrder = Number.isFinite(a.sidebarOrder) ? a.sidebarOrder! : fallbackOrder(a);
+    const bOrder = Number.isFinite(b.sidebarOrder) ? b.sidebarOrder! : fallbackOrder(b);
+    return aOrder - bOrder;
+  });
+}
+
+/** 同じ親階層の混在した行順を確定する。新規作成・DnD・解散で共通利用する。 */
+export function setSidebarEntryOrder(entries: readonly SidebarEntry[]) {
+  entries.forEach((entry, index) => {
+    entry.sidebarOrder = index;
+  });
+}
+
+/** entry を親階層の指定位置へ置く。位置はセッションとグループを混在させた行単位。 */
+export function placeSidebarEntryAt(entry: SidebarEntry, parentId: string | undefined, index: number) {
+  const entries = sidebarEntries(parentId).filter((sibling) => sibling !== entry);
+  entries.splice(Math.max(0, Math.min(index, entries.length)), 0, entry);
+  setSidebarEntryOrder(entries);
+}
+
+/** 同じ親階層の ref の直後に entry を置く。 */
+export function placeSidebarEntryAfter(entry: SidebarEntry, ref: SidebarEntry) {
+  const parentId = isWorkspaceEntry(ref) ? ref.group : ref.parentId;
+  const entries = sidebarEntries(parentId).filter((sibling) => sibling !== entry);
+  const at = entries.indexOf(ref);
+  if (at < 0) return;
+  entries.splice(at + 1, 0, entry);
+  setSidebarEntryOrder(entries);
+}
+
+/** 新規エントリを親階層の末尾へ置く。 */
+export function appendSidebarEntry(entry: SidebarEntry, parentId?: string) {
+  placeSidebarEntryAt(entry, parentId, sidebarEntries(parentId).filter((sibling) => sibling !== entry).length);
+}
+
 export function newGroupId(): string {
   let id = "";
   do id = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -80,12 +131,14 @@ export function addGroup(name: string, parentId?: string): WorkspaceGroup {
     parentId: validParent,
   };
   groups.push(group);
+  appendSidebarEntry(group, validParent);
   if (validParent) collapsedGroups.delete(validParent);
   return group;
 }
 
-export function createGroup(name: string, parentId?: string): WorkspaceGroup {
+export function createGroup(name: string, parentId?: string, at?: number): WorkspaceGroup {
   const group = addGroup(name, parentId);
+  if (at !== undefined) placeSidebarEntryAt(group, group.parentId, at);
   renderSidebar();
   scheduleSave();
   return group;
@@ -118,19 +171,28 @@ export function moveGroup(
 
   let parentId: string | undefined;
   let at = rest.length;
+  let sidebarAt = 0;
   if (targetGroup) {
     if (position === "inside") {
       parentId = targetGroup.id;
+      sidebarAt = sidebarEntries(parentId).filter((entry) => entry !== movingRoot).length;
     } else {
       parentId = targetGroup.parentId;
       const targetAt = rest.indexOf(targetGroup);
       if (targetAt < 0) return false;
       at = position === "before" ? targetAt : targetAt + 1;
+      const siblings = sidebarEntries(parentId).filter((entry) => entry !== movingRoot);
+      const targetSidebarAt = siblings.indexOf(targetGroup);
+      if (targetSidebarAt < 0) return false;
+      sidebarAt = position === "before" ? targetSidebarAt : targetSidebarAt + 1;
     }
+  } else {
+    sidebarAt = sidebarEntries().filter((entry) => entry !== movingRoot).length;
   }
   movingRoot.parentId = parentId;
   groups.splice(0, groups.length, ...rest);
   groups.splice(at, 0, ...moving);
+  placeSidebarEntryAt(movingRoot, parentId, sidebarAt);
   if (parentId) collapsedGroups.delete(parentId);
   renderSidebar();
   scheduleSave();
@@ -147,8 +209,15 @@ export function createParentGroup(targets: Workspace[]) {
   // 既にグループ所属のセッションを包むと子グループ（ネスト階層）になる = ソフトロック対象。
   // トップレベルのグループ化は無料枠のまま
   if (members[0].group && !requireFeature()) return;
-  const group = addGroup(nextGroupName(), members[0].group);
+  const parentId = members[0].group;
+  const oldSiblings = sidebarEntries(parentId);
+  const firstAt = oldSiblings.indexOf(members[0]);
+  const group = addGroup(nextGroupName(), parentId);
   for (const w of members) w.group = group.id;
+  // 親グループの見出しは、包む先頭セッションがあった行を引き継ぐ。
+  placeSidebarEntryAt(group, parentId, firstAt < 0 ? oldSiblings.length : firstAt);
+  // グループ内では選択されたセッションの相対順を保つ。
+  setSidebarEntryOrder(members);
   renderSidebar();
   scheduleSave();
 }

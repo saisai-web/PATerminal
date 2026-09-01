@@ -56,6 +56,28 @@ pub(crate) struct Panes {
 /// 普通は 0〜数件。異常時に無制限へ育てない
 const MAX_PENDING_SIZES: usize = 256;
 
+/// 親プロセス側だけで使う色出力ポリシー。
+///
+/// Codex などがコマンド出力を読みやすくするため `NO_COLOR=1` を設定した状態で
+/// `tauri dev` を起動すると、その値がアプリ → PTY → シェルへ伝播して Claude Code / Codex
+/// まで白黒になる。PATerminal 自身は truecolor 対応なので、親の方針は持ち込まず端末能力から
+/// 各 CLI に判定させる。
+const COLOR_POLICY_ENV: [&str; 5] = [
+    "NO_COLOR",
+    "NODE_DISABLE_COLORS",
+    "FORCE_COLOR",
+    "CLICOLOR",
+    "CLICOLOR_FORCE",
+];
+
+fn configure_terminal_color(cmd: &mut CommandBuilder) {
+    for key in COLOR_POLICY_ENV {
+        cmd.env_remove(key);
+    }
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+}
+
 /// 適用すべきサイズ。同じなら None（no-op の SIGWINCH でも Ink は再描画するので、
 /// 重複を捨てること自体に意味がある）
 fn next_size(prev: (u16, u16), req: (u16, u16)) -> Option<(u16, u16)> {
@@ -122,9 +144,7 @@ pub(crate) async fn pty_spawn(
             cmd.cwd(dir);
         }
     }
-    // CLIツールが色や機能を判定するのに使う
-    cmd.env("TERM", "xterm-256color");
-    cmd.env("COLORTERM", "truecolor");
+    configure_terminal_color(&mut cmd);
     // Finder / Explorer 等から起動した GUI アプリは、シェルで設定した PATH を
     // 引き継がない。~/.local/bin などを補完し、既定シェル以外でも同じ CLI を使えるようにする。
     if let Some(path) = terminal_path() {
@@ -288,7 +308,27 @@ pub(crate) async fn pty_agents(
 
 #[cfg(test)]
 mod tests {
-    use super::{next_size, Panes, MAX_PENDING_SIZES};
+    use portable_pty::CommandBuilder;
+
+    use super::{configure_terminal_color, next_size, Panes, COLOR_POLICY_ENV, MAX_PENDING_SIZES};
+
+    #[test]
+    fn terminal_color_ignores_parent_process_opt_outs() {
+        let mut cmd = CommandBuilder::new("ignored");
+        for key in COLOR_POLICY_ENV {
+            cmd.env(key, "1");
+        }
+        cmd.env("TERM", "dumb");
+        cmd.env("COLORTERM", "");
+
+        configure_terminal_color(&mut cmd);
+
+        assert_eq!(cmd.get_env("TERM"), Some("xterm-256color".as_ref()));
+        assert_eq!(cmd.get_env("COLORTERM"), Some("truecolor".as_ref()));
+        for key in COLOR_POLICY_ENV {
+            assert_eq!(cmd.get_env(key), None, "{key} must not reach the PTY");
+        }
+    }
 
     #[test]
     fn same_size_is_not_reapplied() {

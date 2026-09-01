@@ -53,6 +53,7 @@ import type {
   Workspace,
 } from "../workspace/types";
 import { normalizeWorkspaceBackgroundColor } from "../workspace/types";
+import { getRecentDirs, setRecentDirs } from "../features/sidebar/recent-dirs";
 import { getWorktreePrefs, setWorktreePrefs } from "../features/git/worktree";
 import { getPairDefaultCmds, setPairDefaultCmds } from "../features/pair/pair";
 import { createEmptyWorkspace, setActive } from "../workspace/workspace";
@@ -111,8 +112,11 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     name: ws.name,
     note: ws.note,
     pinned: ws.pinned || undefined,
+    archived: ws.archived || undefined,
+    lastOpAt: ws.lastOpAt,
     backgroundColor: ws.backgroundColor,
     group: ws.group,
+    sidebarOrder: ws.sidebarOrder,
     shellKind: ws.shellKind,
     broadcast: ws.broadcast,
     autoEnter: ws.autoEnter || undefined,
@@ -138,6 +142,7 @@ function serializeAll(): SessionV5 {
         quickPhrases: isQuickPhraseBarCollapsed(),
         oneLine: true,
       },
+      recentDirs: getRecentDirs(),
       worktree: getWorktreePrefs(),
       pair: getPairDefaultCmds(),
     },
@@ -227,8 +232,10 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
     const ws = createEmptyWorkspace(id, saved.name, saved.shellKind, saved.broadcast, saved.autoEnter === true);
     ws.note = normalizeWorkspaceNote(saved.note);
     ws.pinned = saved.pinned === true || undefined;
+    ws.archived = saved.archived === true || undefined;
     ws.backgroundColor = normalizeWorkspaceBackgroundColor(saved.backgroundColor);
     ws.group = groupById(saved.group) ? saved.group : undefined;
+    ws.sidebarOrder = Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined;
     ws.root = restoreTree(ws, saved.root);
 
     // createEmptyWorkspace は末尾へ追加するため、元位置のヒントが有効なら差し戻す
@@ -295,6 +302,7 @@ export async function boot() {
   setAgentPanelCollapsed(oneLineBars ? savedSettings?.collapsed?.changes !== false : true);
   setQuickPhraseBarCollapsed(oneLineBars ? savedSettings?.collapsed?.quickPhrases !== false : true);
   setQuickPhrases(savedSettings?.quickPhrases);
+  setRecentDirs(savedSettings?.recentDirs);
   setWorktreePrefs(savedSettings?.worktree);
   setPairDefaultCmds(savedSettings?.pair);
   applyStaticTexts();
@@ -319,7 +327,12 @@ export async function boot() {
             saved.name &&
             !groups.some((group) => group.id === saved.id)
           ) {
-            groups.push({ id: saved.id, name: saved.name, parentId: saved.parentId });
+            groups.push({
+              id: saved.id,
+              name: saved.name,
+              parentId: saved.parentId,
+              sidebarOrder: Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined,
+            });
           }
         }
         const validIds = new Set(groups.map((group) => group.id));
@@ -340,8 +353,11 @@ export async function boot() {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast, s.autoEnter === true);
           ws.note = normalizeWorkspaceNote(s.note);
           ws.pinned = s.pinned === true || undefined;
+          ws.archived = s.archived === true || undefined;
+          ws.lastOpAt = Number.isFinite(s.lastOpAt) ? s.lastOpAt : undefined;
           ws.backgroundColor = normalizeWorkspaceBackgroundColor(s.backgroundColor);
           ws.group = validIds.has(s.group ?? "") ? s.group : undefined;
+          ws.sidebarOrder = Number.isFinite(s.sidebarOrder) ? s.sidebarOrder : undefined;
           ws.root = restoreTree(ws, s.root);
         }
         for (const id of v4.collapsedGroups ?? []) {
@@ -349,7 +365,14 @@ export async function boot() {
         }
         setExplorerFavorites((v4.explorer?.favorites ?? []).filter((p) => typeof p === "string"));
         renderExplorerFavs();
-        const target = workspaces.find((w) => w.id === v4.activeId) ?? workspaces[0];
+        // 表示タブは起動ごとに「すべて」へ戻る。前回アーカイブタブで終了していても、
+        // 通常セッションがあるならそれを開き、表示中の端末だけ一覧から消えた状態にしない。
+        const savedTarget = workspaces.find((w) => w.id === v4.activeId);
+        const target =
+          (savedTarget?.archived ? undefined : savedTarget) ??
+          workspaces.find((w) => !w.archived) ??
+          savedTarget ??
+          workspaces[0];
         if (target) {
           setActive(target);
           if (parsed.version === 4) scheduleSave(); // 次回から v5 で保存する

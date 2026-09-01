@@ -9,7 +9,20 @@ check("single-pane default has no divider", divCount === 0, `dividers=${divCount
 check("initial single pane cannot be closed", !(await page.locator(".pane-close").isVisible()));
 const wsCount0 = await page.locator(".ws-item").count();
 check("sidebar shows 1 session", wsCount0 === 1, `items=${wsCount0}`);
-check("explorer panel open by default", await page.locator("#explorer").isVisible());
+const sidebarBox0 = await page.locator("#sidebar").boundingBox();
+check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0) - 320) < 2,
+  `width=${Math.round(sidebarBox0?.width ?? 0)}px`);
+check("explorer panel closed by default", await page.locator("#explorer").isHidden());
+check("toolbar has no explorer toggle", (await page.locator("#explorer-toggle").count()) === 0);
+check("toolbar has a file-path attachment button next to the image button",
+  await page.locator("#attach-file").isVisible() &&
+    await page.locator("#attach-image + #attach-file").count() === 1);
+check("right-side explorer opener is visible by default",
+  await page.locator("#exp-reopen").isVisible() &&
+    (await page.locator("#exp-reopen svg").count()) === 1);
+await page.click("#exp-reopen");
+await page.waitForTimeout(300);
+check("right-side opener opens explorer", await page.locator("#explorer").isVisible());
 // ターミナル下のフッター余白と「新規ペイン/新規セッション」バー:
 // サイドバーの設定ボタン上の線と同じ高さに揃い、境界線が全幅で一直線に通る
 const mainFootBox = await page.locator("#main-foot").boundingBox();

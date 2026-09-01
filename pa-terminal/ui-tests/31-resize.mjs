@@ -12,6 +12,10 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.goto(BASE_URL);
 await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(600);
+// このスイートはエクスプローラー開閉の回帰ではなく、従来と同じ3カラムの
+// レイアウト条件で PTY サイズ同期を検証する。
+await page.click("#exp-reopen");
+await page.waitForTimeout(300);
 
 // --- 0. xterm の描画面がスクロールバーのトラックを覆わない ---
 // FitAddon は xterm 自身の padding だけを列数計算から引く。親の padding を
@@ -33,6 +37,49 @@ check("terminal canvas stays clear of the scrollbar track",
   scrollbarGeometry
     ? `scrollbar=${scrollbarGeometry.scrollbarWidth}px overlap=${scrollbarGeometry.overlap.toFixed(1)}px`
     : "xterm viewport or screen missing");
+
+// --- 0b. Files パネル開閉後も最新出力を表示する ---
+// WebKit は横幅変更後の遅延リフローで xterm viewport を先頭へ戻すことがある。
+// 後続の resize 束ね検証へ大量の履歴を持ち込まないよう専用ページで確認する。
+const pageScroll = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+await pageScroll.addInitScript(() => {
+  const scrollback = Array.from(
+    { length: 100 },
+    (_, index) => `resize-history-${String(index).padStart(3, "0")}`,
+  ).join("\r\n") + "\r\n";
+  window.__mockSessionLoad = JSON.stringify({
+    version: 5,
+    activeId: "scroll",
+    workspaces: [{
+      id: "scroll",
+      name: "Scroll",
+      shellKind: "default",
+      broadcast: false,
+      root: { kind: "leaf", title: "scroll", scrollback },
+    }],
+  });
+});
+await pageScroll.goto(BASE_URL);
+await pageScroll.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
+await pageScroll.waitForTimeout(400);
+for (const [button, action] of [["#exp-reopen", "opening"], ["#exp-close", "closing"]]) {
+  const before = await pageScroll.locator(
+    ".workspace-layer:not([hidden]) .xterm-viewport",
+  ).evaluate((el) => {
+    el.scrollTop = 0;
+    return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight };
+  });
+  check(`${action} Files can reproduce a viewport at the top`,
+    before.top === 0 && before.height > before.client, JSON.stringify(before));
+  await pageScroll.locator(button).click();
+  await pageScroll.waitForTimeout(200);
+  const after = await pageScroll.locator(
+    ".workspace-layer:not([hidden]) .xterm-viewport",
+  ).evaluate((el) => ({ top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }));
+  check(`${action} Files keeps the terminal at the latest output`,
+    after.top >= after.height - after.client - 1, JSON.stringify(after));
+}
+await pageScroll.close();
 
 const resizesOf = (id) => page.evaluate(
   (paneId) => window.__ptyResizes.filter((r) => r.id === paneId), id);
@@ -154,6 +201,7 @@ check("a failed resize is retried until it lands",
 // 新しいグリッドへ流し込まれる
 await page.evaluate(() => { window.__ipcLog.length = 0; });
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(700);
 await page.setViewportSize({ width: 1000, height: 780 });
 await page.waitForTimeout(500);

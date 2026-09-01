@@ -163,6 +163,9 @@ if (!w.__TAURI_INTERNALS__) {
           return "/mock/pair-signals";
         case "plugin:notification|is_permission_granted":
           return true;
+        case "plugin:path|resolve_directory":
+          // homeDir()（場所フライアウトの「ホーム」）用。OSC 7 の既定 cwd と同じ値を返す
+          return w.__mockHostOs === "windows" ? "C:/Users/user" : "/home/user";
         case "plugin:dialog|open": {
           const dialogOpts = args.options as { directory?: boolean; filters?: unknown[] } | undefined;
           // テストから開いたダイアログの条件を確認できるよう全種類を記録する。
@@ -173,7 +176,8 @@ if (!w.__TAURI_INTERNALS__) {
             // window.__mockPickedDirectory（または null = キャンセル）を注入する
             return (w.__mockPickedDirectory as string | string[] | null) ?? null;
           }
-          // フィルタ付きは画像選択、無しは Files パネルのファイルインポートとして別々に注入する。
+          // フィルタ付きは画像選択、無しは任意ファイル選択（パス入力 / Files パネルの
+          // インポート）として別々に注入する。
           if (dialogOpts?.filters?.length) {
             return (w.__mockPickedImages as string[] | null) ?? null;
           }
@@ -607,6 +611,23 @@ if (!w.__TAURI_INTERNALS__) {
               comments: [],
             }
           );
+        }
+        case "issue_create": {
+          if (!Array.isArray(w.__issueCreateCalls)) w.__issueCreateCalls = [];
+          (w.__issueCreateCalls as unknown[]).push({
+            root: args.root,
+            title: args.title,
+            body: args.body,
+            attachmentPaths: args.attachmentPaths,
+          });
+          const r = w.__mockIssueCreateResult as
+            | { error?: string; number?: number; url?: string }
+            | undefined;
+          if (r?.error) throw new Error(r.error);
+          return {
+            number: r?.number ?? 99,
+            url: r?.url ?? "https://github.com/o/r/issues/99",
+          };
         }
         case "git_worktree_branches":
           return (

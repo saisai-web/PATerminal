@@ -33,7 +33,7 @@ check("v4 restores a nested group hierarchy",
     (await pageV4.locator(".ws-group[data-group-id=child] + .ws-group-members > .ws-item",
       { hasText: "Nested Session" }).count()) === 1);
 check("v4 restores empty groups independently of sessions",
-  (await pageV4.locator("#ws-list > .ws-group[data-group-id=empty]").count()) === 1);
+  (await pageV4.locator(".ws-whole-members > .ws-group[data-group-id=empty]").count()) === 1);
 await pageV4.close();
 
 }

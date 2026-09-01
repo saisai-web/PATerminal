@@ -22,6 +22,8 @@ await pageFav.addInitScript(() => {
 await pageFav.goto(BASE_URL);
 await pageFav.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
 await pageFav.waitForTimeout(500);
+await pageFav.click("#exp-reopen");
+await pageFav.waitForTimeout(300);
 const favRestored = await pageFav.locator(".exp-fav-row:not(.exp-session-row)").count();
 check("favorites restored from v3 session", favRestored === 2, `rows=${favRestored}`);
 await pageFav.waitForFunction(() => {

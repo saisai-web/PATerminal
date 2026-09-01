@@ -39,6 +39,11 @@ import licenseLock from "./ui-tests/34-license-lock.mjs";
 import licenseUi from "./ui-tests/35-license-ui.mjs";
 import terminalRecovery from "./ui-tests/36-terminal-recovery.mjs";
 import eula from "./ui-tests/37-eula.mjs";
+import sessionStatusFilter from "./ui-tests/38-session-status-filter.mjs";
+import newSessionLocation from "./ui-tests/38-new-session-location.mjs";
+import recentSort from "./ui-tests/39-recent-sort.mjs";
+import themeContrast from "./ui-tests/40-theme-contrast.mjs";
+import sessionArchive from "./ui-tests/41-session-archive.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -55,6 +60,7 @@ const sharedSuites = [
   ["inline-rename", inlineRename],
   ["explorer", explorer],
   ["quick-phrases", quickPhrases],
+  ["theme-contrast", themeContrast],
 ];
 const independentSuites = [
   ["restore-v4", restoreV4],
@@ -88,6 +94,10 @@ const independentSuites = [
   ["license-ui", licenseUi],
   ["terminal-recovery", terminalRecovery],
   ["eula", eula],
+  ["session-status-filter", sessionStatusFilter],
+  ["new-session-location", newSessionLocation],
+  ["recent-sort", recentSort],
+  ["session-archive", sessionArchive],
 ];
 
 // Push / PR では、基盤・保存形式・Git 監視・通知・主要エージェント機能を
@@ -95,7 +105,7 @@ const independentSuites = [
 // 実行と定期 CI に残す。ペア関連（27 / 29）は CI ランナーの並列 smoke では
 // 予算に収まらないため smoke から外してある（入れると pair だけが上限時点で
 // 走り続けて全体が exit 124 になる。main で実測済み）。ペアの検証は全件実行で行う。
-const smokeShared = new Set(["panes"]);
+const smokeShared = new Set(["panes", "theme-contrast"]);
 const smokeIndependent = new Set([
   "restore-v4",
   "migrate-v2",
@@ -110,6 +120,8 @@ const smokeIndependent = new Set([
   "license-lock", // ソフトロックの誤ロック/素通りは商売と信頼の両方を壊すので毎 push で見る
   "terminal-recovery", // 復元表示だけの入力不能ペインは二度と作らない
   "eula", // 同意前にトライアル/sessionを作らない起動ゲートは毎 push で見る
+  "session-status-filter", // 稼働状態と未確認の一覧絞り込みは activity 遷移込みで毎 push で見る
+  "session-archive", // PTYを閉じない一覧整理と再起動後の復元を毎 push で見る
 ]);
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });

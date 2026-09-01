@@ -6,7 +6,7 @@
 // 変更しない。
 //
 // 開閉（expOpen）・隠しファイル表示（expShowHidden）は保存しない（起動時は常に
-// 表示 + 隠しファイル ON）。お気に入り（expFavorites）だけ session.json に永続
+// 閉じた状態 + 隠しファイル ON）。お気に入り（expFavorites）だけ session.json に永続
 // するので、このモジュールが所有して accessor を export する。
 // ============================================================
 
@@ -16,6 +16,9 @@ import { updateGitWatch } from "../git/agent-panel";
 // explorer-menu.ts とは相互 import になるが、参照するのはすべて関数宣言なので
 // 巻き上げで解決する（トップレベル const を跨いで読まない）
 import { expCtxHandler } from "./explorer-menu";
+// new-session-location.ts（お気に入りを読むため explorer を import する）とも相互 import。
+// こちらも参照は関数宣言のみで巻き上げで解決する
+import { attachLocationFlyout } from "../sidebar/new-session-location";
 import { openFileViewer } from "./file-viewer";
 import { t } from "../../i18n";
 import { getRafId, layout, place, setRafId } from "../../terminal/layout";
@@ -51,7 +54,6 @@ export function explorerNewSession(cwd: string) {
   deps.createWorkspace(pathBasename(cwd), "default", { cwd });
 }
 
-const explorerToggleBtn = document.querySelector<HTMLButtonElement>("#explorer-toggle")!;
 const explorerEl = document.querySelector<HTMLDivElement>("#explorer")!;
 const expPathEl = document.querySelector<HTMLDivElement>("#exp-path")!;
 const expListEl = document.querySelector<HTMLDivElement>("#exp-list")!;
@@ -980,8 +982,7 @@ export function setExplorerOpen(open: boolean, opts: { save?: boolean } = {}) {
   expOpen = open;
   if (!open) closeExplorerMkdir(false);
   explorerEl.hidden = !open;
-  expReopenBtn.hidden = open; // 閉じている間だけ右端タブを出す
-  explorerToggleBtn.setAttribute("aria-pressed", String(open));
+  expReopenBtn.hidden = open; // 閉じている間だけ右端アイコンを出す
   // パネルの分だけグリッド幅が変わるので即レイアウト（refit で TUI にも resize が飛ぶ）
   layout();
   if (open) {
@@ -999,8 +1000,6 @@ export function setExplorerOpen(open: boolean, opts: { save?: boolean } = {}) {
   if (opts.save !== false) scheduleSave();
 }
 
-// ツールバーの Files は開閉トグル（Cmd/Ctrl+E と同じ挙動）。右端の縦タブは開く専用
-explorerToggleBtn.onclick = () => setExplorerOpen(!expOpen);
 expCloseBtn.onclick = () => setExplorerOpen(false);
 expReopenBtn.onclick = () => setExplorerOpen(true);
 
@@ -1145,3 +1144,6 @@ expNewSessionBtn.onclick = () => {
   if (!expCwd) return;
   explorerNewSession(expCwd);
 };
+// カーソルを当てると場所フライアウト（Issue #192）。クリック（表示中のパスで作成）は
+// そのままに、選んだディレクトリで同じ流儀（名前 = ディレクトリ名）のセッションを作る
+attachLocationFlyout(expNewSessionBtn, (cwd) => explorerNewSession(cwd));

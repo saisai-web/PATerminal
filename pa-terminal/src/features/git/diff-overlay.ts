@@ -430,6 +430,7 @@ window.addEventListener(
   (e) => {
     if (!diffOverlay.hidden && e.key === "Escape") {
       e.stopPropagation();
+      e.preventDefault();
       closeDiffOverlay();
     }
   },

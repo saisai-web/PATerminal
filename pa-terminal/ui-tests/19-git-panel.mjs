@@ -109,6 +109,11 @@ await pageLog.addInitScript(() => {
       { author: "frank", body: "Use the whole issue, please.", createdAt: "2026-08-05T01:00:00Z" },
     ],
   };
+  window.__mockIssueCreateResult = {
+    number: 99,
+    url: "https://github.com/o/r/issues/99",
+  };
+  window.__mockPickedFiles = ["/tmp/screenshot.png", "/tmp/trace.log"];
   window.__mockWorktreeBranches = {
     branches: [
       { name: "feat/x", reference: "refs/heads/feat/x", current: true },
@@ -133,6 +138,8 @@ await pageLog.addInitScript(() => {
 });
 await pageLog.goto(BASE_URL);
 await pageLog.waitForSelector(".pane", { timeout: 10000 });
+await pageLog.click("#exp-reopen");
+await pageLog.waitForTimeout(300);
 await pageLog.locator(".pane .pane-body").first().click();
 let logShown = true;
 await pageLog.waitForSelector("#exp-git:not([hidden])", { timeout: 8000 }).catch(() => { logShown = false; });
@@ -151,6 +158,56 @@ if (logShown) {
     `rows=${rowCount} first="${firstRow}"`);
   const refsText = (await pageLog.locator("#exp-git-log .git-commit-refs").first().textContent()) ?? "";
   check("commit decorations shown", refsText.includes("origin/feat/x"), `refs="${refsText}"`);
+  // 4タブそれぞれの拡大アイコン → 同じ実DOMを広いモーダルへ移して操作できる
+  const expandButtons = pageLog.locator("#exp-git-tabs .exp-git-expand");
+  check("every Git tab exposes an accessible expanded-view icon",
+    await expandButtons.count() === 4 &&
+      await expandButtons.locator("svg").count() === 4 &&
+      await expandButtons.evaluateAll((buttons) => buttons.every((button) =>
+        button.getAttribute("aria-haspopup") === "dialog" && Boolean(button.getAttribute("aria-label")))),
+    `count=${await expandButtons.count()}`);
+  const expandIconsLeadLabels = await pageLog.locator("#exp-git-tabs .exp-git-tab-item").evaluateAll((items) =>
+    items.every((item) =>
+      item.firstElementChild?.classList.contains("exp-git-expand") &&
+      item.children[1]?.getAttribute("role") === "tab"));
+  check("expanded-view icons sit to the left of every Git tab label", expandIconsLeadLabels);
+  const expandedTabs = [
+    { tab: "branch", content: "#exp-git-log", ready: ".git-commit-row", title: "Branch" },
+    { tab: "issues", content: "#exp-git-issues", ready: ".issue-row", title: "Issue" },
+    { tab: "prs", content: "#exp-git-prs", ready: ".pr-list-row", title: "PR" },
+    { tab: "worktrees", content: "#exp-git-worktrees", ready: ".wt-row", title: "Worktree" },
+  ];
+  for (const expanded of expandedTabs) {
+    await pageLog.locator(`.exp-git-expand[data-git-tab="${expanded.tab}"]`).click();
+    await pageLog.waitForSelector(
+      `#git-panel-modal-body ${expanded.content} ${expanded.ready}`,
+      { timeout: 3000 },
+    );
+    const modalBox = await pageLog.locator("#git-panel-modal").boundingBox();
+    const modalTitle = ((await pageLog.locator("#git-panel-modal-title").textContent()) ?? "").trim();
+    check(`${expanded.title} tab opens its live content in the expanded modal`,
+      await pageLog.locator("#git-panel-modal[role=dialog][aria-modal=true]").isVisible() &&
+        await pageLog.locator(`#git-panel-modal-body > ${expanded.content}`).count() === 1 &&
+        await pageLog.locator("#git-panel-modal-actions #exp-git-refresh").isVisible() &&
+        modalTitle === expanded.title && Boolean(modalBox && modalBox.width >= 900 && modalBox.height >= 650),
+      `title="${modalTitle}" box=${JSON.stringify(modalBox)}`);
+    await pageLog.locator("#git-panel-modal-close").click();
+    check(`${expanded.title} content returns to the compact Git panel when closed`,
+      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+        await pageLog.locator(`#exp-git > ${expanded.content}`).count() === 1);
+  }
+  await pageLog.locator("#exp-git-branch").click();
+  await pageLog.locator('.exp-git-expand[data-git-tab="branch"]').click();
+  await pageLog.locator("#git-panel-modal-body .git-commit-row").first().click();
+  await pageLog.waitForSelector("#diff-overlay:not([hidden])", { timeout: 3000 });
+  await pageLog.keyboard.press("Escape");
+  check("Escape closes a detail opened over the expanded Git modal without closing the list",
+    !(await pageLog.locator("#diff-overlay").isVisible()) &&
+      await pageLog.locator("#git-panel-modal").isVisible());
+  await pageLog.keyboard.press("Escape");
+  check("a second Escape closes the expanded Git modal",
+    !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+      await pageLog.locator("#exp-git > #exp-git-log").count() === 1);
   // Issue タブ → 一覧 → 本文・全コメント
   await pageLog.locator("#exp-git-issues-tab").click();
   await pageLog.waitForSelector("#exp-git-issues .issue-row", { timeout: 3000 });
@@ -172,6 +229,34 @@ if (logShown) {
       issueLabels.includes("bug") && issueLabels.includes("terminal"),
     `assignees=${JSON.stringify(issueAssignees)} unassigned=${unassignedCount} labels=${JSON.stringify(issueLabels)}`);
   check("PR badge is hidden while Issue tab is active", !(await pageLog.locator("#exp-git-pr").isVisible()));
+  // Issue タブの作成ボタン → タイトル・本文・複数添付を1回の GitHub 作成コマンドへ渡す
+  check("Issue tab exposes the create action",
+    await pageLog.locator("#exp-git-create-issue").isVisible() &&
+      (await pageLog.locator("#exp-git-create-issue").textContent())?.trim() === "作成");
+  await pageLog.locator("#exp-git-create-issue").click();
+  check("Issue create action opens an accessible modal",
+    await pageLog.locator("#issue-create-panel[role=dialog][aria-modal=true]").isVisible() &&
+      await pageLog.locator("#issue-create-title").evaluate((element) => document.activeElement === element));
+  await pageLog.locator("#issue-create-title").fill("Report terminal crash");
+  await pageLog.locator("#issue-create-description").fill("Steps\n1. Open a pane\n2. Run the command");
+  await pageLog.locator("#issue-create-add-files").click();
+  const pickedFiles = await pageLog.locator("#issue-create-file-list .issue-create-file span").allTextContents();
+  check("Issue create modal accepts multiple attachments from the native picker",
+    JSON.stringify(pickedFiles) === JSON.stringify(["screenshot.png", "trace.log"]),
+    `files=${JSON.stringify(pickedFiles)}`);
+  await pageLog.locator("#issue-create-submit").click();
+  await pageLog.waitForFunction(() => (window.__issueCreateCalls ?? []).length > 0);
+  const issueCreateCall = await pageLog.evaluate(() => window.__issueCreateCalls.at(-1));
+  await pageLog.waitForSelector("#issue-create-overlay", { state: "hidden" });
+  check("Issue create submits title, body and attachment paths to the watched repository",
+    issueCreateCall?.root === "/repo" && issueCreateCall?.title === "Report terminal crash" &&
+      issueCreateCall?.body === "Steps\n1. Open a pane\n2. Run the command" &&
+      JSON.stringify(issueCreateCall?.attachmentPaths) ===
+        JSON.stringify(["/tmp/screenshot.png", "/tmp/trace.log"]),
+    `call=${JSON.stringify(issueCreateCall)}`);
+  check("Issue create closes the modal and refreshes the Issue list after success",
+    !(await pageLog.locator("#issue-create-overlay").isVisible()) &&
+      (await pageLog.evaluate(() => (window.__issueListCalls ?? []).length)) >= 2);
   await pageLog.locator("#exp-git-issues .issue-row").first().click();
   await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-body", { timeout: 3000 });
   const issueInfoCall = await pageLog.evaluate(() => (window.__issueInfoCalls ?? [])[0]);
@@ -209,6 +294,12 @@ if (logShown) {
   const issueActionButtons = pageLog.locator(".issue-session-actions button");
   check("Issue action offers one regular new-session button",
     await issueActionButtons.count() === 1 && (await issueActionButtons.first().textContent())?.trim() === "新規セッション");
+  check("Issue action defaults to worktree mode with the current branch",
+    await pageLog.locator(".issue-worktree-toggle input").isChecked() &&
+      await pageLog.locator(".issue-worktree-fields").isVisible() &&
+      await pageLog.locator(".issue-worktree-fields select").inputValue() === "refs/heads/feat/x");
+  // チェックを外せば従来どおりリポジトリルートの通常セッションも作れる
+  await pageLog.locator(".issue-worktree-toggle input").uncheck();
   const spawnBeforeIssue = await pageLog.evaluate(() => window.__ptySpawns.length);
   await issueActionButtons.click();
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeIssue);
@@ -256,12 +347,22 @@ if (logShown) {
       savedIssueSession?.root?.shell === undefined &&
       savedIssueSession?.root?.resumeShell === undefined,
     `saved=${JSON.stringify(savedIssueSession)}`);
+  const savedWorktreePrefs = await pageLog.evaluate(() => JSON.parse(window.__savedSession).settings?.worktree);
+  check("Issue action persists the selected base branch",
+    savedWorktreePrefs?.issueBaseRef === "refs/remotes/origin/main",
+    `worktree=${JSON.stringify(savedWorktreePrefs)}`);
   check("Issue body is not injected into or persisted with the new session",
     savedIssueSession?.root?.args === undefined &&
       !(await pageLog.evaluate(() => window.__savedSession.includes("touch /tmp/bad"))));
   await pageLog.locator("#issue-close").click();
   check("Issue close button returns to the list", !(await pageLog.locator("#issue-overlay").isVisible()) &&
     await pageLog.locator("#exp-git-issues .issue-row").count() === 2);
+  await pageLog.locator("#exp-git-issues .issue-row").first().click();
+  await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-worktree-fields:not([hidden])", { timeout: 3000 });
+  check("reopening an Issue keeps worktree mode and the selected base branch",
+    await pageLog.locator(".issue-worktree-toggle input").isChecked() &&
+      await pageLog.locator(".issue-worktree-fields select").inputValue() === "refs/remotes/origin/main");
+  await pageLog.locator("#issue-close").click();
 
   // PR タブ → リポジトリのPR一覧 → 本文とコミット差分共通デザインのファイル差分
   await pageLog.locator("#exp-git-prs-tab").click();
@@ -388,11 +489,31 @@ if (logShown) {
       && panelWtText.includes("feature/old")
       && panelWtText.includes("/repo/.worktree/feature-old")
       && await pageLog.locator("#exp-git-worktrees .wt-row").first().locator(".wt-del").count() === 0
-      && await pageLog.locator("#exp-git-worktrees .wt-issue-open").count() === 2,
+      && await pageLog.locator("#exp-git-worktrees .wt-issue-open").count() === 2
+      && await pageLog.locator("#exp-git-worktrees .wt-session-open").count() === 2,
     `call=${JSON.stringify(panelListCall)} text="${panelWtText}"`);
 
-  // 作成済み worktree のブランチを、Worktree タブから後で open Issue に紐付ける
+  // 各行の Issues の右隣から、その worktree を cwd にした通常セッションを開く
   const featureWt = pageLog.locator("#exp-git-worktrees .wt-row").nth(1);
+  const worktreeActions = await featureWt.locator(":scope > .wt-actions > button").evaluateAll((buttons) =>
+    buttons.map((button) => button.className));
+  check("worktree row puts the new-session action to the right of Issues",
+    worktreeActions[0] === "wt-issue-open" && worktreeActions[1] === "wt-session-open",
+    `actions=${JSON.stringify(worktreeActions)}`);
+  const spawnBeforeExistingWorktree = await pageLog.evaluate(() => window.__ptySpawns.length);
+  await featureWt.locator(".wt-session-open").click();
+  await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeExistingWorktree);
+  const existingWorktreeSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
+  const existingWorktreeSessionName =
+    ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim();
+  check("worktree new-session action opens a default shell in that worktree",
+    existingWorktreeSpawn?.shell === null
+      && existingWorktreeSpawn?.cwd === "/repo/.worktree/feature-old"
+      && existingWorktreeSpawn?.args === null
+      && existingWorktreeSessionName === "feature/old",
+    `spawn=${JSON.stringify(existingWorktreeSpawn)} name=${existingWorktreeSessionName}`);
+
+  // 作成済み worktree のブランチを、Worktree タブから後で open Issue に紐付ける
   const issueListCallsBeforeLink = await pageLog.evaluate(() => (window.__issueListCalls ?? []).length);
   await featureWt.locator(".wt-issue-open").click();
   await featureWt.locator(".wt-issue-link select").waitFor({ state: "visible" });

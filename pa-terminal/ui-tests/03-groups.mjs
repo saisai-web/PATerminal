@@ -17,7 +17,7 @@ await page.fill("#ws-new-group", "work");
 await page.locator("#ws-new-shells button").first().click();
 await page.waitForTimeout(400);
 const groupName = await page.locator(".ws-group-name").first().textContent();
-const groupCount = await page.locator(".ws-group-count").first().textContent();
+const groupCount = await page.locator(".ws-group .ws-group-count").first().textContent();
 const groupedItems = await page.locator(".ws-group-members .ws-item").count();
 check("session created with group header", groupName === "work", `group="${groupName}"`);
 check("group header shows member count", groupCount === "2", `count=${groupCount}`);
@@ -65,12 +65,16 @@ const activeAfterJump = await page.locator(".ws-item.is-active .ws-name").textCo
 check("collapsed group auto-expands when member activated", expandedAfter && activeAfterJump === "api",
   `visible=${expandedAfter} active="${activeAfterJump}"`);
 
-// --- 22b. + はグループ内で押すと同じグループの、表示中セッションの直後に作る ---
+// --- 22b. + の既定行は表示中セッションと同じグループの直後へ作る ---
+const beforePlusCreate = await page.locator(".ws-item").count();
 await page.click("#ws-new");
+check("+ flyout does not create before choosing its default action",
+  (await page.locator(".ws-item").count()) === beforePlusCreate);
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(400);
 const plusInGroupName = await page.locator(".ws-item.is-active .ws-name").textContent();
 const groupOrder = await page.locator(".ws-group-members .ws-item .ws-name").allTextContents();
-check("+ creates the session inside the active session's group",
+check("+ default action creates the session inside the active session's group",
   groupOrder.join(",") === `api,${plusInGroupName},web`,
   `order=${JSON.stringify(groupOrder)} new="${plusInGroupName}"`);
 const plusInGroupItem = page.locator(".ws-item", { hasText: plusInGroupName ?? "" });
@@ -158,6 +162,10 @@ await page.fill("#ws-new-name", "wrap-target");
 await page.fill("#ws-new-group", ""); // 新しい同階層の既定値を明示的に外してトップレベルへ作る
 await page.locator("#ws-new-shells button").first().click();
 await page.waitForTimeout(350);
+const rootRowsBeforeWrap = await page
+  .locator(".ws-whole-members > .ws-item, .ws-whole-members > .ws-group")
+  .evaluateAll((rows) => rows.map((row) => row.textContent ?? ""));
+const wrapTargetRow = rootRowsBeforeWrap.findIndex((row) => row.includes("wrap-target"));
 await page.locator(".ws-item", { hasText: "wrap-target" }).click({ button: "right" });
 await page.waitForTimeout(150);
 const sessionCtxLabels = await page.locator("#ctx-menu button").allTextContents();
@@ -179,6 +187,12 @@ const autoGroupName = await autoHead.locator(".ws-group-name").textContent();
 check("new parent group contains the clicked session and is auto-numbered",
   (await autoHead.count()) === 1 && /^Group \d+$/.test(autoGroupName ?? ""),
   `name="${autoGroupName}"`);
+const rootRowsAfterWrap = await page
+  .locator(".ws-whole-members > .ws-item, .ws-whole-members > .ws-group")
+  .evaluateAll((rows) => rows.map((row) => row.textContent ?? ""));
+check("new parent group keeps the clicked session's row position",
+  rootRowsAfterWrap.findIndex((row) => row.includes(autoGroupName ?? "")) === wrapTargetRow,
+  `before=${JSON.stringify(rootRowsBeforeWrap)} after=${JSON.stringify(rootRowsAfterWrap)}`);
 await autoHead.click({ button: "right" });
 await page.waitForTimeout(150);
 await page.locator("#ctx-menu button", { hasText: "名前を変更" }).click();
@@ -193,12 +207,21 @@ const freshHead = freshName.locator("..");
 const freshId = await freshHead.getAttribute("data-group-id");
 check("group rename from the header menu takes effect", (await freshName.count()) === 1);
 
-// グループ右クリックから、そのグループ直下へセッションを作る
-await freshHead.click({ button: "right" });
+// 表示中セッションとは別の見出しを操作しても、挿入位置は見出し直下になる。
+await page.locator(".ws-item", { hasText: "Session 1" }).click();
+await page.waitForTimeout(100);
+// 見出し右端の作成欄から、そのグループ直下へセッションを作る。
+// 表示中セッションの選択とは独立し、左クリックだけで作成先を指定できる。
+const freshCreate = freshHead.locator(".ws-group-create");
+check("group header exposes a clickable create control",
+  await freshCreate.isVisible(),
+  `count=${await freshCreate.count()}`);
+await freshCreate.click();
 await page.waitForTimeout(150);
 const groupCtxLabels = await page.locator("#ctx-menu button").allTextContents();
-check("group context also offers create-session and create-group",
-  groupCtxLabels.includes("セッションを作成") && groupCtxLabels.includes("グループを作成"),
+check("clickable group create control offers create-session and create-group",
+  groupCtxLabels.some((label) => label.startsWith("セッションを作成")) &&
+    groupCtxLabels.includes("グループを作成"),
   `labels=${JSON.stringify(groupCtxLabels)}`);
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
 await page.waitForTimeout(400);
@@ -209,11 +232,14 @@ const freshSessionName = (await page.locator(".ws-item.is-active .ws-name").text
 check("group create-session makes an auto-named session in that group without a form",
   !(await page.locator("#ws-new-form").isVisible()) &&
     /^Session \d+$/.test(freshSessionName) &&
-    freshMemberNames.includes(freshSessionName),
+    freshMemberNames[0] === freshSessionName,
   `name="${freshSessionName}" members=${JSON.stringify(freshMemberNames)}`);
 
-// 同じメニューのグループ作成は子階層になる
-await freshHead.click({ button: "right" });
+// 同じ作成欄のグループ作成は子階層になる
+// セッション作成で active が対象グループへ移った後も、別階層へ戻して見出し指定を検証する。
+await page.locator(".ws-item", { hasText: "Session 1" }).click();
+await page.waitForTimeout(100);
+await freshCreate.click();
 await page.waitForTimeout(100);
 await page.locator("#ctx-menu button", { hasText: "グループを作成" }).click();
 await page.waitForTimeout(250);
@@ -221,8 +247,12 @@ const childHead = page.locator(
   `.ws-group[data-group-id="${freshId}"] + .ws-group-members > .ws-group`,
 );
 const childId = await childHead.getAttribute("data-group-id");
+const firstFreshChildGroupId = await page
+  .locator(`.ws-group[data-group-id="${freshId}"] + .ws-group-members`)
+  .evaluate((members) => members.firstElementChild?.getAttribute("data-group-id"));
 check("group context creates a nested child group silently",
-  !(await page.locator("#ws-new-form").isVisible()) && !!childId, `childId=${childId}`);
+  !(await page.locator("#ws-new-form").isVisible()) && !!childId && firstFreshChildGroupId === childId,
+  `childId=${childId} first=${firstFreshChildGroupId}`);
 // 保存内容を名前で検証するので子グループもリネームしておく
 await childHead.click({ button: "right" });
 await page.waitForTimeout(150);
@@ -273,19 +303,70 @@ check("close-all removes nested groups and their sessions",
     !namesAfterCloseAll.includes(childSessionName),
   `left=${JSON.stringify(namesAfterCloseAll)}`);
 
-// --- 23a3. サイドバー余白の右クリックにも両方の新規作成を表示 ---
-await page.locator(".ws-item", { hasText: "Session 1" }).locator(".ws-name").click();
+// --- 23a3. Whole とサイドバー余白の右クリックにも両方の新規作成を表示 ---
+// Whole の作成先は active セッションの所属に引かれず、常にトップレベルになる。
+await page.locator(".ws-item", { hasText: "api" }).locator(".ws-name").click();
 await page.waitForTimeout(200);
+const wholeGroup = page.locator(".ws-whole-group");
+const wholeCreate = wholeGroup.locator(".ws-whole-head .ws-group-create");
+check("top-level entries are enclosed by Whole",
+  await wholeGroup.isVisible() && (await wholeCreate.count()) === 1);
+await wholeCreate.click();
+await page.waitForTimeout(100);
+const defaultCtxLabels = await page.locator("#ctx-menu button").allTextContents();
+check("Whole exposes both creation actions by left click",
+  defaultCtxLabels.some((label) => label.startsWith("セッションを作成")) &&
+    defaultCtxLabels.includes("グループを作成"));
+const itemsBeforeDefaultSession = await page.locator(".ws-item").count();
+await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
+await page.waitForTimeout(400);
+const defaultSessionName = (await page.locator(".ws-item.is-active .ws-name").textContent()) ?? "";
+const defaultRootNames = await page
+  .locator(".ws-whole-members > .ws-item .ws-name")
+  .allTextContents();
+check("Whole creates a session at the top of the root level",
+  /^Session \d+$/.test(defaultSessionName) &&
+    defaultRootNames[0] === defaultSessionName &&
+    (await page.locator(".ws-item").count()) === itemsBeforeDefaultSession + 1,
+  `name=${defaultSessionName} root=${JSON.stringify(defaultRootNames)}`);
+const defaultSessionItem = page.locator(".ws-item", { hasText: defaultSessionName });
+await defaultSessionItem.hover();
+await defaultSessionItem.locator(".ws-close").click();
+await page.waitForTimeout(300);
+
+// グループ作成も同じく、Whole から切れば active のグループではなくトップレベル先頭へ置く。
+await page.locator(".ws-item", { hasText: "api" }).locator(".ws-name").click();
+await page.waitForTimeout(100);
+await wholeCreate.click();
+await page.waitForTimeout(100);
+await page.locator("#ctx-menu button", { hasText: "グループを作成" }).click();
+await page.waitForTimeout(250);
+const wholeCreatedGroup = page.locator(".ws-whole-members > .ws-group").first();
+const wholeCreatedGroupName = await wholeCreatedGroup.locator(".ws-group-name").textContent();
+const wholeCreatedGroupMembers = await wholeCreatedGroup
+  .locator("xpath=following-sibling::div[1]")
+  .locator("> .ws-item")
+  .count();
+check("Whole creates a group at the top of the root level",
+  /^Group \d+$/.test(wholeCreatedGroupName ?? "") &&
+    wholeCreatedGroupMembers === 0,
+  `name="${wholeCreatedGroupName}" members=${wholeCreatedGroupMembers}`);
+await wholeCreatedGroup.click({ button: "right" });
+await page.waitForTimeout(100);
+await page.locator("#ctx-menu button", { hasText: "グループを解散" }).click();
+await page.waitForTimeout(200);
+
 const listBox = await page.locator("#ws-list").boundingBox();
 await page.mouse.click(listBox.x + listBox.width / 2, listBox.y + listBox.height - 6, { button: "right" });
 await page.waitForTimeout(150);
 check("blank sidebar right-click offers create-group", await page.locator("#ctx-menu").isVisible());
 const blankCtxLabels = await page.locator("#ctx-menu button").allTextContents();
 check("blank sidebar offers both creation actions",
-  blankCtxLabels.includes("セッションを作成") && blankCtxLabels.includes("グループを作成"));
+  blankCtxLabels.some((label) => label.startsWith("セッションを作成")) &&
+    blankCtxLabels.includes("グループを作成"));
 await page.locator("#ctx-menu button", { hasText: "グループを作成" }).click();
 await page.waitForTimeout(250);
-const rootNewHead = page.locator("#ws-list > .ws-group").last();
+const rootNewHead = page.locator(".ws-whole-members > .ws-group").last();
 const rootNewLabel = await rootNewHead.locator(".ws-group-name").textContent();
 const rootNewMembers = await rootNewHead
   .locator("xpath=following-sibling::div[1]")
@@ -301,13 +382,15 @@ await page.locator("#ctx-menu button", { hasText: "グループを解散" }).cli
 await page.waitForTimeout(200);
 
 // 余白メニューのセッション作成もフォームを出さず、表示中セッションの直後へ即時作成する
+await page.locator(".ws-item", { hasText: "Session 1" }).locator(".ws-name").click();
+await page.waitForTimeout(100);
 const itemsBeforeBlankSession = await page.locator(".ws-item").count();
 await page.mouse.click(listBox.x + listBox.width / 2, listBox.y + listBox.height - 6, { button: "right" });
 await page.waitForTimeout(150);
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
 await page.waitForTimeout(400);
 const blankSessionName = (await page.locator(".ws-item.is-active .ws-name").textContent()) ?? "";
-const rootItemNames = await page.locator("#ws-list > .ws-item .ws-name").allTextContents();
+const rootItemNames = await page.locator(".ws-whole-members > .ws-item .ws-name").allTextContents();
 const blankSessionIndex = rootItemNames.indexOf(blankSessionName);
 const session1Index = rootItemNames.indexOf("Session 1");
 check("blank-area create-session makes an auto-named sibling without a form",

@@ -2,7 +2,7 @@
 #sidebar {
   position: relative; /* #sidebar-resize の基準 */
   /* 既定幅は sidebar.ts の SIDEBAR_DEFAULT_W と同じ値にする（ダブルクリックで戻す先） */
-  width: 280px;
+  width: 320px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -110,6 +110,75 @@
   border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px;
 }
 
+#ws-status-filter {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px 0;
+}
+#ws-status-filter button {
+  min-width: 0;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+#ws-status-filter button:hover,
+#ws-status-filter button:focus-visible {
+  color: var(--text);
+  border-color: var(--dim);
+  outline: none;
+}
+#ws-status-filter button[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--active-bg);
+  border-color: var(--accent);
+}
+#ws-status-filter button[data-status-filter="running"][aria-pressed="true"] { color: var(--accent); }
+#ws-status-filter button[data-status-filter="waiting"][aria-pressed="true"],
+#ws-status-filter button[data-status-filter="unseen"][aria-pressed="true"] {
+  color: var(--alarm);
+  border-color: var(--alarm);
+}
+#ws-status-filter button[data-status-filter="archived"] {
+  position: relative;
+  width: 26px;
+  height: 21px;
+  padding: 2px;
+  display: grid;
+  place-items: center;
+}
+#ws-status-filter button[data-status-filter="archived"] svg {
+  width: 15px;
+  height: 15px;
+}
+#ws-archive-badge {
+  position: absolute;
+  inset-inline-end: -4px;
+  top: -6px;
+  box-sizing: border-box;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+  background: var(--alarm);
+  border: 1px solid var(--chrome);
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+#ws-archive-badge[hidden] { display: none; }
+
 #ws-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
 
 /* キーボードでのセッション移動の案内。一覧と足元のボタンの間に小さく出すだけ */
@@ -154,6 +223,58 @@
 #license-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* --- セッショングループ --- */
+.ws-whole-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+}
+.ws-whole-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 4px 5px;
+  color: var(--dim);
+  user-select: none;
+}
+.ws-whole-name {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ws-whole-members { min-height: 8px; }
+/* Whole 行の右側コントロール群（件数・+）の一番左に置く「最近操作した順」トグル。
+   状態フィルタと同系のピル。margin-left: auto はこのトグルが受け持つので、
+   Whole 行では .ws-group-count の auto を外す（auto が2つあると余白が分割されて
+   トグルと件数の間が開く） */
+.ws-recent-sort {
+  flex: none;
+  margin-left: auto;
+  min-width: 0;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ws-recent-sort:hover,
+.ws-recent-sort:focus-visible {
+  color: var(--text);
+  border-color: var(--dim);
+  outline: none;
+}
+.ws-recent-sort[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--active-bg);
+  border-color: var(--accent);
+}
+.ws-whole-head .ws-group-count { margin-left: 0; }
 .ws-group {
   display: flex;
   align-items: center;
@@ -174,6 +295,27 @@
   min-width: 0;
 }
 .ws-group-count { margin-left: auto; flex: none; }
+.ws-group-create {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  line-height: 1;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ws-group-create:hover,
+.ws-group-create:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  outline: none;
+}
 .ws-group-members { margin-left: 14px; }
 
 /* --- インライン編集（セッション名 / ペイン名 / グループ名） --- */
@@ -211,7 +353,7 @@
 #ctx-menu .ctx-sep { height: 1px; background: var(--line); margin: 2px 0; }
 /* セッション複製の数量ステッパー（− N + ）。複製ボタンのすぐ下に置く */
 #ctx-menu .ctx-count { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
-#ctx-menu .ctx-count-label { flex: 1; font-size: 12px; color: var(--muted); }
+#ctx-menu .ctx-count-label { flex: 1; font-size: 12px; color: var(--dim); }
 #ctx-menu .ctx-count-btn { flex: 0 0 auto; min-width: 26px; padding: 2px 6px; text-align: center; }
 #ctx-menu .ctx-count-btn:disabled { opacity: 0.4; cursor: default; border-color: var(--line); }
 #ctx-menu .ctx-count-value {
@@ -314,6 +456,72 @@
 #ctx-menu .ctx-color-option[data-ws-color="blue"] { --ws-color-value: var(--ws-color-blue); }
 .ws-item[data-ws-color="purple"],
 #ctx-menu .ctx-color-option[data-ws-color="purple"] { --ws-color-value: var(--ws-color-purple); }
+
+/* --- 新規セッションの場所フライアウト（ホーム / フォルダ選択 / 最近 / お気に入り） ---
+   ctx-menu の「セッションを作成」・作成ボタンへカーソルを当てると横に出る。
+   ctx-menu 内では JS が position:absolute、単独ボタンでは fixed に切り替える */
+#loc-flyout {
+  z-index: 101; /* ctx-menu(100) のサブメニューとして手前に出す */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 8px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+#loc-flyout .loc-head {
+  padding: 6px 4px 2px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 11px;
+}
+#loc-flyout button.loc-row {
+  font: inherit; color: var(--text); background: transparent; text-align: left;
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; cursor: pointer;
+  display: flex; align-items: baseline; gap: 8px; min-width: 0;
+}
+#loc-flyout button.loc-row:hover,
+#loc-flyout button.loc-row:focus-visible { border-color: var(--accent); }
+#loc-flyout .loc-name {
+  flex: 0 1 auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 右側の親パス文脈。名前より先に縮み、常に1行 + 末尾 … （exp-row-path と同じ流儀） */
+#loc-flyout .loc-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  direction: ltr; /* RTL でもパスは LTR のまま */
+  text-align: right;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* サブメニュー持ちの ctx-menu 項目は右端に ▸ を出す */
+#ctx-menu button.ctx-has-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+#ctx-menu .ctx-sub-arrow { flex: 0 0 auto; color: var(--dim); }
+
+/* 詳細フォームの「場所」欄。既定は「表示中ペインと同じ場所」、選ぶとパスを表示 */
+#ws-new-loc-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#ws-new-loc-label { flex: 0 0 auto; color: var(--dim); font-size: 12px; }
+#ws-new-loc {
+  font: inherit; color: var(--text); background: transparent; text-align: left;
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; cursor: pointer;
+  flex: 1 1 auto; min-width: 0;
+  direction: ltr;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#ws-new-loc:hover,
+#ws-new-loc:focus-visible { border-color: var(--accent); }
 /* 複数選択（Ctrl/Cmd+クリック・Shift+クリック）は左端のアクセントバーで示す。
    アクティブ表示の背景色は潰さない（選択の中でどれが表示中かを見分けられるように）。
    色は必ず CSS 変数経由 */
@@ -453,12 +661,19 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-sizing: border-box;
   width: 240px;
+  min-width: 180px;
+  min-height: 112px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
   padding: 10px;
   background: var(--chrome);
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 24px var(--shadow);
+  resize: both;
+  overflow: hidden;
 }
 .ws-note-popover-name {
   color: var(--dim);
@@ -470,10 +685,11 @@
   white-space: nowrap;
 }
 .ws-note-popover-input {
+  flex: 1 1 4.8em;
   box-sizing: border-box;
   width: 100%;
-  /* 120字上限（3〜4行）が内側スクロールにならない高さを確保する */
-  min-height: 4.8em;
+  /* 初期表示では120字上限（3〜4行）を見渡せ、カード縮小時だけ内側スクロールへ退避する */
+  min-height: 3em;
   resize: none;
   padding: 6px 8px;
   font: inherit;
@@ -541,6 +757,7 @@
 .ws-git-del { color: var(--diff-del-fg); white-space: nowrap; }
 
 .ws-pin,
+.ws-archive,
 .ws-close {
   flex: none;
   font: inherit; color: var(--dim); background: none; border: 0; cursor: pointer;
@@ -549,10 +766,21 @@
 .ws-pin {
   opacity: 0.9;
 }
+.ws-archive {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  opacity: 0.8;
+}
+.ws-archive svg { width: 16px; height: 16px; }
+.ws-archive[aria-pressed="true"] { color: var(--accent); }
 .ws-close {
   visibility: hidden;
 }
 .ws-item:hover .ws-close { visibility: visible; }
 .ws-pin:hover,
 .ws-pin:focus-visible,
+.ws-archive:hover,
+.ws-archive:focus-visible,
 .ws-close:hover { color: var(--text); opacity: 1; }

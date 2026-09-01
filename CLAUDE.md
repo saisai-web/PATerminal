@@ -1,58 +1,115 @@
-# Keyboard Input Loss Incident (Resolved 2026-08-01)
+# PATerminal Development Guide
 
-## Symptoms
+PATerminal is a multi-session terminal built with Tauri v2 and xterm.js. The application itself is in `pa-terminal/`.
+This document covers only regression prevention for fragile areas and Windows-specific handling.
 
-Fast typing of printable Latin characters could drop characters, for example turning `claude` into `claue`. Japanese IME input was unaffected. The problem occurred independently of application load or whether an agent process was running. During development of the fix, one intermediate implementation could also duplicate characters.
+## Regression Prevention
 
-## Confirmed root cause
+### Missing and Duplicate Keyboard Input Incident (Resolved 2026-08-01)
 
-Diagnostic logs showed that every printable `keydown` reached the WebView, while some characters never reached xterm.js `onData`. This isolated the primary loss to the interaction between macOS WKWebView keyboard event delivery and xterm.js input handling, rather than the PTY, Rust, IPC, or application workload.
+Fast typing could drop characters, turning `claude` into `claue`, and an intermediate fix
+caused each keystroke to produce two characters. The cause was not load or PTY writes, but
+the interaction between the WKWebView and xterm.js input paths.
 
-The relevant event behavior was:
+- WKWebView may omit `keypress` and set the `keydown` key code to 229 during fast rollover,
+  Shift-modified typing, or key repeat.
+- A textarea `input` event may also arrive before its corresponding `keydown`.
+- xterm takes printable input from `keypress`, ignores `input` after `keydown` via
+  `_keyDownSeen`, and also recovers key code 229 through textarea differences. Adding only a
+  custom input listener to this default path causes both the built-in fallback and the custom
+  listener to send the same character, duplicating input.
 
-1. During fast rollover typing, Shift-modified typing, or key repeat, WKWebView could omit `keypress` and report `keyCode === 229` on the corresponding `keydown`. Although 229 normally indicates IME processing, it also appeared for non-IME printable input in this case.
-2. WKWebView could deliver an asynchronous `input` event before the associated `keydown`.
-3. xterm.js normally collected printable input from `keypress`, suppressed some `input` handling after a `keydown` through `_keyDownSeen`, and used a textarea-difference fallback for key code 229. Combined with the WKWebView behavior, this could either lose a character or process it twice when an additional listener and xterm.js's fallback both ran.
+The input handling in `src/terminal/pane.ts` consists of the following three interdependent
+parts. Do not remove or change any one of them in isolation.
 
-## Required input implementation
+1. `attachCustomKeyEventHandler`: feeds printable keys from `keydown` directly into
+   `term.input()`. It prevents xterm from processing key code 229 and always suppresses
+   `keypress` to prevent duplicate input.
+2. The textarea `input` listener: recovers non-composing `insertText` input and clears the
+   textarea value.
+3. The xterm private API `_keyDownSeen` is kept at true to disable xterm's built-in input path.
 
-The workaround is implemented in `pa-terminal/src/terminal/pane.ts`. Its following three parts form one input path and must be reviewed and tested together:
+Leave IME input to composition handling. When upgrading xterm, re-examine `_keyDownSeen`,
+`_inputEvent`, and `_handleAnyTextareaChanges`. After touching the input path, test fast
+typing, repeated Shift presses, key repeat, and Japanese IME on actual macOS and Windows
+machines.
 
-1. `attachCustomKeyEventHandler` handles printable, non-composing keys with a key code other than 229 directly on `keydown` by calling `term.input()` and preventing the default behavior. It does not wait for `keypress`.
-2. For a printable `keydown` with key code 229, the handler returns `false` so xterm.js does not run its race-prone textarea-difference path. The browser's default behavior inserts the character into xterm.js's hidden textarea, and the textarea `input` listener forwards non-composing `insertText` data through `term.input()` before clearing the textarea. Printable `keypress` events are rejected to prevent duplicates. IME composition remains under the normal composition-event path.
-3. `_keyDownSeen` on xterm.js's private core is fixed to `true` with `Object.defineProperty`. This disables xterm.js's competing `input` fallback and makes the explicit textarea listener the only `insertText` path. This is a private API dependency; any xterm.js upgrade requires inspecting the current `_keyDownSeen`, input-event, and key-code-229 implementations before retaining or adapting the workaround.
+Do not fix missing or duplicate input by guesswork; inspect `src/terminal/diag.ts`. `key` is
+keydown, `data` is xterm onData, `sent` is PTY transmission, and `echo` is data returned from
+the PTY. An event prefixed with `ta:` came through the textarea input path. Identify the first
+layer where counts increase or decrease before making a change.
 
-Do not remove or independently alter one of these parts on the assumption that another part is sufficient.
+### Copy and Paste
 
-Keyboard data is also queued in `pane.ts` and sent after a zero-delay task boundary. Calling IPC synchronously from the key handler can compete with WKWebView's keyboard delivery. The queue preserves order and coalesces data before `pty_write`.
+Treat `clipboardShortcut()` and the textarea paste listener as a pair.
+Paste handling stops xterm but does not call `preventDefault`, allowing the WebView's paste
+event to reach xterm's built-in handling. Use `copyText()` only when there is a selection;
+Ctrl+C with no selection must remain SIGINT. macOS uses the WebView defaults for Cmd
+shortcuts, Windows supports Ctrl+C/V and Ctrl+Shift+C/V, and Linux supports only
+Ctrl+Shift+C/V. Also verify changes on actual machines.
 
-## Main-thread and workload safeguards
+### PTY and Performance
 
-The primary loss occurred inside the WebView input path, but the investigation also found work that could delay keyboard delivery:
+- Tauri commands must be `async fn`. Do not run synchronous commands on the main thread.
+- Coalesce PTY output on the Rust side, and retain output for hidden panes in Rust by using
+  `pty_set_visible`.
+- Keep SerializeAddon, large JSON, and megabyte-scale IPC away from keystroke timing.
+- Capture saved snapshots one pane at a time in idle slices, and preserve
+  `excludeModes: true` / `excludeAltBuffer: true`.
+- Do not add per-pane parallel invokes or periodic subprocesses. Serialize them or use batch
+  commands instead.
 
-- On macOS, Tauri event and Channel delivery consumed WebView main-thread time through JavaScript evaluation. `pa-terminal/src-tauri/src/pty/stream.rs` therefore coalesces visible PTY output, initially waiting 1 ms for follow-up data and using a 16 ms or 64 KiB window only while output continues. Hidden-pane output remains buffered in Rust, up to 2 MB, until the pane becomes visible.
-- Tauri commands on the input and session paths are asynchronous so command execution does not occupy the WebView main thread.
-- SerializeAddon snapshotting is synchronous and previously caused pauses of roughly 100 ms when all panes were serialized together. `pa-terminal/src/app/session.ts` now refreshes per-pane cached snapshots one pane at a time across `requestIdleCallback` slices. Do not restore synchronous all-pane serialization during typing.
+### Layout and Scrolling
 
-## Diagnostic procedure
+- The order is **show -> `layout()` -> `refit()` -> resize -> `pty_set_visible`**.
+- Always route `pty_resize` through `src/terminal/resize.ts`.
+- Do not fit degenerate sizes. The lower bounds are `MIN_FIT_COLS` / `MIN_FIT_ROWS`.
+- Apply padding to `.pane-body .xterm`, not `.pane-body`.
+- During dragging, call only `place()`, then refit once after the drag is finalized.
+- After fitting, `Pane.refit()` scrolls to the bottom and reapplies the position in the next
+  rAF to handle delayed WebKit reflow. Do not scatter this behavior across individual paths
+  for opening or closing Files/the sidebar or redisplaying sessions.
 
-The temporary diagnostic instrumentation remains in `pa-terminal/src/terminal/diag.ts`, with the corresponding `diag_save` command in `pa-terminal/src-tauri/src/system/session.rs`. While input is active, it appends a JSON line to `diag.log` in the application's configuration directory every five seconds.
+Run `ui-tests/31-resize.mjs` after changes, and verify `stty size` and bottom-scroll retention
+on actual machines.
 
-The input-related fields are:
+### Restoration and Process Termination
 
-- `key`: printable keys observed at `keydown`.
-- `data`: characters reaching xterm.js `onData`.
-- `sent`, `ok`, and `err`: characters submitted to, accepted by, or rejected by `pty_write`.
-- `echo`: characters returning from the PTY.
-- `events`: recent ordered markers, including `k:` for `keydown`, `d:` for `onData`, and `ta:` for recovery through the textarea `input` listener.
+- The scrollback in session.json is display history only. Do not carry TUI mode into a new
+  shell.
+- After restoration failure, spawn failure, or child-process termination, always attach an
+  interactive shell to every pane that remains on screen.
+- Retain input received during recovery through `writeChain`.
+- Do not leave orphaned PTYs when close, restart, and automatic recovery race.
+- Verify regressions with `ui-tests/36-terminal-recovery.mjs`.
 
-Locate the first counter or event stream that loses a character before changing the implementation. In this incident, complete `k:` events with missing `d:` events identified the WebView/xterm.js boundary and ruled out downstream layers.
+### Terminal Colors
 
-## Regression-prevention rules
+`pty_spawn` must always pass through `configure_terminal_color()`.
+Remove inherited `NO_COLOR` / `NODE_DISABLE_COLORS` / `FORCE_COLOR` / `CLICOLOR*`, and set
+`TERM=xterm-256color` and `COLORTERM=truecolor`. Do not duplicate this logic in each spawn
+path. For color issues, first check the environment variables of a new pane and
+`codex doctor --json`.
 
-1. After changing any part of the input path, test a macOS release build with fast typing, Shift-held uppercase typing, key repeat, and Japanese IME composition. Chromium-based Playwright tests do not reproduce WKWebView's event behavior.
-2. Evaluate input latency and responsiveness in a release build. `tauri dev` includes debug and development-server overhead and is not representative.
-3. Treat every new PTY-to-frontend data path on macOS as WebView main-thread work. Coalesce it in Rust and avoid sending hidden-pane traffic. Choosing an event instead of a Channel, or vice versa, does not by itself remove the cost.
-4. Keep Tauri commands on these paths asynchronous.
-5. Keep SerializeAddon work, large `JSON.stringify` operations, and large IPC payloads away from the typing path. Use cached state, debouncing, and idle slices.
-6. Before upgrading xterm.js, inspect its current keyboard and textarea input internals, especially `_keyDownSeen` and key-code-229 handling, then repeat the native release-build tests.
+## Windows Support
+
+### Environment and Shells
+
+- Obtain the home directory from `env::home_dir()`. `HOME` may be unset or use a path such as
+  `/c/Users/...`.
+- Use the shared completion logic in `env/path.rs` for the GUI launch PATH. Do not add search
+  locations in individual commands.
+- For PowerShell, use `-NoExit -EncodedCommand` to configure UTF-8 and inject the OSC 7 prompt.
+- For cmd.exe, use `/K chcp 65001>nul` to set the ConPTY code page to UTF-8.
+- Do not add bootstrap arguments when the caller explicitly provides non-empty arguments.
+- Do not change `[Console]::InputEncoding`; doing so breaks PSReadLine and node input.
+
+### CWD Tracking
+
+`pty/cwd.rs` reads PEB -> `RTL_USER_PROCESS_PARAMETERS` -> `CurrentDirectory`.
+When changing an internal offset, also update the immediately following `#[cfg(windows)]`
+compile-time assertion. cmd.exe and Git Bash use the PEB; PowerShell uses the OSC 7 prompt in
+`pty/shell.rs`. Escape each path segment in the OSC 7 path with `EscapeDataString`.
+
+Treat the CommandLine reading in `pty/agent.rs` as a pair with its PEB offsets and assertions.
+On actual Windows machines, verify CWD tracking in cmd.exe, PowerShell, and Git Bash.

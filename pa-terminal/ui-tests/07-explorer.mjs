@@ -3,7 +3,7 @@ const { page, check, MOD, editPanesAfter } = ctx;
 const treeRow = (path) => page.locator(`.exp-row[data-exp-path="${path}"]`);
 
 // ============================================================
-// エクスプローラーパネル（デフォルト表示・フォーカス中ペインの cwd に追従）
+// エクスプローラーパネル（右端アイコンで開き、フォーカス中ペインの cwd に追従）
 // ============================================================
 
 // --- 30. 起動時にフォーカス中ペインの cwd が一度だけ自動表示されている ---
@@ -98,7 +98,7 @@ await page.evaluate(() => {
 await page.click("#exp-root");
 await page.waitForTimeout(200);
 
-// --- 31. × で閉じてレイアウトが追従し、Files ボタンで開き直せる ---
+// --- 31. × で閉じてレイアウトが追従し、右端アイコンで開き直せる ---
 const gridOpenW = (await page.locator("#grid").boundingBox()).width;
 await page.click("#exp-close");
 await page.waitForTimeout(300);
@@ -107,17 +107,17 @@ check("× button closes explorer", await page.locator("#explorer").isHidden());
 check("pane layout follows new width", gridClosedW - gridOpenW > 200,
   `grid ${Math.round(gridOpenW)}→${Math.round(gridClosedW)}px`);
 
-// --- 31b. 閉じている間だけ右端に再オープンタブが出て、クリックで開き直せる ---
-check("reopen tab appears while closed", await page.locator("#exp-reopen").isVisible());
+// --- 31b. 閉じている間だけ右端に再オープンアイコンが出て、クリックで開き直せる ---
+check("reopen icon appears while closed", await page.locator("#exp-reopen").isVisible());
 await page.click("#exp-reopen");
 await page.waitForTimeout(300);
-check("reopen tab reopens explorer", await page.locator("#explorer").isVisible());
-check("reopen tab hidden while open", await page.locator("#exp-reopen").isHidden());
+check("reopen icon reopens explorer", await page.locator("#explorer").isVisible());
+check("reopen icon hidden while open", await page.locator("#exp-reopen").isHidden());
 await page.click("#exp-close");
 await page.waitForTimeout(200);
-await page.click("#explorer-toggle");
+await page.click("#exp-reopen");
 await page.waitForTimeout(300);
-check("Files button reopens explorer", await page.locator("#explorer").isVisible());
+check("right-side icon reopens explorer", await page.locator("#explorer").isVisible());
 const expPathReopen = await page.locator("#exp-path").textContent();
 check("reopen syncs to focused pane cwd", expPathReopen === "/home/user", `path="${expPathReopen}"`);
 
@@ -231,7 +231,25 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(100);
 check("Escape closes clean viewer immediately", await page.locator("#file-overlay").isHidden());
 
-// --- 36a3. 画像: 選択パスをターミナルへ入力 / エクスプローラー内でプレビュー ---
+// --- 36a3. 任意ファイル: 種別を制限せず、選択パスをターミナルへ入力 ---
+const filePathWriteBefore = await page.evaluate(() => window.__ptyWrites.length);
+await page.evaluate(() => {
+  window.__mockPickedFiles = ["/home/user/design brief.pdf", "/tmp/archive.unknown-extension"];
+});
+await page.click("#attach-file");
+await page.waitForTimeout(200);
+const filePathState = await page.evaluate((n) => ({
+  sent: window.__ptyWrites.slice(n).map((x) => x.data).join(""),
+  dialog: window.__dialogOpenCalls.at(-1),
+}), filePathWriteBefore);
+check("file picker accepts any extension and inserts quoted paths without running them",
+  filePathState.sent === "'/home/user/design brief.pdf' '/tmp/archive.unknown-extension' " &&
+    filePathState.dialog?.directory === false &&
+    filePathState.dialog?.multiple === true &&
+    !filePathState.dialog?.filters,
+  JSON.stringify(filePathState));
+
+// --- 36a4. 画像: 選択パスをターミナルへ入力 / エクスプローラー内でプレビュー ---
 const imageWriteBefore = await page.evaluate(() => window.__ptyWrites.length);
 await page.evaluate(() => {
   window.__mockPickedImages = ["/home/user/photo one.png", "/tmp/screenshot.jpg"];
@@ -848,7 +866,7 @@ await page.mouse.move(handle1.x + expBoxWide.width + 60, hy, { steps: 5 });
 await page.mouse.up();
 await page.waitForTimeout(300);
 check("push-in closes explorer", await page.locator("#explorer").isHidden());
-check("reopen tab visible after push-close", await page.locator("#exp-reopen").isVisible());
+check("reopen icon visible after push-close", await page.locator("#exp-reopen").isVisible());
 await page.click("#exp-reopen");
 await page.waitForTimeout(300);
 await page.dblclick("#exp-resize");
@@ -915,13 +933,14 @@ await page.waitForTimeout(300);
 await page.dblclick("#sidebar-resize");
 await page.waitForTimeout(300);
 const sbBoxReset = await page.locator("#sidebar").boundingBox();
-check("dblclick resets sidebar width to default", Math.abs(sbBoxReset.width - 280) < 2,
+check("dblclick resets sidebar width to default", Math.abs(sbBoxReset.width - 320) < 2,
   `width=${Math.round(sbBoxReset.width)}px`);
 
 // --- 44. 新規セッションは表示中ペインのディレクトリで開く ---
 await page.evaluate(() => { window.__mockPtyCwd = "/home/user/proj"; });
 const cwdSpawnBefore = await page.evaluate(() => window.__ptySpawns.length);
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(400);
 const cwdSpawns = await page.evaluate((n) => window.__ptySpawns.slice(n), cwdSpawnBefore);
 check("new session inherits the focused pane's directory",

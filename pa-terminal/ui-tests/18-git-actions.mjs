@@ -536,21 +536,27 @@ if (gitOpsOpen) {
       calls: window.__sidebarScrollState?.calls ?? [],
     };
   });
-  const groupedWorktreeVisible = await pageGitOps.evaluate((branch) => {
+  const groupedWorktreeView = await pageGitOps.evaluate((branch) => {
     const list = document.querySelector("#ws-list");
     const item = [...document.querySelectorAll(".ws-item")].find(
       (el) => el.querySelector(".ws-name")?.textContent === branch,
     );
-    if (!(list instanceof HTMLElement) || !(item instanceof HTMLElement)) return false;
+    if (!(list instanceof HTMLElement) || !(item instanceof HTMLElement)) return null;
     const listRect = list.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
-    return itemRect.top >= listRect.top && itemRect.bottom <= listRect.bottom;
+    return {
+      visible: itemRect.top >= listRect.top && itemRect.bottom <= listRect.bottom,
+      list: { top: listRect.top, bottom: listRect.bottom },
+      item: { top: itemRect.top, bottom: itemRect.bottom },
+      scrollTop: list.scrollTop,
+      scrollHeight: list.scrollHeight,
+    };
   }, "feature/strip-worktree");
   check("grouped worktree creation scrolls the active selected session into view",
     sidebarAfterGroupedWorktree.before > 0
       && sidebarAfterGroupedWorktree.calls.includes("feature/strip-worktree")
-      && groupedWorktreeVisible,
-    `sidebar=${JSON.stringify(sidebarAfterGroupedWorktree)}`);
+      && groupedWorktreeView?.visible,
+    `sidebar=${JSON.stringify(sidebarAfterGroupedWorktree)} view=${JSON.stringify(groupedWorktreeView)}`);
 
   // リポジトリ外モード: ラベル・ヒント・プレビューが切り替わり、location が渡る
   await pageGitOps.locator("#git-worktree").click();

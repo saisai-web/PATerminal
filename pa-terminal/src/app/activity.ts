@@ -19,6 +19,14 @@ import type { ActivityState, Workspace } from "../workspace/types";
 
 const wsList = document.querySelector<HTMLDivElement>("#ws-list")!;
 
+const activityWatchers = new Set<(workspace: Workspace) => void>();
+
+/** 状態で一覧を絞る機能など、activity の表示上の派生状態だけを追従させる逆向きフック。 */
+export function onWorkspaceActivityChange(watcher: (workspace: Workspace) => void): () => void {
+  activityWatchers.add(watcher);
+  return () => activityWatchers.delete(watcher);
+}
+
 /** 左サイドバーに常設する稼働状態。PTY が静止したら基本的に完了として扱うが、
     静止した画面が承認ダイアログ等（Rust の pty:act の waiting）なら入力待ちにする。 */
 export function wsActivityState(
@@ -86,18 +94,21 @@ function scheduleIdleNotification(ws: Workspace): void {
     inline-edit ガード・DnD と衝突させないため。全再構築時は buildWsItem が再導出する） */
 export function updateWsActivity(ws: Workspace) {
   const item = wsList.querySelector<HTMLDivElement>(`.ws-item[data-ws-id="${ws.id}"]`);
-  if (!item) return; // 検索絞り込みで非表示等。次の renderSidebar が拾う
   const busy = [...ws.panes.values()].some((p) => p.busy);
-  item.classList.toggle("is-busy", busy);
-  item.classList.toggle("is-wait", !busy && [...ws.panes.values()].some((p) => p.waiting));
-  item.classList.toggle("is-attn", Boolean(ws.attention));
-  const status = item.querySelector<HTMLElement>(".ws-status");
-  if (status) {
-    const activity = wsActivityState(ws, busy);
-    status.dataset.status = activity;
-    status.textContent = wsActivityText(activity);
-    status.hidden = false;
+  // 検索・状態フィルターで非表示なら DOM 更新は不要。watcher が必要に応じて全体を再描画する。
+  if (item) {
+    item.classList.toggle("is-busy", busy);
+    item.classList.toggle("is-wait", !busy && [...ws.panes.values()].some((p) => p.waiting));
+    item.classList.toggle("is-attn", Boolean(ws.attention));
+    const status = item.querySelector<HTMLElement>(".ws-status");
+    if (status) {
+      const activity = wsActivityState(ws, busy);
+      status.dataset.status = activity;
+      status.textContent = wsActivityText(activity);
+      status.hidden = false;
+    }
   }
+  for (const watcher of activityWatchers) watcher(ws);
 }
 
 /** 「ユーザーが今それを見ていない」= 通知・注意ドットに値する状況か */

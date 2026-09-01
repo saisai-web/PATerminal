@@ -3,7 +3,8 @@
 //
 // - 作成先は「リポジトリ外」（既定・絶対パス / ~ / .. を許可・.gitignore は触らない）と
 //   「リポジトリ配下」（ルートの .gitignore へ自動追記）の2モード。
-//   最後に使ったモードとパスは session.json の settings.worktree に保存する
+//   最後に使ったモードとパス、Issue 実行で選んだベースブランチは
+//   session.json の settings.worktree に保存する
 // - 一覧と削除は同じ描画関数を両方の置き場所で共有する。削除は「×→行内で確認→通常削除、
 //   失敗したときだけ強制削除」の2段階（window.confirm は WKWebView で使わない方針）
 // - ローカルブランチを持つ行は、open Issue をその場で選んで linked branch 化できる。
@@ -33,6 +34,17 @@ export type WorktreeEntry = {
 };
 export type WorktreeList = { entries: WorktreeEntry[] };
 
+type WorktreeListDeps = {
+  /** 一覧で選んだ worktree を通常シェルの新規セッションで開く */
+  openSession: (args: { name: string; cwd: string }) => void;
+};
+
+let listDeps: WorktreeListDeps = { openSession: () => {} };
+
+export function initWorktreeList(deps: WorktreeListDeps): void {
+  listDeps = deps;
+}
+
 /** Rust の worktree_dir_name と同じ規則で、作成先のプレビュー名を作る。 */
 export function worktreeDirName(branch: string): string {
   let out = "";
@@ -60,6 +72,8 @@ export type WorktreePrefs = {
   insideDir: string;
   /** リポジトリ外モードの格納先（絶対パス / ~ / ..） */
   outsideDir: string;
+  /** Issue 実行で最後にユーザーが選んだベースブランチの完全な ref */
+  issueBaseRef?: string;
 };
 
 const DEFAULT_PREFS: WorktreePrefs = {
@@ -89,6 +103,7 @@ export function setWorktreePrefs(value: unknown): void {
     location: saved.location === "inside" ? "inside" : "outside",
     insideDir: dir(saved.insideDir, DEFAULT_PREFS.insideDir),
     outsideDir: dir(saved.outsideDir, DEFAULT_PREFS.outsideDir),
+    issueBaseRef: dir(saved.issueBaseRef, "") || undefined,
   };
 }
 
@@ -98,7 +113,8 @@ export function updateWorktreePrefs(patch: Partial<WorktreePrefs>): void {
   if (
     next.location === prefs.location &&
     next.insideDir === prefs.insideDir &&
-    next.outsideDir === prefs.outsideDir
+    next.outsideDir === prefs.outsideDir &&
+    next.issueBaseRef === prefs.issueBaseRef
   ) {
     return;
   }
@@ -141,6 +157,7 @@ export function worktreePreviewPath(
 /** どのコンテナが今どの root を描いているか。再取得の取り違えを防ぐ */
 const listRoots = new WeakMap<HTMLElement, string | null>();
 const listTokens = new WeakMap<HTMLElement, number>();
+const listSessionActions = new WeakMap<HTMLElement, boolean>();
 
 /**
  * 一括削除の失敗を、削除後の再描画をまたいで引き継ぐ。描き直した一覧で失敗した行だけを
@@ -164,6 +181,20 @@ function addTag(row: HTMLElement, text: string, kind?: "warn"): void {
 
 function issueOptionLabel(issue: IssueSummary): string {
   return `#${issue.number} ${issue.title}`;
+}
+
+function addSessionAction(entry: WorktreeEntry, actions: HTMLDivElement): void {
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "wt-session-open";
+  open.textContent = t("issue.runSession");
+  open.title = t("issue.runSession");
+  // bare リポジトリと欠損登録には、シェルを開始できる作業ディレクトリがない。
+  open.disabled = entry.bare || entry.missing;
+  open.onclick = () => {
+    listDeps.openSession({ name: shortLabel(entry), cwd: entry.path });
+  };
+  actions.append(open);
 }
 
 /**
@@ -285,8 +316,10 @@ function messageRow(container: HTMLElement, text: string, isError = false): void
 export async function renderWorktreeList(
   container: HTMLElement,
   root: string | null,
+  options?: { showSessionAction?: boolean },
 ): Promise<void> {
   listRoots.set(container, root);
+  if (options) listSessionActions.set(container, options.showSessionAction === true);
   const token = (listTokens.get(container) ?? 0) + 1;
   listTokens.set(container, token);
   if (!root) {
@@ -318,7 +351,14 @@ export async function renderWorktreeList(
   container.append(bar.el);
   const failed = new Set(failures.map((f) => f.path));
   for (const entry of entries) {
-    container.append(buildWorktreeRow(container, root, entry, bar.onSelectionChange, failed.has(entry.path)));
+    container.append(buildWorktreeRow(
+      container,
+      root,
+      entry,
+      bar.onSelectionChange,
+      failed.has(entry.path),
+      listSessionActions.get(container) === true,
+    ));
   }
   bar.refresh(failures);
   const hint = document.createElement("div");
@@ -463,6 +503,7 @@ function buildWorktreeRow(
   entry: WorktreeEntry,
   onSelectionChange: () => void,
   preselected: boolean,
+  showSessionAction: boolean,
 ): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "wt-row";
@@ -491,6 +532,10 @@ function buildWorktreeRow(
   // detached / bare は linked branch にできないので操作自体を出さない。
   if (entry.branch && !entry.detached && !entry.bare) {
     addIssueLinkAction(row, root, entry, actions);
+  }
+  if (showSessionAction) {
+    // 右下の Worktree タブでは、Issue の右隣から通常セッションを直接開ける。
+    addSessionAction(entry, actions);
   }
 
   // メインと現在の worktree は消せない（Rust 側でも拒否する）

@@ -409,6 +409,7 @@ window.addEventListener(
   (e) => {
     if (!prOverlay.hidden && e.key === "Escape") {
       e.stopPropagation();
+      e.preventDefault();
       closePrOverlay();
     }
   },

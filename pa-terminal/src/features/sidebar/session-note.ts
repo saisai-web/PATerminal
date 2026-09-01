@@ -10,12 +10,15 @@ let notePopoverEl: HTMLDivElement | null = null;
 let notePopoverOwner: HTMLButtonElement | null = null;
 let notePopoverCommit: (() => void) | null = null;
 let notePopoverDiscard: (() => void) | null = null;
+let notePopoverResizeObserver: ResizeObserver | null = null;
 
 /** discard=true は Escape（編集を取り消して閉じる）。それ以外の閉じ方は確定する */
 function closeNotePopover(discard = false) {
   if (!notePopoverEl) return;
   const commit = notePopoverCommit;
   const restore = notePopoverDiscard;
+  notePopoverResizeObserver?.disconnect();
+  notePopoverResizeObserver = null;
   notePopoverEl.remove();
   notePopoverEl = null;
   notePopoverOwner = null;
@@ -151,11 +154,23 @@ export function createSessionNoteField(
     notePopoverOwner = display;
     notePopoverCommit = () => save(ta.value);
     notePopoverDiscard = () => setDisplay(committed);
-    // 欄の直下に、欄と同じ幅感で開く（狭いサイドバーでは最低幅を確保）
+    // 欄の直下に、欄と同じ幅感で開く（開いた後は右下からカード全体をリサイズできる）
     const rect = field.getBoundingClientRect();
     pop.style.width = `${Math.min(320, Math.max(240, Math.round(rect.width)))}px`;
     pop.style.left = `${Math.max(0, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8))}px`;
     pop.style.top = `${Math.max(0, Math.min(rect.bottom + 4, window.innerHeight - pop.offsetHeight - 8))}px`;
+    // 下端・右端まで拡大したらカードを反対側へ逃がし、リサイズハンドルと内容を画面内に保つ。
+    // CSS の viewport 上限と組み合わせることで、どの位置のセッションから開いても拡大できる。
+    const keepInViewport = () => {
+      const bounds = pop.getBoundingClientRect();
+      const gap = 8;
+      const nextLeft = Math.max(gap, Math.min(bounds.left, window.innerWidth - bounds.width - gap));
+      const nextTop = Math.max(gap, Math.min(bounds.top, window.innerHeight - bounds.height - gap));
+      if (Math.abs(nextLeft - bounds.left) >= 0.5) pop.style.left = `${Math.round(nextLeft)}px`;
+      if (Math.abs(nextTop - bounds.top) >= 0.5) pop.style.top = `${Math.round(nextTop)}px`;
+    };
+    notePopoverResizeObserver = new ResizeObserver(keepInViewport);
+    notePopoverResizeObserver.observe(pop);
     // ロック中に自動フォーカスすると閲覧のつもりでも購入モーダルが開いてしまう
     if (!isLocked()) {
       ta.focus();

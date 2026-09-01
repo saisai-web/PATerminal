@@ -89,19 +89,21 @@
 }
 #exp-actions button:hover { border-color: var(--accent); }
 
-/* エクスプローラーを閉じている間だけ右端に出る再オープンタブ */
+/* エクスプローラーを閉じている間だけ右端に出る再オープンアイコン */
 #exp-reopen {
   flex: none;
-  width: 22px;
+  width: 30px;
   font: inherit;
   color: var(--dim);
   background: var(--chrome);
   border: 0;
   border-left: 1px solid var(--line);
   cursor: pointer;
-  writing-mode: vertical-rl;
-  letter-spacing: 2px;
-  padding: 10px 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
-#exp-reopen:hover { color: var(--accent); }
+#exp-reopen svg { width: 18px; height: 18px; }
+#exp-reopen:hover { color: var(--accent); background: var(--hover); }
+#exp-reopen:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 #exp-reopen[hidden] { display: none; }

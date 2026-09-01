@@ -46,7 +46,7 @@
 // 起動する前提で、プロンプト内で `git diff HEAD` を自走させる
 //
 // - このアプリで唯一「Enter まで自動送信する」機能。ペアとして明示的に
-//   組んだ2ペインのスコープに閉じ、それ以外の入力経路（定型文・画像パス等）の
+//   組んだ2ペインのスコープに閉じ、それ以外の入力経路（定型文・画像/ファイルパス等）の
 //   「入力のみ・実行しない」方針は変えない
 // - waiting（承認ダイアログ等）で静止したときは自動送信せず表示だけ切り替え、
 //   ユーザーが応答して次に静止したところから再開する
@@ -744,7 +744,14 @@ export function notifyPairActivity(pane: Pane, busy: boolean, busyMs: number, wa
     st.awaitingUser = false;
     updatePairStrip();
   }
-  if (!pane.activityEngaged) return; // シェル初期化出力だけの静止では回さない
+  // 自動起動ペインは spec.run を activityEngaged に数えないため、通常の活動ゲートだけでは
+  // starting / attaching から永久に進めない。一方、run 送信前のシェル初期化の静止は
+  // 起動完了ではないので、Pane が実際にコマンドを送った後だけ起動待ちを通す。
+  const booting =
+    st.phase === "starting" ||
+    st.phase === "attaching" ||
+    (st.phase === "bothWorking" && !side.seeded);
+  if (!pane.activityEngaged && !(booting && pane.startupRunSent)) return;
   // Enter ウォッチドッグ: submit 済みペインの静止が短い（貼り付けエコーの描画だけで
   // 実働が無い）= Enter が TUI に飲まれた。Enter だけを再送する。
   // waiting の静止は上で return 済みなので、承認ダイアログへ自動 Enter することはない
@@ -765,10 +772,6 @@ export function notifyPairActivity(pane: Pane, busy: boolean, busyMs: number, wa
   // ただし起動待ち（starting / attaching / cross の開始指示前）はまだターンが
   // 無くフックも鳴らないので、従来どおり起動出力の静止で進める
   if (paneSignalTokens.has(pane.id)) {
-    const booting =
-      st.phase === "starting" ||
-      st.phase === "attaching" ||
-      (st.phase === "bothWorking" && !side.seeded);
     if (!booting) return;
   }
   // 静止をすぐには「ターン完了」にせず、HANDOFF_CONFIRM_MS 待って再確認する。

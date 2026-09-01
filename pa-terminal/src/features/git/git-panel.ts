@@ -27,7 +27,13 @@ import {
   refreshIssuesTab,
   renderIssueOverlayTexts,
   renderIssues,
+  refreshIssuesAfterCreate,
 } from "./issues-tab";
+import {
+  initIssueCreate,
+  renderIssueCreateTexts,
+  setIssueCreateTabActive,
+} from "./issue-create";
 import { fetchPrList, prsTabShown, renderPrList } from "./pr-tab";
 import { refreshPrBadge, renderPrBadge, renderPrOverlayTexts } from "./pr-overlay";
 
@@ -46,6 +52,10 @@ let deps: GitPanelDeps = { isExplorerOpen: () => false, createIssueSession: () =
 
 export function initGitPanel(d: GitPanelDeps): void {
   deps = d;
+  initIssueCreate({
+    getRoot: getIssueRoot,
+    onCreated: (root) => refreshIssuesAfterCreate(root),
+  });
 }
 
 /** サブモジュール（issues-tab のセッション作成）から読む */
@@ -58,6 +68,9 @@ const issuesTabBtn = document.querySelector<HTMLButtonElement>("#exp-git-issues-
 const prsTabBtn = document.querySelector<HTMLButtonElement>("#exp-git-prs-tab")!;
 const worktreesTabBtn = document.querySelector<HTMLButtonElement>("#exp-git-worktrees-tab")!;
 const refreshBtn = document.querySelector<HTMLButtonElement>("#exp-git-refresh")!;
+const createIssueBtn = document.querySelector<HTMLButtonElement>("#exp-git-create-issue")!;
+const prBtn = document.querySelector<HTMLButtonElement>("#exp-git-pr")!;
+const branchNameEl = document.querySelector<HTMLDivElement>("#exp-git-branch-name")!;
 const logEl = document.querySelector<HTMLDivElement>("#exp-git-log")!;
 const issuesEl = document.querySelector<HTMLDivElement>("#exp-git-issues")!;
 const prsEl = document.querySelector<HTMLDivElement>("#exp-git-prs")!;
@@ -83,7 +96,9 @@ export function renderGitPanelTexts(): void {
   renderPrList();
   renderWorktreeListTexts([worktreesEl]);
   renderIssueOverlayTexts();
+  renderIssueCreateTexts();
   renderPrOverlayTexts();
+  renderGitPanelModalTexts();
 }
 
 // ============================================================
@@ -102,7 +117,7 @@ export function getActiveTab(): GitTab {
 
 /** Worktree タブの一覧描画（要素をこのファイルに閉じ込めるための入口） */
 export function renderWorktreesTab(root: string | null): void {
-  void renderWorktreeList(worktreesEl, root);
+  void renderWorktreeList(worktreesEl, root, { showSessionAction: true });
 }
 
 function refreshTitle(): string {
@@ -132,6 +147,7 @@ function setGitTab(tab: GitTab): void {
   prsEl.hidden = !prs;
   worktreesEl.hidden = !worktrees;
   refreshBtn.title = refreshTitle();
+  setIssueCreateTabActive(issues);
   renderPrBadge();
   if (worktrees) {
     renderWorktreesTab(getIssueRoot());
@@ -141,6 +157,127 @@ function setGitTab(tab: GitTab): void {
     prsTabShown();
   }
 }
+
+// ============================================================
+// タブ内容の拡大モーダル
+//
+// 一覧を複製すると各行に設定済みのイベントや非同期描画先が別物になるため、選択中タブの
+// 実 DOM をモーダルへ移し、閉じたら元の並びへ戻す。スクロール位置と操作状態もそのまま保たれる。
+// ============================================================
+
+const panelHeadEl = document.querySelector<HTMLDivElement>("#exp-git-head")!;
+const sectionEl = document.querySelector<HTMLDivElement>("#exp-git")!;
+const modalOverlayEl = document.querySelector<HTMLDivElement>("#git-panel-overlay")!;
+const modalEl = document.querySelector<HTMLDivElement>("#git-panel-modal")!;
+const modalTitleEl = document.querySelector<HTMLSpanElement>("#git-panel-modal-title")!;
+const modalRootEl = document.querySelector<HTMLSpanElement>("#git-panel-modal-root")!;
+const modalActionsEl = document.querySelector<HTMLDivElement>("#git-panel-modal-actions")!;
+const modalBodyEl = document.querySelector<HTMLDivElement>("#git-panel-modal-body")!;
+const modalCloseBtn = document.querySelector<HTMLButtonElement>("#git-panel-modal-close")!;
+const expandButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>(".exp-git-expand[data-git-tab]"),
+);
+
+let modalTab: GitTab | null = null;
+let modalPreviousFocus: HTMLElement | null = null;
+
+function isGitTab(value: string | undefined): value is GitTab {
+  return value === "branch" || value === "issues" || value === "prs" || value === "worktrees";
+}
+
+function gitTabLabel(tab: GitTab): string {
+  if (tab === "issues") return t("git.issues");
+  if (tab === "prs") return t("git.prs");
+  if (tab === "worktrees") return t("git.worktrees");
+  return t("git.branch");
+}
+
+function tabContent(tab: GitTab): HTMLElement[] {
+  if (tab === "issues") return [issuesEl];
+  if (tab === "prs") return [prsEl];
+  if (tab === "worktrees") return [worktreesEl];
+  return [branchNameEl, logEl];
+}
+
+function restorePanelContent(): void {
+  // ヘッダ操作と本文を常に同じ順に戻す。別タブの要素はすでに sectionEl にあっても、
+  // append し直すことで順序を決定的に保てる。
+  panelHeadEl.append(createIssueBtn, prBtn, refreshBtn);
+  sectionEl.append(branchNameEl, logEl, issuesEl, prsEl, worktreesEl);
+}
+
+function renderGitPanelModalTexts(): void {
+  for (const button of expandButtons) {
+    const tab = button.dataset.gitTab;
+    if (!isGitTab(tab)) continue;
+    const label = t("git.openExpanded", { tab: gitTabLabel(tab) });
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  }
+  modalCloseBtn.title = t("git.closeExpanded");
+  modalCloseBtn.setAttribute("aria-label", modalCloseBtn.title);
+  if (modalTab) modalTitleEl.textContent = gitTabLabel(modalTab);
+}
+
+function openGitPanelModal(tab: GitTab, trigger: HTMLButtonElement): void {
+  if (!modalOverlayEl.hidden) closeGitPanelModal(false);
+  setGitTab(tab);
+  modalTab = tab;
+  modalPreviousFocus = trigger;
+  trigger.setAttribute("aria-expanded", "true");
+  modalActionsEl.append(createIssueBtn, prBtn, refreshBtn);
+  modalBodyEl.append(...tabContent(tab));
+  modalRootEl.textContent = getIssueRoot() ?? "";
+  modalRootEl.title = modalRootEl.textContent;
+  renderGitPanelModalTexts();
+  modalOverlayEl.hidden = false;
+  modalCloseBtn.focus();
+}
+
+function closeGitPanelModal(restoreFocus = true): void {
+  if (modalOverlayEl.hidden) return;
+  modalOverlayEl.hidden = true;
+  restorePanelContent();
+  for (const button of expandButtons) button.setAttribute("aria-expanded", "false");
+  const previousFocus = modalPreviousFocus;
+  modalTab = null;
+  modalPreviousFocus = null;
+  if (restoreFocus && previousFocus?.isConnected) previousFocus.focus();
+}
+
+for (const button of expandButtons) {
+  button.onclick = () => {
+    const tab = button.dataset.gitTab;
+    if (isGitTab(tab) && requireFeature()) openGitPanelModal(tab, button);
+  };
+}
+
+modalCloseBtn.onclick = () => closeGitPanelModal();
+modalOverlayEl.addEventListener("pointerdown", (e) => {
+  if (e.target === modalOverlayEl) closeGitPanelModal();
+});
+// モーダル内の矢印キーや文字入力をターミナルへ流さない。
+modalEl.addEventListener("keydown", (e) => e.stopPropagation());
+window.addEventListener(
+  "keydown",
+  (e) => {
+    // Issue / PR / diff など、このモーダルからさらに開いた前面ダイアログの Escape は
+    // そのダイアログだけに任せる（前面側は defaultPrevented を印にする）。
+    if (
+      !e.defaultPrevented &&
+      !modalOverlayEl.hidden &&
+      e.key === "Escape" &&
+      modalEl.contains(e.target as Node)
+    ) {
+      e.stopPropagation();
+      e.preventDefault();
+      closeGitPanelModal();
+    }
+  },
+  true,
+);
+
+renderGitPanelModalTexts();
 
 // タブはソフトロック対象。Locked 中も 🔒 付きで見せたまま、クリックで購入案内を出す
 branchEl.onclick = () => {
@@ -160,10 +297,12 @@ worktreesTabBtn.onclick = () => {
 // 解除されたら現在のタブを引き直して表示を復元する
 onLicenseChange((s) => {
   if (s.locked) {
+    closeGitPanelModal(false);
     logEl.hidden = true;
     issuesEl.hidden = true;
     prsEl.hidden = true;
     worktreesEl.hidden = true;
+    setIssueCreateTabActive(false);
   } else {
     setGitTab(activeTab);
   }
@@ -191,7 +330,6 @@ refreshBtn.onclick = () => {
 // ============================================================
 
 const explorerEl = document.querySelector<HTMLDivElement>("#explorer")!;
-const sectionEl = document.querySelector<HTMLDivElement>("#exp-git")!;
 const resizeEl = document.querySelector<HTMLDivElement>("#exp-git-resize")!;
 
 const GIT_MIN_H = 90;

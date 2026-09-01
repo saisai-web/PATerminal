@@ -1,21 +1,24 @@
-import { wsActivityState, wsActivityText } from "../../app/activity";
+import { onWorkspaceActivityChange, wsActivityState, wsActivityText } from "../../app/activity";
 import { AVATAR_COLORS, SHELL_CHOICES } from "../../shared/constants";
 import { closeGroupMenu } from "../../shared/ctx-menu";
 import {
   groupById,
   groupDescendantIds,
   groupPath,
+  isWorkspaceEntry,
   moveGroup,
   refreshGroupDatalist,
   renameGroup,
   resolveGroupInput,
+  setSidebarEntryOrder,
+  sidebarEntries,
 } from "../../workspace/groups";
 import { t } from "../../i18n";
 import { requireFeature } from "../license/license";
 import { startInlineEdit } from "../../shared/inline-edit";
 import { getRafId, layout, place, setRafId } from "../../terminal/layout";
 import { scheduleSave } from "../../app/session";
-import { openGroupHeadMenu, openGroupMenu } from "./sidebar-menu";
+import { openGroupHeadMenu, openGroupMenu, openListCtxMenu } from "./sidebar-menu";
 import {
   actionTargets,
   additiveClick,
@@ -45,12 +48,28 @@ import {
   quickCreateWorkspace,
   renameWorkspace,
   setActive,
+  toggleWorkspaceArchived,
   toggleWorkspacePinned,
   updateWorkspaceNote,
   wsSubtitle,
 } from "../../workspace/workspace";
 import { buildWsGitEl } from "./ws-git";
 import { createSessionNoteField } from "./session-note";
+import {
+  initSessionStatusFilter,
+  isSessionStatusFilterActive,
+  isWorkspaceInSessionFilterScope,
+  markSessionArchived,
+  matchesSessionStatusFilter,
+  renderSessionStatusFilterTexts,
+} from "./session-status-filter";
+import {
+  buildRecentSortButton,
+  initSessionRecentSort,
+  isRecentSortActive,
+  sortByRecentOp,
+} from "./session-sort";
+import { attachLocationFlyout } from "./new-session-location";
 
 const sidebarEl = document.querySelector<HTMLDivElement>("#sidebar")!;
 const sidebarCollapseBtn = document.querySelector<HTMLButtonElement>("#sidebar-collapse")!;
@@ -63,12 +82,12 @@ const wsNewForm = document.querySelector<HTMLDivElement>("#ws-new-form")!;
 const wsNewName = document.querySelector<HTMLInputElement>("#ws-new-name")!;
 const wsNewGroup = document.querySelector<HTMLInputElement>("#ws-new-group")!;
 const wsNewShells = document.querySelector<HTMLDivElement>("#ws-new-shells")!;
+const wsNewLocBtn = document.querySelector<HTMLButtonElement>("#ws-new-loc")!;
 
 // ============================================================
 // サイドバーのドラッグ&ドロップ並べ替え
-// workspaces 配列 = 表示順なので、配列の挿し替えだけで完結する。
-// グループは「初出位置に見出しごと表示」のため、グループ内の項目の
-// 前後に落とす = そのグループに加入、未分類項目の前後に落とす = 未分類化。
+// セッションとグループは同じ親階層で混在した sidebarOrder を持つ。
+// 項目の前後に落とす = そのグループに加入、未分類項目の前後に落とす = 未分類化。
 // グループ見出しは配下のセッション・子グループを保ったまま移動する。
 // ============================================================
 
@@ -104,6 +123,13 @@ function moveWorkspaces(
 ) {
   const moving = workspaces.filter((w) => srcs.includes(w)); // 表示順に正規化
   if (!moving.length || moving.includes(target)) return;
+  const sidebarRest = sidebarEntries(group).filter(
+    (entry) => !isWorkspaceEntry(entry) || !moving.includes(entry),
+  );
+  let sidebarTo = sidebarRest.indexOf(target);
+  if (sidebarTo < 0) return;
+  if (!before) sidebarTo += 1;
+  sidebarRest.splice(sidebarTo, 0, ...moving);
   const rest = workspaces.filter((w) => !moving.includes(w));
   let to = rest.indexOf(target);
   if (to < 0) return; // 不整合時は何もしない（workspaces は未変更のまま）
@@ -111,6 +137,7 @@ function moveWorkspaces(
   rest.splice(to, 0, ...moving);
   workspaces.splice(0, workspaces.length, ...rest);
   for (const w of moving) w.group = group;
+  setSidebarEntryOrder(sidebarRest);
   renderSidebar();
   scheduleSave();
 }
@@ -144,7 +171,9 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
   if (w.backgroundColor) item.dataset.wsColor = w.backgroundColor;
   item.setAttribute("role", "option");
   item.setAttribute("aria-selected", String(selected));
-  item.draggable = true;
+  // 最近操作した順の表示中は並びが合成順なので、保存順を壊す DnD 並べ替えを止める。
+  // ドラッグ自体が始まらなければ既存の dragover / drop ハンドラは何もしない
+  item.draggable = !isRecentSortActive();
   item.addEventListener("dragstart", (e) => {
     // インライン編集中はテキスト選択を優先し、項目ドラッグにしない
     if ((e.target as HTMLElement).closest?.(".inline-edit")) {
@@ -166,6 +195,7 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     draggingWs = [];
     for (const el of wsList.querySelectorAll(".is-drag-src")) el.classList.remove("is-drag-src");
     clearDropMarks();
+    flushPendingFilteredRender();
   });
   item.addEventListener("dragover", (e) => {
     if (!draggingWs.length || draggingWs.includes(w)) return;
@@ -261,6 +291,22 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     };
   }
 
+  const archive = document.createElement("button");
+  archive.type = "button";
+  archive.className = "ws-archive";
+  archive.innerHTML = w.archived
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16v11H4z"/><path d="M3 5h18v3H3z"/><path d="M12 16v-5m-3 3 3-3 3 3"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16v11H4z"/><path d="M3 5h18v3H3z"/><path d="M12 11v5m-3-3 3 3 3-3"/></svg>';
+  archive.title = t(w.archived ? "ws.unarchiveTitle" : "ws.archiveTitle");
+  archive.setAttribute("aria-label", archive.title);
+  archive.setAttribute("aria-pressed", String(w.archived === true));
+  archive.onclick = (e) => {
+    e.stopPropagation();
+    const archiving = w.archived !== true;
+    toggleWorkspaceArchived(w);
+    if (archiving) markSessionArchived();
+  };
+
   const close = document.createElement("button");
   close.className = "ws-close";
   close.textContent = "×";
@@ -272,7 +318,7 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
 
   item.append(av, meta);
   if (pin) item.append(pin);
-  item.append(close);
+  item.append(archive, close);
   item.onclick = (e) => {
     if (e.target instanceof HTMLInputElement) return; // インライン編集中は切り替えない
     // Shift = 範囲選択、Ctrl/Cmd = 増減。どちらもセッションは切り替えない
@@ -302,6 +348,23 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
   return item;
 }
 
+function buildCreateButton(open: (x: number, y: number) => void): HTMLButtonElement {
+  const create = document.createElement("button");
+  create.type = "button";
+  create.className = "ws-group-create";
+  create.textContent = "+";
+  const createLabel = `${t("ctx.createSession")} / ${t("ctx.createGroup")}`;
+  create.title = createLabel;
+  create.setAttribute("aria-label", createLabel);
+  create.setAttribute("aria-haspopup", "menu");
+  create.onclick = (e) => {
+    e.stopPropagation();
+    const rect = create.getBoundingClientRect();
+    open(rect.left, rect.bottom + 2);
+  };
+  return create;
+}
+
 function buildGroupHeader(
   group: WorkspaceGroup,
   count: number,
@@ -320,7 +383,9 @@ function buildGroupHeader(
   const cnt = document.createElement("span");
   cnt.className = "ws-group-count";
   cnt.textContent = String(count);
-  head.append(arrow, name, cnt);
+  // グループ行の開閉・ドラッグとは別の、明示的な作成先ボタンとして扱う。
+  const create = buildCreateButton((x, y) => openGroupHeadMenu(group, x, y));
+  head.append(arrow, name, cnt, create);
   // 開閉は DOM の表示切替だけで行い再描画しない（再描画するとダブルクリックの
   // リネームが2回目のクリックで別要素になり成立しなくなる）
   head.onclick = () => {
@@ -344,7 +409,7 @@ function buildGroupHeader(
   };
   head.addEventListener("dragstart", (e) => {
     // インライン編集の文字選択を優先する（見出し名のダブルクリック編集と両立させる）。
-    if ((e.target as HTMLElement).closest?.(".inline-edit")) {
+    if ((e.target as HTMLElement).closest?.(".inline-edit, .ws-group-create")) {
       e.preventDefault();
       return;
     }
@@ -357,6 +422,7 @@ function buildGroupHeader(
     draggingGroup = null;
     for (const el of wsList.querySelectorAll(".is-drag-src")) el.classList.remove("is-drag-src");
     clearDropMarks();
+    flushPendingFilteredRender();
   });
   // セッション項目を見出しに落とす → そのグループの先頭に加入（複数選択はまとめて）
   head.addEventListener("dragover", (e) => {
@@ -416,11 +482,19 @@ function buildGroupHeader(
     clearDropMarks();
     const srcs = draggingWs;
     draggingWs = [];
-    const first = workspaces.find((x) => !srcs.includes(x) && x.group === group.id);
+    const first = sidebarEntries(group.id).find(
+      (entry): entry is Workspace => isWorkspaceEntry(entry) && !srcs.includes(entry),
+    );
     if (first) {
       moveWorkspaces(srcs, first, true, group.id);
     } else {
       for (const src of srcs) src.group = group.id;
+      setSidebarEntryOrder([
+        ...srcs,
+        ...sidebarEntries(group.id).filter(
+          (entry) => !isWorkspaceEntry(entry) || !srcs.includes(entry),
+        ),
+      ]);
       collapsedGroups.delete(group.id);
       renderSidebar();
       scheduleSave();
@@ -429,14 +503,69 @@ function buildGroupHeader(
   return head;
 }
 
-function groupHasSearchMatch(group: WorkspaceGroup, q: string, seen = new Set<string>()): boolean {
+/** 保存上のグループを増やさず、トップレベル全体を操作できる仮想の Whole 枠。 */
+function buildWholeGroup(q: string): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "ws-whole-group";
+  section.setAttribute("aria-label", "Whole");
+
+  const head = document.createElement("div");
+  head.className = "ws-whole-head";
+  const name = document.createElement("span");
+  name.className = "ws-whole-name";
+  name.textContent = "Whole";
+  const count = document.createElement("span");
+  count.className = "ws-group-count";
+  count.textContent = String(workspaces.filter(isWorkspaceInSessionFilterScope).length);
+  const create = buildCreateButton((x, y) => openListCtxMenu(x, y, 0));
+  // 右側コントロール群（件数・+）の一番左に「最近操作した順」トグルを置く
+  head.append(name, buildRecentSortButton(), count, create);
+
+  const members = document.createElement("div");
+  members.className = "ws-whole-members";
+  if (isRecentSortActive()) {
+    // 最近操作した順はグループ階層を描かず、全セッションをフラットな新しい順で出す。
+    // 保存上の並び・グループ所属・折りたたみ状態には触れない（OFF で完全に元へ戻る）。
+    // 検索・状態絞り込みは通常表示と同じ条件で AND する
+    for (const entry of sortByRecentOp(workspaces)) {
+      if (workspaceMatchesDisplay(entry, q)) members.append(buildWsItem(entry));
+    }
+  } else {
+    for (const entry of pinnedFirst(sidebarEntries())) {
+      if (isWorkspaceEntry(entry)) {
+        if (workspaceMatchesDisplay(entry, q)) members.append(buildWsItem(entry));
+      } else {
+        appendGroup(members, entry, q);
+      }
+    }
+  }
+  section.append(head, members);
+  return section;
+}
+
+function groupHasDisplayMatch(
+  group: WorkspaceGroup,
+  q: string,
+  ancestorMatched = false,
+  seen = new Set<string>(),
+): boolean {
   if (seen.has(group.id)) return false;
   seen.add(group.id);
-  if (group.name.toLowerCase().includes(q)) return true;
-  if (workspaces.some((w) => w.group === group.id && workspaceMatchesSearch(w, q))) return true;
+  const ownMatched = ancestorMatched || (!!q && group.name.toLowerCase().includes(q));
+  // 従来の「すべて」では空グループも残し、検索で親名が一致したら配下を丸ごと見せる。
+  // 状態絞り込み中だけは、一致セッションを持たない空の枝を落とす。
+  if (!isSessionStatusFilterActive() && (!q || ownMatched)) return true;
+  if (
+    workspaces.some(
+      (workspace) =>
+        workspace.group === group.id && workspaceMatchesDisplay(workspace, q, ownMatched),
+    )
+  ) {
+    return true;
+  }
   return groups
     .filter((child) => child.parentId === group.id)
-    .some((child) => groupHasSearchMatch(child, q, new Set(seen)));
+    .some((child) => groupHasDisplayMatch(child, q, ownMatched, new Set(seen)));
 }
 
 function workspaceMatchesSearch(workspace: Workspace, query: string): boolean {
@@ -446,11 +575,22 @@ function workspaceMatchesSearch(workspace: Workspace, query: string): boolean {
   );
 }
 
-/** 保存している並びを各区分内では保ったまま、ピン済みだけを先頭へ出す。 */
-function pinnedFirst(list: Workspace[]): Workspace[] {
+function workspaceMatchesDisplay(
+  workspace: Workspace,
+  query: string,
+  ancestorMatched = false,
+): boolean {
+  return (
+    matchesSessionStatusFilter(workspace, wsActivityState(workspace)) &&
+    (!query || ancestorMatched || workspaceMatchesSearch(workspace, query))
+  );
+}
+
+/** 保存している混在行順を保ったまま、ピン済みセッションだけを先頭へ出す。 */
+function pinnedFirst(list: Array<Workspace | WorkspaceGroup>): Array<Workspace | WorkspaceGroup> {
   return [
-    ...list.filter((workspace) => workspace.pinned),
-    ...list.filter((workspace) => !workspace.pinned),
+    ...list.filter((entry) => isWorkspaceEntry(entry) && entry.pinned),
+    ...list.filter((entry) => !isWorkspaceEntry(entry) || !entry.pinned),
   ];
 }
 
@@ -462,48 +602,82 @@ function appendGroup(
   ancestorMatched = false,
 ) {
   const ownMatched = ancestorMatched || (!!q && group.name.toLowerCase().includes(q));
-  if (q && !ownMatched && !groupHasSearchMatch(group, q)) return;
+  if (!groupHasDisplayMatch(group, q, ancestorMatched)) return;
 
   const membersDiv = document.createElement("div");
   membersDiv.className = "ws-group-members";
-  membersDiv.hidden = !q && collapsedGroups.has(group.id); // 検索中は展開して見せる
-  for (const workspace of pinnedFirst(
-    workspaces.filter((candidate) => candidate.group === group.id),
-  )) {
-    if (!q || ownMatched || workspaceMatchesSearch(workspace, q)) {
-      membersDiv.append(buildWsItem(workspace));
+  // 検索・状態絞り込み中は、一致したセッションが隠れないよう祖先を展開して見せる。
+  membersDiv.hidden =
+    !q && !isSessionStatusFilterActive() && collapsedGroups.has(group.id);
+  for (const entry of pinnedFirst(sidebarEntries(group.id))) {
+    if (isWorkspaceEntry(entry)) {
+      if (workspaceMatchesDisplay(entry, q, ownMatched)) {
+        membersDiv.append(buildWsItem(entry));
+      }
+    } else {
+      appendGroup(membersDiv, entry, q, ownMatched);
     }
-  }
-  for (const child of groups.filter((candidate) => candidate.parentId === group.id)) {
-    appendGroup(membersDiv, child, q, ownMatched);
   }
 
   const descendantIds = groupDescendantIds(group.id);
-  const count = workspaces.filter((w) => w.group && descendantIds.has(w.group)).length;
+  const count = workspaces.filter(
+    (w) => w.group && descendantIds.has(w.group) && isWorkspaceInSessionFilterScope(w),
+  ).length;
   container.append(buildGroupHeader(group, count, membersDiv), membersDiv);
 }
 
 export function renderSidebar() {
   // 名前のインライン編集中に OSC 7 等で再描画されると、編集欄とフォーカスが消える。
   // 確定（blur）の後に描き直す。メモ編集はサイドバー外のポップオーバーなので影響しない。
-  if (wsList.querySelector(".inline-edit")) return;
+  if (wsList.querySelector(".inline-edit")) {
+    pendingFilteredRender = true;
+    return;
+  }
+  pendingFilteredRender = false;
   // innerHTML で項目を組み直すとブラウザによってはスクロール位置が先頭へ戻る。
   // グループ内での作成や並べ替えで、見ていた位置からサイドバーを動かさない。
   const scrollTop = wsList.scrollTop;
   const q = wsSearch.value.trim().toLowerCase();
   wsList.innerHTML = "";
-  // 未分類セッションはトップレベルに平置き
-  for (const workspace of pinnedFirst(workspaces.filter((candidate) => !candidate.group))) {
-    if (!q || workspaceMatchesSearch(workspace, q)) {
-      wsList.append(buildWsItem(workspace));
-    }
-  }
-  // 空グループも表示する。子グループは appendGroup が親の members 内へ描画する
-  for (const group of groups) {
-    if (!group.parentId) appendGroup(wsList, group, q);
-  }
+  wsList.append(buildWholeGroup(q));
   wsList.scrollTop = scrollTop;
+  renderSessionStatusFilterTexts();
   renderSelectionBar(); // 件数表示と言語切替への追従（項目自体は buildWsItem が反映済み）
+}
+
+let pendingFilteredRender = false;
+
+/** activity の遷移中に DnD / インライン編集を壊さず、絞り込み結果だけ追従させる。 */
+function refreshFilteredSidebar(): void {
+  if (!isSessionStatusFilterActive()) return;
+  if (draggingWs.length || draggingGroup || wsList.querySelector(".inline-edit")) {
+    pendingFilteredRender = true;
+    return;
+  }
+  renderSidebar();
+}
+
+function flushPendingFilteredRender(): void {
+  if (!pendingFilteredRender || draggingWs.length || draggingGroup || wsList.querySelector(".inline-edit")) {
+    return;
+  }
+  renderSidebar();
+}
+
+let statusFilterInitialized = false;
+
+/** composition root から、全モジュールの評価完了後に接続する（activity との循環初期化を避ける）。 */
+export function initSidebarStatusFilter(): void {
+  if (statusFilterInitialized) return;
+  statusFilterInitialized = true;
+  initSessionStatusFilter(renderSidebar);
+  onWorkspaceActivityChange(refreshFilteredSidebar);
+  wsList.addEventListener("focusout", () => queueMicrotask(flushPendingFilteredRender));
+}
+
+/** Whole 行の「最近操作した順」トグルを renderSidebar へ接続する（同上の理由で main.ts から）。 */
+export function initSidebarRecentSort(): void {
+  initSessionRecentSort(renderSidebar);
 }
 
 /** 前後移動の並び = サイドバーの表示順。折りたたみ中のグループ内や検索で消えている
@@ -513,13 +687,23 @@ function switchOrder(): Workspace[] {
   const visible = visibleWsIds()
     .map((id) => workspaces.find((w) => w.id === id))
     .filter((w): w is Workspace => !!w);
-  return visible.length > 1 ? visible : workspaces;
+  return visible.length > 1 ? visible : workspaces.filter(isWorkspaceInSessionFilterScope);
 }
 
 /** 指定セッションのサイドバー項目（= 光っている active 項目になりうるもの）を
     スクロールして見える位置へ送る。renderSidebar 後に呼ぶこと */
 export function scrollWsIntoView(w: Workspace): void {
-  wsList.querySelector(`.ws-item[data-ws-id="${w.id}"]`)?.scrollIntoView({ block: "nearest" });
+  const item = wsList.querySelector<HTMLElement>(`.ws-item[data-ws-id="${w.id}"]`);
+  if (!item) return;
+  item.scrollIntoView({ block: "nearest" });
+  // Chromium / WebKit は入れ子のグループを再描画した直後、nearest の計算が数px不足して
+  // 選択行の端をスクロール枠外へ残すことがある。実際の枠との距離で同期的に補正する。
+  const listRect = wsList.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  // scrollTop はこの環境では整数へ丸められるため、0.x px の不足も最低1px動かす。
+  if (itemRect.top < listRect.top) wsList.scrollTop -= Math.ceil(listRect.top - itemRect.top);
+  else if (itemRect.bottom > listRect.bottom)
+    wsList.scrollTop += Math.ceil(itemRect.bottom - listRect.bottom);
 }
 
 /** キーボードで前後のセッションへ移動する（Ctrl+Tab / Cmd(+Ctrl)+Shift+↑↓）。
@@ -566,19 +750,37 @@ wsList.addEventListener("drop", (e) => {
   }
   const srcs = draggingWs;
   draggingWs = [];
+  const moving = workspaces.filter((workspace) => srcs.includes(workspace));
+  const rootRest = sidebarEntries().filter(
+    (entry) => !isWorkspaceEntry(entry) || !moving.includes(entry),
+  );
   // 表示順で末尾へ押し出す（複数選択でも相対順は保たれる）
-  for (const src of workspaces.filter((w) => srcs.includes(w))) {
+  for (const src of moving) {
     workspaces.splice(workspaces.indexOf(src), 1);
     workspaces.push(src);
     src.group = undefined;
   }
+  setSidebarEntryOrder([...rootRest, ...moving]);
   renderSidebar();
   scheduleSave();
 });
 
+/** フォームの「場所」欄で選んだ作成先。undefined = 既定（表示中ペインと同じ場所） */
+let wsNewFormCwd: string | undefined;
+
+function setFormCwd(cwd: string | undefined) {
+  wsNewFormCwd = cwd;
+  wsNewLocBtn.textContent = cwd ?? t("form.locationDefault");
+  wsNewLocBtn.title = cwd ?? t("loc.pickTitle");
+}
+
+// 場所欄はホバーでもクリックでも場所フライアウトを開き、選ぶと欄の表示だけ差し替える
+// （作成はシェル選択ボタンのまま）
+attachLocationFlyout(wsNewLocBtn, (cwd) => setFormCwd(cwd), { openOnClick: true });
+
 /** 名前・シェル・グループを指定して作る詳細フォーム。
-    Cmd/Ctrl+T と、シェル選択が必要な Windows の左上 + から開く */
-export function openNewSessionForm(groupId?: string) {
+    Cmd/Ctrl+T と、Windows の検索欄横 + で場所を選んだ後に開く */
+export function openNewSessionForm(groupId?: string, cwd?: string) {
   // 作成フォームを開いた時点の表示中セッションを配置基準として保持する。
   // ユーザーがグループ欄を変更した場合は、その明示指定を優先する。
   const ref = getActiveWs();
@@ -589,6 +791,7 @@ export function openNewSessionForm(groupId?: string) {
   wsNewName.placeholder = t("form.sessionName");
   wsNewGroup.hidden = false;
   wsNewGroup.value = defaultGroup ? groupPath(defaultGroup) : "";
+  setFormCwd(cwd); // 通常は既定へ戻し、+ の場所フライアウトから開いた場合だけ選択値を引き継ぐ
   wsNewShells.hidden = false;
   refreshGroupDatalist(); // 既存グループ名を入力補完に出す
   wsNewShells.innerHTML = "";
@@ -598,10 +801,12 @@ export function openNewSessionForm(groupId?: string) {
     b.textContent = c.label();
     b.onclick = () => {
       const name = wsNewName.value.trim() || nextSessionName();
+      const pickedCwd = wsNewFormCwd;
       wsNewForm.hidden = true;
       const group = resolveGroupInput(wsNewGroup.value);
-      // フォーム経由でもディレクトリは即時作成と揃えて表示中ペインと同じ場所にする
-      void newSessionCwd().then((cwd) => {
+      // 場所欄で選んでいればそのディレクトリ、既定なら他の作成入口と揃えて
+      // 表示中ペインと同じ場所にする
+      void (pickedCwd !== undefined ? Promise.resolve(pickedCwd) : newSessionCwd()).then((cwd) => {
         const ws = createWorkspace(name, c.kind, { group, cwd });
         if (ref && ref.group === group) placeAfter(ws, ref);
       });
@@ -635,7 +840,7 @@ sidebarReopenBtn.onclick = () => setSidebarOpen(true);
 // 最小幅よりさらに左へ押し込んで離すとたたむ。ドラッグ中は rAF で place のみ回し、
 // refit は確定時にまとめて行う（ペイン用ディバイダと同じ）。幅は保存しない
 const SIDEBAR_MIN_W = 150;
-const SIDEBAR_DEFAULT_W = 280; // sidebar.css の #sidebar { width } と同じ値
+const SIDEBAR_DEFAULT_W = 320; // sidebar.css の #sidebar { width } と同じ値
 const SIDEBAR_CLOSE_W = 90; // 要求幅がこれ未満のまま離したらたたむ
 
 sidebarResizeEl.addEventListener("pointerdown", (down) => {
@@ -690,20 +895,23 @@ sidebarResizeEl.addEventListener("dblclick", () => {
   sidebarEl.style.width = `${SIDEBAR_DEFAULT_W}px`;
   layout();
 });
-// 左上の + は macOS / Linux では追加設定を求めず、デフォルトシェルのセッションを即時作成する。
-// Windows では既定の PowerShell と cmd.exe のどちらを使うか選べるよう詳細フォームを開く。
-// 作る位置は「表示中セッションと同じ場所」= 同じグループ（未分類ならトップレベル）の
-// 直後。グループ内で作業中に + を押しても末尾やトップレベルへ飛ばない。
-// ディレクトリも「表示中ペインと同じ場所」（newSessionCwd）で開く。
-wsNewBtn.onclick = () => {
+// 検索欄の隣にある左上の + だけは、クリックで場所フライアウトを開く。先頭の
+// 「表示中ペインと同じ場所」が従来の + と同じ動作で、ほかの行は cwd だけを差し替える。
+// Windows はどの場所を選んでもシェル選択が必要なので、選択値を詳細フォームへ引き継ぐ。
+function createFromTopPlus(cwd?: string) {
   if (getHostOs() === "windows") {
-    openNewSessionForm();
+    openNewSessionForm(undefined, cwd);
     return;
   }
   wsNewForm.hidden = true;
   const ref = getActiveWs();
-  void quickCreateWorkspace({ group: ref?.group, after: ref });
-};
+  void quickCreateWorkspace({ group: ref?.group, after: ref, ...(cwd === undefined ? {} : { cwd }) });
+}
+attachLocationFlyout(wsNewBtn, (cwd) => createFromTopPlus(cwd), {
+  openOnClick: true,
+  openOnHover: false,
+  defaultAction: () => createFromTopPlus(),
+});
 wsNewName.onkeydown = (e) => {
   if (e.key === "Escape") wsNewForm.hidden = true;
 };

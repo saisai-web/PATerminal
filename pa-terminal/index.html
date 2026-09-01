@@ -17,6 +17,10 @@
         <div id="ws-new-form" hidden>
           <input id="ws-new-name" type="text" data-i18n-placeholder="form.sessionName" placeholder="セッション名" />
           <input id="ws-new-group" type="text" data-i18n-placeholder="form.group" placeholder="グループ（任意）" list="ws-group-list" />
+          <div id="ws-new-loc-row">
+            <span id="ws-new-loc-label" data-i18n="form.location">場所</span>
+            <button id="ws-new-loc" type="button" data-i18n-title="loc.pickTitle" title="場所を選んで新規セッションを作成"></button>
+          </div>
           <div id="ws-new-shells"><!-- シェル選択ボタンを JS が生成 --></div>
         </div>
         <datalist id="ws-group-list"><!-- 既存グループ名を JS が生成 --></datalist>
@@ -26,6 +30,15 @@
           <button id="ws-selection-group" type="button"></button>
           <button id="ws-selection-close" type="button"></button>
           <button id="ws-selection-clear" type="button"></button>
+        </div>
+        <!-- Whole の上で通常セッションを状態で絞り込み、アーカイブだけは専用表示する。選択タブは保存せず毎回「すべて」 -->
+        <div id="ws-status-filter" role="group" aria-label="セッションを絞り込み">
+          <button type="button" data-status-filter="all" data-i18n="ws.filterAll" aria-pressed="true">すべて</button>
+          <button type="button" data-status-filter="running" data-i18n="ws.statusRunning" aria-pressed="false">実行中</button>
+          <button type="button" data-status-filter="waiting" data-i18n="ws.statusWaiting" aria-pressed="false">入力待ち</button>
+          <button type="button" data-status-filter="done" data-i18n="ws.statusDone" aria-pressed="false">完了</button>
+          <button type="button" data-status-filter="unseen" data-i18n="ws.filterUnseen" aria-pressed="false">未確認</button>
+          <button type="button" data-status-filter="archived" data-i18n-title="ws.filterArchived" title="アーカイブ" aria-label="アーカイブ" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16v11H4z"/><path d="M3 5h18v3H3z"/><path d="M12 11v5m-3-3 3 3 3-3"/></svg><span id="ws-archive-badge" aria-hidden="true" hidden></span></button>
         </div>
         <div id="ws-list" role="listbox" aria-label="Sessions" aria-multiselectable="true"></div>
         <!-- キーボードでの前後移動は画面に出ないので一覧の下に小さく置く -->
@@ -48,8 +61,8 @@
           <button id="split-down" data-i18n-title="toolbar.splitDown" title="下に分割 (Cmd/Ctrl+Shift+S)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M9.5 14.5L12 18l2.5-3.5"/></svg>Split ↓</button>
           <button id="broadcast" aria-pressed="false" title="キー入力をこのセッション内の全ペインへ同時に送る (Cmd/Ctrl+Shift+B)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.5"/><path d="M16.2 7.8a6 6 0 0 1 0 8.5"/><path d="M4.9 19.1a10 10 0 0 1 0-14.1"/><path d="M19.1 4.9a10 10 0 0 1 0 14.1"/></svg><span id="broadcast-label">一斉入力</span></button>
           <span id="bc-hint" data-i18n="toolbar.broadcastHint" hidden>入力中の文字がこのセッションの全ペインへ同時に送られています</span>
-          <button id="explorer-toggle" aria-pressed="false" data-i18n-title="toolbar.explorer" title="エクスプローラー (Cmd/Ctrl+E)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a1.8 1.8 0 0 1 1.8-1.8h3.6l1.8 2h7.8A1.8 1.8 0 0 1 20.5 9v8a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17V7z"/></svg>Files</button>
           <button id="attach-image" data-i18n-title="image.attachTitle" title="画像を選び、パスをフォーカス中のターミナルへ入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M20.5 16l-5.5-5.5-3 3-2-2-6.5 6.5"/></svg><span data-i18n="image.attach">画像</span></button>
+          <button id="attach-file" data-i18n-title="file.attachTitle" title="ファイルを選び、パスをフォーカス中のターミナルへ入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/></svg><span data-i18n="file.attach">ファイル</span></button>
           <button id="quick-phrases-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="quick.toolbarTitle" title="よく使う定型文を管理・入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11.5H9L5 20v-3.5H4V5z"/><line x1="7.3" y1="9" x2="16.7" y2="9"/><line x1="7.3" y1="12.5" x2="13.5" y2="12.5"/></svg><span data-i18n="quick.toolbar">定型文</span></button>
           <button id="pair-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="pair.toolbarTitle" title="ペアモード: 2つのエージェントペインの間で作業を受け渡します（実装×レビュー / クロスレビュー / ブレスト / ブレスト→共同実装）"><svg class="pair-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7.2" r="3.4"/><path d="M2.2 20.5v-.9a5.3 5.3 0 0 1 5.3-5.3h3a5.3 5.3 0 0 1 5.3 5.3v.9"/><path d="M15.6 4a3.4 3.4 0 0 1 0 6.4"/><path d="M18.6 14.6a5.3 5.3 0 0 1 3.2 4.9v1"/></svg><span id="pair-open-label">ペア</span></button>
           <button id="takeover-open" aria-haspopup="dialog" aria-expanded="false" aria-controls="history-panel" data-i18n-title="takeover.toolbarTitle" title="別のセッションの claude / codex の履歴を引き継ぐ"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><polyline points="3 4.5 3.3 8.8 7.6 8.5"/><polyline points="12 8 12 12.3 15.3 14.3"/></svg><span data-i18n="takeover.toolbar">履歴</span></button>
@@ -153,11 +166,32 @@
         <div id="exp-git" hidden>
           <div id="exp-git-head">
             <div id="exp-git-tabs" role="tablist">
-              <button id="exp-git-branch" class="is-active" role="tab" aria-selected="true" data-i18n="git.branch" title="現在のブランチ">Branch</button>
-              <button id="exp-git-issues-tab" role="tab" aria-selected="false" data-i18n="git.issues" data-i18n-title="git.issuesTitle" title="GitHub Issueを表示">Issues</button>
-              <button id="exp-git-prs-tab" role="tab" aria-selected="false" data-i18n="git.prs" data-i18n-title="git.prsTitle" title="GitHub PRを表示">PR</button>
-              <button id="exp-git-worktrees-tab" role="tab" aria-selected="false" data-i18n="git.worktrees" data-i18n-title="git.worktreesTitle" title="このリポジトリのworktreeを管理">Worktree</button>
+              <div class="exp-git-tab-item" role="presentation">
+                <button id="exp-git-branch-expand" class="exp-git-expand" type="button" data-git-tab="branch" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
+                </button>
+                <button id="exp-git-branch" class="is-active" role="tab" aria-selected="true" data-i18n="git.branch" title="現在のブランチ">Branch</button>
+              </div>
+              <div class="exp-git-tab-item" role="presentation">
+                <button id="exp-git-issues-expand" class="exp-git-expand" type="button" data-git-tab="issues" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
+                </button>
+                <button id="exp-git-issues-tab" role="tab" aria-selected="false" data-i18n="git.issues" data-i18n-title="git.issuesTitle" title="GitHub Issueを表示">Issues</button>
+              </div>
+              <div class="exp-git-tab-item" role="presentation">
+                <button id="exp-git-prs-expand" class="exp-git-expand" type="button" data-git-tab="prs" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
+                </button>
+                <button id="exp-git-prs-tab" role="tab" aria-selected="false" data-i18n="git.prs" data-i18n-title="git.prsTitle" title="GitHub PRを表示">PR</button>
+              </div>
+              <div class="exp-git-tab-item" role="presentation">
+                <button id="exp-git-worktrees-expand" class="exp-git-expand" type="button" data-git-tab="worktrees" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
+                </button>
+                <button id="exp-git-worktrees-tab" role="tab" aria-selected="false" data-i18n="git.worktrees" data-i18n-title="git.worktreesTitle" title="このリポジトリのworktreeを管理">Worktree</button>
+              </div>
             </div>
+            <button id="exp-git-create-issue" type="button" data-i18n="issue.createAction" data-i18n-title="issue.createTitle" title="GitHub Issueを作成" hidden>作成</button>
             <button id="exp-git-pr" hidden></button>
             <button id="exp-git-refresh" data-i18n-title="git.refresh" title="PR情報を更新">⟳</button>
           </div>
@@ -172,9 +206,23 @@
           <button id="exp-new-session" data-i18n="exp.newSession" data-i18n-title="exp.newSessionTitle" title="表示中のパスで新規セッション">新規セッション</button>
         </div>
       </div>
-      <button id="exp-reopen" data-i18n-title="exp.reopen" title="エクスプローラーを開く (Cmd/Ctrl+E)" hidden>Files</button>
+      <button id="exp-reopen" data-i18n-title="exp.reopen" title="エクスプローラーを開く (Cmd/Ctrl+E)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a1.8 1.8 0 0 1 1.8-1.8h3.6l1.8 2h7.8A1.8 1.8 0 0 1 20.5 9v8a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17V7z"/><path d="m11 10-3 2 3 2"/></svg>
+      </button>
     </div>
     <div id="exp-ctx" hidden><!-- フォルダ右クリックメニュー。項目は JS が生成 --></div>
+    <div id="git-panel-overlay" hidden>
+      <div id="git-panel-modal" role="dialog" aria-modal="true" aria-labelledby="git-panel-modal-title">
+        <div id="git-panel-modal-head">
+          <span id="git-panel-modal-mark" aria-hidden="true">Git</span>
+          <span id="git-panel-modal-title"></span>
+          <span id="git-panel-modal-root"></span>
+          <div id="git-panel-modal-actions"></div>
+          <button id="git-panel-modal-close" type="button" data-i18n-title="git.closeExpanded" title="拡大表示を閉じる">×</button>
+        </div>
+        <div id="git-panel-modal-body"></div>
+      </div>
+    </div>
     <div id="diff-overlay" hidden>
       <div id="diff-panel" role="dialog" aria-modal="true" aria-labelledby="diff-path">
         <div id="diff-head">
@@ -355,6 +403,37 @@
         </div>
         <div id="issue-content"><!-- Issue 詳細は JS が生成 --></div>
       </div>
+    </div>
+    <div id="issue-create-overlay" class="git-action-overlay" hidden>
+      <form id="issue-create-panel" class="git-action-panel" role="dialog" aria-modal="true" aria-labelledby="issue-create-heading">
+        <div class="git-action-head">
+          <span id="issue-create-heading" data-i18n="issue.createTitle">GitHub Issueを作成</span>
+          <button id="issue-create-close" type="button" data-i18n-title="issue.close" title="Issue表示を閉じる">×</button>
+        </div>
+        <div id="issue-create-body" class="git-action-body">
+          <label class="issue-create-field" for="issue-create-title">
+            <span data-i18n="issue.createIssueTitle">タイトル</span>
+            <input id="issue-create-title" type="text" maxlength="256" pattern=".*\S.*" autocomplete="off" required />
+          </label>
+          <label class="issue-create-field" for="issue-create-description">
+            <span data-i18n="issue.createBody">本文</span>
+            <textarea id="issue-create-description" maxlength="60000" rows="10"></textarea>
+          </label>
+          <section id="issue-create-attachments" aria-labelledby="issue-create-attachments-title">
+            <div id="issue-create-attachments-head">
+              <span id="issue-create-attachments-title" data-i18n="issue.createAttachments">添付ファイル</span>
+              <button id="issue-create-add-files" type="button" data-i18n="issue.createAddFiles">ファイルを追加</button>
+            </div>
+            <div id="issue-create-file-list" role="list"></div>
+            <p data-i18n="issue.createAttachmentHint">添付はこのリポジトリのPATerminal管理用GitHub Releaseへ保存し、Issue本文にリンクします。</p>
+          </section>
+          <div id="issue-create-error" class="git-action-error" role="alert" hidden></div>
+        </div>
+        <div class="git-action-foot">
+          <button id="issue-create-cancel" type="button" data-i18n="issue.createCancel">キャンセル</button>
+          <button id="issue-create-submit" class="is-primary" type="submit" data-i18n="issue.createSubmit">作成</button>
+        </div>
+      </form>
     </div>
     <div id="quick-phrases-overlay" hidden>
       <div id="quick-phrases-panel" role="dialog" aria-modal="true" aria-labelledby="quick-phrases-title">
@@ -566,7 +645,7 @@
           <button id="broadcast-dialog-close" type="button" data-i18n-title="bc.close" title="閉じる">×</button>
         </div>
         <div class="git-action-body">
-          <p data-i18n="bc.hint">選んだセッションの全ペインへ、打鍵・定型文・画像パスが同時に送られます。送信先は一斉入力を切ると忘れます（保存しません）。</p>
+          <p data-i18n="bc.hint">選んだセッションの全ペインへ、打鍵・定型文・ファイルパスが同時に送られます。送信先は一斉入力を切ると忘れます（保存しません）。</p>
           <div id="broadcast-select-row">
             <label id="broadcast-select-all-row">
               <input id="broadcast-select-all" type="checkbox" />

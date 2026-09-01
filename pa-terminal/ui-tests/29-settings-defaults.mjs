@@ -121,6 +121,7 @@ check("auto-enter sends Enter to every pane in the session", enterPaneIds.size =
 
 // 新しいセッションは既定でOFF。前のセッションの選択は保持される
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(250);
 check("new session defaults to auto-enter off",
   (await page.locator("#auto-enter-toggle").getAttribute("aria-pressed")) === "false");
@@ -137,6 +138,7 @@ check("auto-enter picker keeps an all-sessions mode",
     await autoEnterChecks.nth(1).isDisabled());
 await page.click("#auto-enter-close");
 await page.click("#ws-new");
+await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForTimeout(250);
 check("all-sessions mode applies to newly created sessions",
   (await page.locator("#auto-enter-toggle").getAttribute("aria-pressed")) === "true");

@@ -14,6 +14,8 @@ await page.addInitScript(() => { window.__mockHostOs = "windows"; });
 await page.goto(BASE_URL);
 await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(600);
+await page.click("#exp-reopen");
+await page.waitForTimeout(300);
 
 // --- エクスプローラーはドライブルート配下を表示する ---
 const expPath = await page.locator("#exp-path").textContent();
@@ -48,6 +50,18 @@ const imgSent = await page.evaluate(
   (n) => window.__ptyWrites.slice(n).map((x) => x.data).join(""), imgBefore);
 check("image paths are single-quoted for PowerShell",
   imgSent === "'C:\\tmp\\$env\\a b.png' ", `sent=${JSON.stringify(imgSent)}`);
+
+// --- 任意ファイルのパスも同じ PowerShell の literal 引用で入力する ---
+const fileBefore = await page.evaluate(() => window.__ptyWrites.length);
+await page.evaluate(() => { window.__mockPickedFiles = ["C:\\tmp\\$env\\notes any.ext"]; });
+await page.click("#attach-file");
+await page.waitForTimeout(300);
+const fileSent = await page.evaluate(
+  (n) => window.__ptyWrites.slice(n).map((x) => x.data).join(""), fileBefore);
+const fileDialog = await page.evaluate(() => window.__dialogOpenCalls.at(-1));
+check("file paths are unrestricted and single-quoted for PowerShell",
+  fileSent === "'C:\\tmp\\$env\\notes any.ext' " && !fileDialog?.filters,
+  `sent=${JSON.stringify(fileSent)} dialog=${JSON.stringify(fileDialog)}`);
 
 await page.close();
 

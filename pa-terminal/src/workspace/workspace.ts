@@ -4,7 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { setFocused } from "../terminal/focus";
-import { groupById } from "./groups";
+import { appendSidebarEntry, groupById, placeSidebarEntryAfter, placeSidebarEntryAt } from "./groups";
 import { t } from "../i18n";
 import { dividerEls, layout, splitRects } from "../terminal/layout";
 import { makePane } from "../terminal/pane";
@@ -13,6 +13,7 @@ import type { Pane } from "../terminal/pane";
 import { normPath } from "../features/explorer/paths";
 import { archiveWorkspace, scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
+import { recordRecentDir } from "../features/sidebar/recent-dirs";
 import { clearWsSelection } from "../features/sidebar/sidebar-selection";
 import { refreshBroadcastMarks, renderSidebar, scrollWsIntoView } from "../features/sidebar/sidebar";
 import {
@@ -72,10 +73,13 @@ export function createWorkspace(
 ): Workspace {
   const ws = createEmptyWorkspace(undefined, name, shellKind, false, opts?.autoEnter === true);
   ws.group = opts?.group;
+  appendSidebarEntry(ws, ws.group);
   ws.root = {
     kind: "leaf",
     pane: makePane(ws, { title: name, cwd: opts?.cwd, ...opts?.pane }),
   };
+  // 場所フライアウトの「最近使った場所」へ記録（保存はこの後の scheduleSave に相乗り）
+  if (opts?.cwd) recordRecentDir(opts.cwd);
   if (opts?.activate !== false) setActive(ws);
   else renderSidebar();
   scheduleSave();
@@ -127,6 +131,27 @@ export function toggleWorkspacePinned(w: Workspace) {
   // ピン済みの解除は Locked でも許す（状態から抜けられなくしない）
   if (!w.pinned && !requireFeature()) return;
   w.pinned = w.pinned ? undefined : true;
+  renderSidebar();
+  scheduleSave();
+}
+
+/** セッションのプロセスやペインを維持したまま、通常一覧とアーカイブを行き来させる。
+    表示中セッションを退避したときは、次に近い通常セッションへ表示を移す。 */
+export function toggleWorkspaceArchived(w: Workspace) {
+  if (!workspaces.includes(w)) return;
+  const archived = w.archived !== true;
+  w.archived = archived ? true : undefined;
+
+  if (archived && getActiveWs() === w) {
+    const index = workspaces.indexOf(w);
+    const next =
+      workspaces.slice(index + 1).find((workspace) => !workspace.archived) ??
+      workspaces.slice(0, index).reverse().find((workspace) => !workspace.archived);
+    if (next) {
+      setActive(next);
+      return;
+    }
+  }
   renderSidebar();
   scheduleSave();
 }
@@ -199,15 +224,21 @@ export async function newSessionCwd(): Promise<string | undefined> {
 
 /** フォームを出さない新規セッション作成（macOS / Linux の左上 + と右クリックメニュー）。
     名前は自動採番、ディレクトリ・階層・挿入位置は表示中セッションと同じ場所。
-    group を明示した場合だけ、そのグループを作成先として優先する。 */
-export async function quickCreateWorkspace(opts: { group?: string; after?: Workspace | null } = {}) {
+    group を明示した場合だけ、そのグループを作成先として優先する。
+    cwd を明示した場合（場所フライアウトからの作成）は既定の cwd 解決を行わない。 */
+export async function quickCreateWorkspace(
+  opts: { group?: string; after?: Workspace | null; at?: number; cwd?: string } = {},
+) {
   // 作成先を明示しない入口（サイドバー余白を含む）は、クイック作成と同じく
   // 表示中セッションを基準にする。await 中に activeWs が変わっても配置がぶれないよう先に捕捉する。
   const ref = opts.after === undefined ? getActiveWs() : opts.after;
   const group = opts.group ?? ref?.group;
-  const cwd = await newSessionCwd();
+  const cwd = opts.cwd !== undefined ? opts.cwd : await newSessionCwd();
   const ws = createWorkspace(nextSessionName(), "default", { group, cwd });
-  if (ref && ref.group === group) {
+  if (opts.at !== undefined) {
+    placeSidebarEntryAt(ws, group, opts.at);
+    renderSidebar();
+  } else if (ref && ref.group === group) {
     placeAfter(ws, ref); // 待っている間に閉じられていても placeAfter が吸収する
   }
   return ws;
@@ -222,7 +253,10 @@ export function placeAfter(ws: Workspace, ref: Workspace) {
   workspaces.splice(from, 1);
   const at = workspaces.indexOf(ref);
   if (at < 0) workspaces.splice(from, 0, ws); // ref が消えていたら元の位置へ戻す
-  else workspaces.splice(at + 1, 0, ws);
+  else {
+    workspaces.splice(at + 1, 0, ws);
+    if (ws.group === ref.group) placeSidebarEntryAfter(ws, ref);
+  }
   renderSidebar();
   // 新規作成直後の並び替えでも、最終位置の表示中セッションへサイドバーを合わせる。
   if (getActiveWs() === ws) scrollWsIntoView(ws);
@@ -322,6 +356,22 @@ export function renderBroadcastUi(ws: Workspace) {
 }
 
 export function setActive(ws: Workspace) {
+  // 同一セッションへの状態再適用（broadcast 切替など）では、ユーザーが遡って見ている
+  // スクロール位置を壊さない。非表示から開き直すときだけ末尾へ戻す。
+  const reopening = ws.layer.hidden;
+  // 表示中セッションが変わる経路は、サイドバークリック以外にも新規作成・履歴・
+  // 数字ショートカットなど多数ある。操作対象の選択をここで新しい1件へ揃えないと、
+  // 以前の選択と新しい active の両方に選択マークが残る。同じ active への再適用
+  // （broadcast の表示更新など）では、ユーザーが明示した複数選択を維持する。
+  if (getActiveWs() !== ws) {
+    selectedWsIds.clear();
+    selectedWsIds.add(ws.id);
+    setSelectionAnchor(ws.id);
+    // 「最近操作した順」の並べ替えはこの時刻だけを見る。同じ active への再適用や
+    // キー入力では動かさない（入力できるのはアクティブセッションだけなので足りる）
+    ws.lastOpAt = Date.now();
+    scheduleSave();
+  }
   setActiveWs(ws);
   ws.attention = null; // 見に来たので注意表示は消す
 
@@ -347,6 +397,12 @@ export function setActive(ws: Workspace) {
   renderBroadcastUi(ws);
   // 表示してから layout（非表示中は寸法ゼロで fit が失敗する）
   layout(ws);
+  // xterm の viewport は hidden 中や再表示時のリフローで先頭位置が残ることがある。
+  // layout/refit 後に末尾へ送っておけば、このあと Rust から解禁される保留出力も
+  // 「末尾を見ている」状態のまま追従する。
+  if (reopening) {
+    for (const pane of ws.panes.values()) pane.scrollToBottom();
+  }
   // **サイズを確定させてから溜まった出力を解禁する。** 非表示中にペイン幅が変わって
   // いると、pty_set_visible が先だと旧サイズで描かれた出力（最大2MB）が新しい
   // グリッドへ流し込まれる。pty_resize と pty_set_visible は別々の非同期コマンドで

@@ -32,6 +32,76 @@ check("clicking the note row opens the popover editor focused",
     await editor.getAttribute("placeholder") === "ここにメモを書く…" &&
     await page.locator(".ws-note-popover .ws-note-popover-name").textContent() === "Session 1" &&
     await editor.evaluate((el) => document.activeElement === el));
+const popover = page.locator(".ws-note-popover");
+const initialPopoverBox = await popover.boundingBox();
+const initialEditorBox = await editor.boundingBox();
+check("note popover can be resized in both directions",
+  await popover.evaluate((el) => getComputedStyle(el).resize) === "both");
+if (initialPopoverBox) {
+  await page.mouse.move(
+    initialPopoverBox.x + initialPopoverBox.width - 2,
+    initialPopoverBox.y + initialPopoverBox.height - 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    initialPopoverBox.x + initialPopoverBox.width + 118,
+    initialPopoverBox.y + initialPopoverBox.height + 78,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+}
+const enlargedPopoverBox = await popover.boundingBox();
+const enlargedEditorBox = await editor.boundingBox();
+check("dragging the popover corner enlarges the note view",
+  initialPopoverBox && enlargedPopoverBox &&
+    enlargedPopoverBox.width > initialPopoverBox.width + 80 &&
+    enlargedPopoverBox.height > initialPopoverBox.height + 40,
+  `before=${JSON.stringify(initialPopoverBox)} after=${JSON.stringify(enlargedPopoverBox)}`);
+check("the note textarea follows the enlarged card",
+  initialEditorBox && enlargedEditorBox &&
+    enlargedEditorBox.width > initialEditorBox.width + 80 &&
+    enlargedEditorBox.height > initialEditorBox.height + 40,
+  `before=${JSON.stringify(initialEditorBox)} after=${JSON.stringify(enlargedEditorBox)}`);
+if (enlargedPopoverBox) {
+  await page.mouse.move(
+    enlargedPopoverBox.x + enlargedPopoverBox.width - 2,
+    enlargedPopoverBox.y + enlargedPopoverBox.height - 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    enlargedPopoverBox.x + enlargedPopoverBox.width - 62,
+    enlargedPopoverBox.y + enlargedPopoverBox.height - 42,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+}
+const reducedPopoverBox = await popover.boundingBox();
+check("dragging the popover corner back reduces the note view",
+  enlargedPopoverBox && reducedPopoverBox &&
+    reducedPopoverBox.width < enlargedPopoverBox.width - 30 &&
+    reducedPopoverBox.height < enlargedPopoverBox.height - 20,
+  `before=${JSON.stringify(enlargedPopoverBox)} after=${JSON.stringify(reducedPopoverBox)}`);
+await popover.evaluate((el) => {
+  el.style.left = `${window.innerWidth - 20}px`;
+  el.style.top = `${window.innerHeight - 20}px`;
+  el.style.width = "2000px";
+  el.style.height = "2000px";
+});
+await page.waitForFunction(() => {
+  const el = document.querySelector(".ws-note-popover");
+  if (!el) return false;
+  const bounds = el.getBoundingClientRect();
+  return bounds.left >= 7 && bounds.top >= 7 &&
+    bounds.right <= window.innerWidth - 7 && bounds.bottom <= window.innerHeight - 7;
+});
+const viewportPopoverBox = await popover.boundingBox();
+const viewportSize = page.viewportSize();
+check("the resized note view stays inside the viewport",
+  viewportPopoverBox && viewportSize &&
+    viewportPopoverBox.x >= 7 && viewportPopoverBox.y >= 7 &&
+    viewportPopoverBox.x + viewportPopoverBox.width <= viewportSize.width - 7 &&
+    viewportPopoverBox.y + viewportPopoverBox.height <= viewportSize.height - 7,
+  JSON.stringify(viewportPopoverBox));
 await editor.fill("  PR #90 のレビュー   CI 待ち  ");
 await page.keyboard.press("Enter");
 check("Enter saves the normalized note and closes the editor",

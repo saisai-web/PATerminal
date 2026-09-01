@@ -14,7 +14,7 @@ src/
 ├── workspace/              workspace model, groups, and shared runtime state
 ├── features/
 │   ├── agents/             running-agent detection, session resume info, and the resume banner
-│   ├── attachments/        native image picker and terminal path insertion
+│   ├── attachments/        native image/file pickers and terminal path insertion
 │   ├── broadcast/          broadcast target picker for the toolbar toggle
 │   ├── explorer/           filesystem explorer, import, and file viewer
 │   ├── git/                change strip, Git actions, PRs, Issues, and worktrees

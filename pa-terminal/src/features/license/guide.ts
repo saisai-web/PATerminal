@@ -29,7 +29,7 @@ export function initGuide() {
   closeBtn.onclick = dismiss;
   wireRow("guide-panes", "split-right");
   wireRow("guide-pair", "pair-open");
-  wireRow("guide-git", "explorer-toggle");
+  wireRow("guide-git", "exp-reopen");
   wireRow("guide-takeover", "takeover-open");
   // ガイドは boot 直後の状態でのみ判定（起動中に出したり消したりしない）
   if (getLicense().guidePending) panelEl.hidden = false;

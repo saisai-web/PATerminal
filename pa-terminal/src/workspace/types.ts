@@ -65,6 +65,8 @@ export type WorkspaceGroup = {
   name: string;
   /** 未指定ならトップレベル。グループはセッションと独立して空でも保持する */
   parentId?: string;
+  /** 同じ親階層でのサイドバー表示順。未指定の旧データは従来順へフォールバックする */
+  sidebarOrder?: number;
 };
 
 export type Workspace = {
@@ -74,10 +76,16 @@ export type Workspace = {
   note?: string;
   /** サイドバーの同じ階層内で先頭に固定する */
   pinned?: boolean;
+  /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
+  archived?: boolean;
+  /** 最後にアクティブ化した時刻（ms）。「最近操作した順」の並べ替えに使う */
+  lastOpAt?: number;
   /** サイドバー項目のテーマ対応背景色 */
   backgroundColor?: WorkspaceBackgroundColor;
   /** 表示上の束ねのみ。WorkspaceGroup.id を保持する */
   group?: string;
+  /** 同じ親階層でのサイドバー表示順。未指定の旧データは従来順へフォールバックする */
+  sidebarOrder?: number;
   shellKind: ShellKind;
   broadcast: boolean;
   /** Enterだけをこのセッションの全ペインへ送る */
@@ -103,9 +111,15 @@ export type SerializedWorkspace = {
   name: string;
   note?: string;
   pinned?: boolean;
+  /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
+  archived?: boolean;
+  /** 最後にアクティブ化した時刻（ms）。再起動後も「最近操作した順」を保つ */
+  lastOpAt?: number;
   backgroundColor?: WorkspaceBackgroundColor;
   /** WorkspaceGroup.id。復元時にグループが無ければトップレベルへ退避する */
   group?: string;
+  /** 同じ親階層でのサイドバー表示順 */
+  sidebarOrder?: number;
   shellKind: ShellKind;
   broadcast: boolean;
   /** Enterだけをこのセッションの全ペインへ送る */
@@ -137,10 +151,17 @@ export type SessionV3 = {
     autoEnter?: boolean;
     /** v3 までは文字列配列（全部が汎用）。リポジトリ専用は { text, repo } で持つ */
     quickPhrases?: Array<string | { text?: string; repo?: string }>;
+    /** 新規セッションの場所フライアウトに出す「最近使った場所」（新しい順） */
+    recentDirs?: string[];
     /** ターミナル上部の帯をたたんだ状態。開くまで開かないよう保存する */
     collapsed?: { changes?: boolean; quickPhrases?: boolean; oneLine?: true };
-    /** worktree の作成先。最後に使ったモードと格納先を覚えておく（設定パネルからも変更可能） */
-    worktree?: { location?: "inside" | "outside"; insideDir?: string; outsideDir?: string };
+    /** worktree の作成先と Issue 実行で最後に選んだベースブランチを覚えておく */
+    worktree?: {
+      location?: "inside" | "outside";
+      insideDir?: string;
+      outsideDir?: string;
+      issueBaseRef?: string;
+    };
     /** ペアモードの実装役・レビュー役の既定起動コマンド（設定パネルで変更・入れ替え可能） */
     pair?: { implCmd?: string; reviewCmd?: string };
   };

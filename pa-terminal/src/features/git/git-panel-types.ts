@@ -80,3 +80,4 @@ export type IssueInfo = {
   comments: IssueComment[];
 };
 export type IssueBranchLink = { branch: string; remote: string };
+export type IssueCreated = { number: number; url: string };

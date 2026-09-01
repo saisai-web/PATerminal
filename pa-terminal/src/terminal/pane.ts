@@ -24,7 +24,7 @@ import { getTheme, isAutoEnterEnabledForWorkspace } from "../features/settings/s
 import { renderSidebar } from "../features/sidebar/sidebar";
 import { resumeCommandFor } from "../features/agents/agents";
 import { getFocusedId, getHostOs, panes } from "../workspace/state";
-import { xtermThemeFor } from "../features/settings/themes";
+import { XTERM_MINIMUM_CONTRAST_RATIO, xtermThemeFor } from "../features/settings/themes";
 import { closePane } from "./tree";
 import { updateWsGit } from "../features/sidebar/ws-git";
 import type { PaneSpec, Rect, ShellKind, Workspace } from "../workspace/types";
@@ -118,6 +118,9 @@ export class Pane {
   bracketedPaste?: boolean;
   /** 初回のシェル起動出力が静止済みか。起動音の BEL を入力待ちと誤認しないために使う */
   activityReady = false;
+  /** spec.run / resumeRun を PTY へ送信済みか。ペアの起動待ちで、先行するシェル初期化の
+      静止とエージェント起動後の静止を区別するためのランタイム状態。 */
+  startupRunSent = false;
   /** ターミナル操作または実際の agent 作業が始まったか。単なる起動出力を実行中にしない */
   activityEngaged: boolean;
   /** 出力の途中で鳴った BEL。静止するまで通知を保留し、入力待ちか完了かを見てから出す */
@@ -135,6 +138,8 @@ export class Pane {
       サイズを合わせ直す。ポーリングではなくイベント駆動 */
   private ro?: ResizeObserver;
   private refitRaf = 0;
+  /** WebKit の遅延リフロー後にも末尾へ合わせ直すための rAF。 */
+  private scrollBottomRaf = 0;
   /** destroy でまとめて外す xterm のイベント購読 */
   private readonly disposables: { dispose(): void }[] = [];
   /** 直近のスクロールバックスナップショット。出力が来るたび dirty になる */
@@ -199,6 +204,9 @@ export class Pane {
       lineHeight: 1.2,
       cursorBlink: true,
       scrollback: 10000,
+      // claude / codex は入力・返答・承認 UI で ANSI 前景色と背景色を組み合わせる。
+      // テーマと同系色になっても文字の輪郭が消えないよう、セル単位で前景色を補正する。
+      minimumContrastRatio: XTERM_MINIMUM_CONTRAST_RATIO,
       theme: xtermThemeFor(getTheme()),
     });
     this.term.loadAddon(this.fit);
@@ -441,7 +449,10 @@ export class Pane {
       // プロンプトが出る前に流すと食われるので少し待つ
       // claude / codex を立ち上げるだけでは作業中にしない。実際の依頼はユーザーの打鍵か
       // ペアモードの writeAndWait で activity を開始する。
-      setTimeout(() => this.write(`${cmd}\r`, false), 400);
+      setTimeout(() => {
+        this.startupRunSent = true;
+        this.write(`${cmd}\r`, false);
+      }, 400);
     }
   }
 
@@ -525,6 +536,7 @@ export class Pane {
     this.alive = false;
     this.activityEngaged = false;
     this.activityReady = false;
+    this.startupRunSent = false;
     this.bracketedPaste = undefined;
     this.bellPending = false;
     this.el.classList.add("is-dead");
@@ -671,6 +683,11 @@ export class Pane {
       if (dims.cols < MIN_FIT_COLS || dims.rows < MIN_FIT_ROWS) return;
       if (this.el.clientWidth <= 0 || this.el.clientHeight <= 0) return;
       this.fit.fit();
+      // Files / サイドバーの開閉やセッション再表示で横幅が変わると、WebKit は
+      // xterm の resize 後に viewport の scrollTop を先頭へ戻すことがある。
+      // ターミナルは通常最新出力を見る UI なので、レイアウト変更後は末尾へ固定する。
+      // 同期呼び出しだけでは後続のブラウザリフローに負けるため、次フレームでも再適用する。
+      this.scrollToBottom();
       // ペイン生成直後は要素が 0x0（レイアウト前）。その状態で WebGL を
       // 初期化すると描画が壊れたまま復帰しないことがあるため、
       // サイズが確定した最初の refit で遅延ロードする。
@@ -697,6 +714,17 @@ export class Pane {
     }
   }
 
+  /** レイアウト直後と WebKit の遅延リフロー後の両方で末尾へ合わせる。 */
+  scrollToBottom() {
+    if (this.destroyed) return;
+    this.term.scrollToBottom();
+    if (this.scrollBottomRaf) return;
+    this.scrollBottomRaf = requestAnimationFrame(() => {
+      this.scrollBottomRaf = 0;
+      if (!this.destroyed) this.term.scrollToBottom();
+    });
+  }
+
   focus() {
     this.term.focus();
   }
@@ -709,6 +737,7 @@ export class Pane {
     unregisterPane(this.id);
     this.ro?.disconnect();
     if (this.refitRaf) cancelAnimationFrame(this.refitRaf);
+    if (this.scrollBottomRaf) cancelAnimationFrame(this.scrollBottomRaf);
     for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;
     // spawn / 自動復旧との競合時も必ず回収する（未登録 id は Rust 側で no-op）。
