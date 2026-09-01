@@ -1,0 +1,227 @@
+name: release
+
+# macOS (Intel + Apple Silicon の universal) と Windows (x64) のインストーラを作る。
+# Windows バンドルは MSVC / WebView2 / NSIS が要るので macOS 上ではビルドできない。
+# → Windows 版はこのワークフロー（windows-latest ランナー）で作るのが正規ルート。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      # 各ジョブが同じ draft Release の latest.json を更新するため競合させない。
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-latest
+            target: universal-apple-darwin
+            bundle-root: pa-terminal/src-tauri/target/universal-apple-darwin/release/bundle
+            # 公式ビルド系統（トライアル/ソフトロック有効）。feature はここでだけ指定する
+            args: "--target universal-apple-darwin --features official"
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle-root: pa-terminal/src-tauri/target/release/bundle
+            args: "--features official"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pa-terminal/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # universal ビルドは両アーキテクチャの std が要る
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || 'x86_64-pc-windows-msvc' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: pa-terminal/src-tauri -> target
+
+      - name: install frontend deps
+        working-directory: pa-terminal
+        run: npm ci
+
+      - name: typecheck
+        working-directory: pa-terminal
+        run: npx tsc --noEmit
+
+      - name: verify generated third-party notices
+        working-directory: pa-terminal
+        run: npm run check:third-party-notices
+
+      - name: require signed updater keys
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+        run: |
+          missing=0
+          for value_name in \
+            TAURI_SIGNING_PRIVATE_KEY \
+            TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
+            TAURI_UPDATER_PUBLIC_KEY
+          do
+            if [[ -z "${!value_name:-}" ]]; then
+              echo "::error::Required updater credential is not configured: ${value_name}"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+          node pa-terminal/scripts/write-updater-config.mjs pa-terminal/src-tauri/tauri.ci.conf.json
+
+      - name: require Apple signing and notarization secrets
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          for secret_name in \
+            APPLE_CERTIFICATE \
+            APPLE_CERTIFICATE_PASSWORD \
+            APPLE_SIGNING_IDENTITY \
+            APPLE_ID \
+            APPLE_PASSWORD \
+            APPLE_TEAM_ID
+          do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Required Apple signing secret is not configured: ${secret_name}"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS の Developer ID 署名 + 公証。公開repo側のActions secretsを使う。
+          # macOS ジョブでは直前の preflight が6項目すべてを必須検査する。
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: pa-terminal
+          args: ${{ matrix.args }} --config src-tauri/tauri.ci.conf.json
+          # タグ push のときだけ GitHub Release を作る。手動実行では artifacts のみ。
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: PATerminal ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+
+      # tauri-action は .app を公証してから DMG を作る。実際に配布する最外層の
+      # DMG にも公証 ticket を付け、オフラインでも Gatekeeper が確認できるようにする。
+      - name: notarize and staple universal DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          dmg_path="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
+          if [[ -z "$dmg_path" ]]; then
+            echo "::error::The macOS build did not produce a DMG"
+            exit 1
+          fi
+          xcrun notarytool submit "$dmg_path" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$dmg_path"
+          xcrun stapler validate "$dmg_path"
+
+      # tauri-action は tag build では上の公証前にDMGをuploadするため、公証・staple後の
+      # 同名DMGでDraft Release assetを置き換える。
+      - name: replace macOS DMG in draft release
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dmg_path="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
+          gh release upload "$GITHUB_REF_NAME" "$dmg_path" --clobber
+
+      - name: write release checksums
+        shell: bash
+        # target全体にはWindowsのWiX/NSIS用ツールもあるため、配布物のbundleだけを対象にする。
+        run: node pa-terminal/scripts/write-release-checksums.mjs "${{ matrix.bundle-root }}" "SHA256SUMS-${{ matrix.target }}.txt"
+
+      - name: upload checksums to draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "SHA256SUMS-${{ matrix.target }}.txt" --clobber
+
+      - name: verify signed and notarized universal DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          EXPECTED_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          dmg_path="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
+          if [[ -z "$dmg_path" ]]; then
+            echo "::error::The macOS build did not produce a DMG"
+            exit 1
+          fi
+          bash scripts/verify-macos-dmg.sh --team-id "$EXPECTED_TEAM_ID" "$dmg_path"
+
+      # workflow_dispatch でも成果物を持ち帰れるように
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paterminal-${{ matrix.target }}
+          path: |
+            pa-terminal/src-tauri/target/release/bundle/**/*.dmg
+            pa-terminal/src-tauri/target/universal-apple-darwin/release/bundle/**/*.dmg
+            pa-terminal/src-tauri/target/release/bundle/**/*.exe
+            pa-terminal/src-tauri/target/release/bundle/**/*.msi
+            pa-terminal/src-tauri/target/release/bundle/**/*.sig
+            pa-terminal/src-tauri/target/release/bundle/**/*.tar.gz
+            pa-terminal/src-tauri/target/universal-apple-darwin/release/bundle/**/*.sig
+            pa-terminal/src-tauri/target/universal-apple-darwin/release/bundle/**/*.tar.gz
+            SHA256SUMS-${{ matrix.target }}.txt
+          if-no-files-found: warn
+
+  verify-updater-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: download updater manifest from draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$RUNNER_TEMP/paterminal-updater"
+      - name: verify updater targets, URLs, and signatures
+        run: node pa-terminal/scripts/verify-updater-json.mjs "$RUNNER_TEMP/paterminal-updater/latest.json"

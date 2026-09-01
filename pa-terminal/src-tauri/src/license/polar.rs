@@ -26,7 +26,7 @@ use serde_json::{json, Value};
 
 /// Polar の organization ID（本番。2026-08-16 設定済み）
 pub(crate) const POLAR_ORG_ID: &str = "3251577f-3c8d-4062-b1b1-f0d5887f8f06";
-/// 購入ページ（Polar のチェックアウトリンク。Monthly/Yearly 切替式・EA 50% preset。
+/// 購入ページ（Polar のチェックアウトリンク。Monthly/Yearly 切替式。
 /// 後日 Web の購入ページを作ったらその URL へ差し替える。
 /// 変更時は system/os.rs の `url_allowed`（完全一致で許可）も自然に追従する）
 pub(crate) const CHECKOUT_URL: &str =
