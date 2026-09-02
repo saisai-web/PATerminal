@@ -727,6 +727,11 @@ export class Pane {
 
   focus() {
     this.term.focus();
+    // xterm は textarea.focus({ preventScroll: true }) を使うが、WKWebView は
+    // ペイン間のフォーカス移動時にそれを無視し、viewport の DOM scrollTop を
+    // 先頭へ戻すことがある。scroll イベントで buffer.ydisp まで先頭へ変わる前と
+    // 次フレームの両方を scrollToBottom() が補正するので、常に focus の後に呼ぶ。
+    this.scrollToBottom();
   }
 
   async destroy() {

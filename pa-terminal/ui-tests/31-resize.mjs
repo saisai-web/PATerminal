@@ -81,6 +81,87 @@ for (const [button, action] of [["#exp-reopen", "opening"], ["#exp-close", "clos
 }
 await pageScroll.close();
 
+// --- 0c. 同一セッション内のペイン移動後も最新出力を表示する ---
+// WKWebView は xterm の textarea.focus({ preventScroll: true }) を無視して、フォーカス先
+// viewport の DOM scrollTop を先頭へ戻すことがある。focus イベントでその挙動を再現し、
+// Pane.focus() の同期補正と次フレーム補正が先頭位置を残さないことを確認する。
+const pagePaneFocus = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+await pagePaneFocus.addInitScript(() => {
+  const scrollback = Array.from(
+    { length: 100 },
+    (_, index) => `pane-focus-history-${String(index).padStart(3, "0")}`,
+  ).join("\r\n") + "\r\n";
+  window.__mockSessionLoad = JSON.stringify({
+    version: 5,
+    activeId: "focus",
+    workspaces: [{
+      id: "focus",
+      name: "Focus",
+      shellKind: "default",
+      broadcast: false,
+      root: {
+        kind: "split",
+        dir: "row",
+        ratio: 0.5,
+        a: { kind: "leaf", title: "left", scrollback },
+        b: { kind: "leaf", title: "right", scrollback },
+      },
+    }],
+  });
+});
+await pagePaneFocus.goto(BASE_URL);
+await pagePaneFocus.waitForSelector(".workspace-layer:not([hidden]) .pane:nth-of-type(2)", {
+  timeout: 10000,
+});
+await pagePaneFocus.waitForTimeout(400);
+await pagePaneFocus.locator(".pane-body").first().click();
+const paneFocusSetup = await pagePaneFocus.locator(".pane").nth(1).evaluate(async (pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) return null;
+  const before = {
+    top: viewport.scrollTop,
+    height: viewport.scrollHeight,
+    client: viewport.clientHeight,
+  };
+  const { panes } = await import("/src/workspace/state.ts");
+  const target = [...panes.values()].find((candidate) => candidate.el === pane);
+  if (!target) return null;
+  // 実 WebKit では term.focus() 内で起きるため、xterm の focus を一度だけ包んで
+  // DOM と buffer.ydisp がともに先頭へ移動した状態を Pane.focus() に返す。
+  const xtermFocus = target.term.focus;
+  target.term.focus = () => {
+    xtermFocus.call(target.term);
+    viewport.scrollTop = 0;
+    viewport.dispatchEvent(new Event("scroll"));
+    pane.dataset.forcedFocusScroll = "true";
+  };
+  try {
+    target.focus();
+  } finally {
+    target.term.focus = xtermFocus;
+  }
+  return before;
+});
+check("the pane-focus regression has enough terminal scrollback",
+  !!paneFocusSetup && paneFocusSetup.height > paneFocusSetup.client,
+  JSON.stringify(paneFocusSetup));
+await pagePaneFocus.waitForTimeout(100);
+const paneFocusAfter = await pagePaneFocus.locator(".pane").nth(1).evaluate((pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) return null;
+  return {
+    forced: pane.dataset.forcedFocusScroll === "true",
+    top: viewport.scrollTop,
+    height: viewport.scrollHeight,
+    client: viewport.clientHeight,
+  };
+});
+check("switching panes never leaves the terminal viewport at the top",
+  !!paneFocusAfter && paneFocusAfter.forced &&
+    paneFocusAfter.top >= paneFocusAfter.height - paneFocusAfter.client - 1,
+  JSON.stringify(paneFocusAfter));
+await pagePaneFocus.close();
+
 const resizesOf = (id) => page.evaluate(
   (paneId) => window.__ptyResizes.filter((r) => r.id === paneId), id);
 const lastResize = async (id) => (await resizesOf(id)).slice(-1)[0];
