@@ -9,6 +9,12 @@ import { t } from "../../i18n";
 import { formatDate, statusEl } from "./git-log";
 import { getIssueRoot } from "./issues-tab";
 import { openPrFromList, prStateClass, prStateLabel } from "./pr-overlay";
+import {
+  createPrSessionFromPr,
+  getPrSessionError,
+  isPrSessionBusy,
+  subscribePrSessionState,
+} from "./pr-session";
 import type { PrList, PrSummary } from "./git-panel-types";
 
 const prsEl = document.querySelector<HTMLDivElement>("#exp-git-prs")!;
@@ -100,6 +106,7 @@ function prListBranchLabel(name: string): string {
 }
 
 function buildPrRow(pr: PrSummary): HTMLDivElement {
+  const root = getIssueRoot();
   const row = document.createElement("div");
   row.className = "pr-list-row";
   row.role = "button";
@@ -122,7 +129,36 @@ function buildPrRow(pr: PrSummary): HTMLDivElement {
   const meta = document.createElement("span");
   meta.className = "pr-list-meta";
   meta.textContent = `${pr.author} · ${formatDate(pr.updatedAt)}`;
-  row.append(number, title, state, branches, meta);
+  const session = document.createElement("button");
+  session.type = "button";
+  session.className = "pr-list-session";
+  const sessionBusy = isPrSessionBusy(root, pr.number);
+  session.textContent = t(sessionBusy ? "pr.sessionPreparing" : "pr.newSession");
+  session.title = t("pr.newSessionTitle");
+  session.disabled = sessionBusy || !pr.headRefName;
+  // 行本体の click / keydown に伝播させず、詳細を開かずに直接セッションを作る。
+  session.onclick = (event) => {
+    event.stopPropagation();
+    const currentRoot = getIssueRoot();
+    if (!currentRoot) return;
+    void createPrSessionFromPr({
+      root: currentRoot,
+      number: pr.number,
+      title: pr.title,
+      headRefName: pr.headRefName,
+    });
+  };
+  session.onkeydown = (event) => event.stopPropagation();
+
+  row.append(number, title, state, branches, meta, session);
+  const sessionError = getPrSessionError(root, pr.number);
+  if (sessionError) {
+    const error = document.createElement("div");
+    error.className = "pr-session-error pr-list-session-error";
+    error.textContent = sessionError;
+    error.title = sessionError;
+    row.append(error);
+  }
   row.onclick = () => void openPrFromList(pr);
   row.onkeydown = (e) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -178,3 +214,6 @@ export function renderPrList(): void {
   }
   for (const pr of prListPrs) prsEl.append(buildPrRow(pr));
 }
+
+// 同じ PR の詳細側で開始した処理も、一覧のボタン・エラーへ即時反映する。
+subscribePrSessionState(renderPrList);

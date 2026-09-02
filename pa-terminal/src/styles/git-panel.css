@@ -197,7 +197,8 @@
   grid-template-areas:
     "number title title"
     "number branches state"
-    "number meta meta";
+    "number meta session"
+    "number error error";
   gap: 2px 7px;
   align-items: center;
   padding: 5px 4px;
@@ -244,6 +245,33 @@
 }
 .pr-list-branches { grid-area: branches; }
 .pr-list-meta { grid-area: meta; text-align: right; }
+.pr-list-session {
+  grid-area: session;
+  justify-self: end;
+  min-width: 0;
+  padding: 1px 6px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pr-list-session:hover:enabled,
+.pr-list-session:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+.pr-list-session:disabled { color: var(--dim); cursor: progress; }
+.pr-list-session-error {
+  grid-area: error;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pr-session-error {
+  color: var(--alarm);
+  font-size: 10px;
+  line-height: 1.4;
+}
 /* 取得失敗は理由（gh の出力）と再試行まで出す。一覧が取れていればその下に残す */
 .pr-list-error { display: grid; gap: 4px; justify-items: start; }
 .pr-list-error-detail {
@@ -372,6 +400,7 @@
 #git-panel-modal-body .issue-row-title,
 #git-panel-modal-body .pr-list-title,
 #git-panel-modal-body .wt-branch { font-size: 13px; }
+#git-panel-modal-body .pr-list-session { padding: 3px 9px; font-size: 11px; }
 #git-panel-modal-body .wt-list { gap: 8px; }
 #git-panel-modal-body .wt-row { gap: 5px; padding: 10px 12px; }
 #git-panel-modal-body .wt-actions button { padding: 4px 10px; }
