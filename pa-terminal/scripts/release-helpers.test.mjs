@@ -62,6 +62,31 @@ test("writes deterministic checksums for all release artifact types", (t) => {
   assert.ok(lines.every((line) => /^[a-f0-9]{64}  [A-Za-z0-9._+-]+$/.test(line)));
 });
 
+test("uses tauri-action asset names for tagged macOS updater bundles", (t) => {
+  const directory = workspace(t);
+  const bundle = join(directory, "bundle");
+  mkdirSync(bundle);
+  for (const name of [
+    "PATerminal.app.tar.gz",
+    "PATerminal.app.tar.gz.sig",
+    "PATerminal_0.2.2_universal.dmg",
+  ]) {
+    writeFileSync(join(bundle, name), `fixture:${name}`);
+  }
+  const output = join(directory, "SHA256SUMS.txt");
+  const result = run("write-release-checksums.mjs", [bundle, output, "0.2.2"]);
+  assert.equal(result.status, 0, result.stderr);
+  const names = readFileSync(output, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => line.split("  ")[1]);
+  assert.deepEqual(names.toSorted(), [
+    "PATerminal_0.2.2_universal.app.tar.gz",
+    "PATerminal_0.2.2_universal.app.tar.gz.sig",
+    "PATerminal_0.2.2_universal.dmg",
+  ]);
+});
+
 test("requires every supported updater platform in latest.json", (t) => {
   const directory = workspace(t);
   const manifestPath = join(directory, "latest.json");

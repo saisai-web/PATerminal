@@ -3,9 +3,14 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
-const [rootArg, outputArg] = process.argv.slice(2);
-if (!rootArg || !outputArg || process.argv.length !== 4) {
-  throw new Error("Usage: node scripts/write-release-checksums.mjs <bundle-root> <output.txt>");
+const [rootArg, outputArg, releaseVersion] = process.argv.slice(2);
+if (!rootArg || !outputArg || process.argv.length < 4 || process.argv.length > 5) {
+  throw new Error(
+    "Usage: node scripts/write-release-checksums.mjs <bundle-root> <output.txt> [release-version]",
+  );
+}
+if (releaseVersion && !/^\d+\.\d+\.\d+(?:[-+].+)?$/.test(releaseVersion)) {
+  throw new Error("Release version must be a semantic version without a v prefix");
 }
 const root = resolve(rootArg);
 if (!existsSync(root)) throw new Error(`Bundle root does not exist: ${root}`);
@@ -20,10 +25,21 @@ const visit = (directory) => {
 };
 visit(root);
 if (!files.length) throw new Error(`No release bundles found under ${root}`);
-const basenames = files.map((path) => basename(path));
+const releaseAssetName = (path) => {
+  const name = basename(path);
+  if (!releaseVersion) return name;
+  if (name === "PATerminal.app.tar.gz") {
+    return `PATerminal_${releaseVersion}_universal.app.tar.gz`;
+  }
+  if (name === "PATerminal.app.tar.gz.sig") {
+    return `PATerminal_${releaseVersion}_universal.app.tar.gz.sig`;
+  }
+  return name;
+};
+const basenames = files.map(releaseAssetName);
 if (new Set(basenames).size !== basenames.length) throw new Error("Duplicate release asset file names found");
 const lines = files
-  .map((path) => `${createHash("sha256").update(readFileSync(path)).digest("hex")}  ${basename(path)}`)
+  .map((path) => `${createHash("sha256").update(readFileSync(path)).digest("hex")}  ${releaseAssetName(path)}`)
   .sort();
 writeFileSync(resolve(outputArg), `${lines.join("\n")}\n`);
 console.log(`Wrote ${outputArg} with ${lines.length} SHA-256 entries.`);

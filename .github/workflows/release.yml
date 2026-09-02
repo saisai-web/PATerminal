@@ -175,7 +175,12 @@ jobs:
       - name: write release checksums
         shell: bash
         # target全体にはWindowsのWiX/NSIS用ツールもあるため、配布物のbundleだけを対象にする。
-        run: node pa-terminal/scripts/write-release-checksums.mjs "${{ matrix.bundle-root }}" "SHA256SUMS-${{ matrix.target }}.txt"
+        run: |
+          checksum_args=("${{ matrix.bundle-root }}" "SHA256SUMS-${{ matrix.target }}.txt")
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            checksum_args+=("${GITHUB_REF_NAME#v}")
+          fi
+          node pa-terminal/scripts/write-release-checksums.mjs "${checksum_args[@]}"
 
       - name: upload checksums to draft release
         if: startsWith(github.ref, 'refs/tags/')
