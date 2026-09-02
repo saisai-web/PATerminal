@@ -83,3 +83,81 @@ test("requires every supported updater platform in latest.json", (t) => {
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /missing darwin-x86_64/);
 });
+
+test("normalizes updater API asset URLs to stable public download URLs", (t) => {
+  const directory = workspace(t);
+  const manifestPath = join(directory, "latest.json");
+  const releasePath = join(directory, "release.json");
+  const apiUrl = "https://api.github.com/repos/saisai-web/PATerminal/releases/assets/123";
+  const signature = "S".repeat(80);
+  writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      version: "0.2.2",
+      platforms: {
+        "darwin-aarch64": { url: apiUrl, signature },
+        "darwin-x86_64": { url: apiUrl, signature },
+      },
+    }),
+  );
+  writeFileSync(
+    releasePath,
+    JSON.stringify({
+      tag_name: "v0.2.2",
+      assets: [{ name: "PATerminal_0.2.2_universal.app.tar.gz", url: apiUrl }],
+    }),
+  );
+
+  const normalized = run("normalize-updater-json.mjs", [
+    manifestPath,
+    releasePath,
+    "saisai-web/PATerminal",
+    "v0.2.2",
+  ]);
+  assert.equal(normalized.status, 0, normalized.stderr);
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const expected =
+    "https://github.com/saisai-web/PATerminal/releases/download/v0.2.2/PATerminal_0.2.2_universal.app.tar.gz";
+  assert.equal(manifest.platforms["darwin-aarch64"].url, expected);
+  assert.equal(manifest.platforms["darwin-x86_64"].url, expected);
+  assert.equal(manifest.platforms["darwin-aarch64"].signature, signature);
+});
+
+test("rejects updater URLs that do not match a release asset", (t) => {
+  const directory = workspace(t);
+  const manifestPath = join(directory, "latest.json");
+  const releasePath = join(directory, "release.json");
+  writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      version: "0.2.2",
+      platforms: {
+        "windows-x86_64": {
+          url: "https://example.com/PATerminal.exe",
+          signature: "S".repeat(80),
+        },
+      },
+    }),
+  );
+  writeFileSync(
+    releasePath,
+    JSON.stringify({
+      tag_name: "v0.2.2",
+      assets: [
+        {
+          name: "PATerminal_0.2.2_x64-setup.exe",
+          url: "https://api.github.com/repos/saisai-web/PATerminal/releases/assets/456",
+        },
+      ],
+    }),
+  );
+
+  const rejected = run("normalize-updater-json.mjs", [
+    manifestPath,
+    releasePath,
+    "saisai-web/PATerminal",
+    "v0.2.2",
+  ]);
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /does not match a release asset/);
+});

@@ -132,7 +132,7 @@ jobs:
           args: ${{ matrix.args }} --config src-tauri/tauri.ci.conf.json
           # タグ push のときだけ GitHub Release を作る。手動実行では artifacts のみ。
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: PATerminal ${{ github.ref_name }}
+          releaseName: PATerminal ${{ github.ref_name }} — Run Your AI Agents in Parallel
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
@@ -219,9 +219,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: download updater manifest from draft release
+      - name: download updater manifest and release metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$RUNNER_TEMP/paterminal-updater"
+        shell: bash
+        run: |
+          release_dir="$RUNNER_TEMP/paterminal-updater"
+          mkdir -p "$release_dir"
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$release_dir"
+          release_api_url="$(gh release view "$GITHUB_REF_NAME" --json apiUrl --jq .apiUrl)"
+          gh api "$release_api_url" > "$release_dir/release.json"
+      # tauri-action v1 はGitHub APIのasset URLを出力する。匿名updaterでも取得できる
+      # 公開Releaseの安定したdownload URLに置き換えてから検証・再uploadする。
+      - name: normalize updater URLs for public downloads
+        run: |
+          node pa-terminal/scripts/normalize-updater-json.mjs \
+            "$RUNNER_TEMP/paterminal-updater/latest.json" \
+            "$RUNNER_TEMP/paterminal-updater/release.json" \
+            "$GITHUB_REPOSITORY" \
+            "$GITHUB_REF_NAME"
+      - name: replace updater manifest in draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/paterminal-updater/latest.json" --clobber
       - name: verify updater targets, URLs, and signatures
         run: node pa-terminal/scripts/verify-updater-json.mjs "$RUNNER_TEMP/paterminal-updater/latest.json"
