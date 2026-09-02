@@ -101,7 +101,10 @@ test("requires every supported updater platform in latest.json", (t) => {
     ]),
   );
   writeFileSync(manifestPath, JSON.stringify({ version: "0.2.2", platforms }));
-  assert.equal(run("verify-updater-json.mjs", [manifestPath]).status, 0);
+  assert.equal(run("verify-updater-json.mjs", [manifestPath, "v0.2.2"]).status, 0);
+  const wrongVersion = run("verify-updater-json.mjs", [manifestPath, "v0.2.3"]);
+  assert.notEqual(wrongVersion.status, 0);
+  assert.match(wrongVersion.stderr, /does not match release tag/);
   delete platforms["darwin-x86_64"];
   writeFileSync(manifestPath, JSON.stringify({ version: "0.2.2", platforms }));
   const rejected = run("verify-updater-json.mjs", [manifestPath]);
@@ -185,4 +188,42 @@ test("rejects updater URLs that do not match a release asset", (t) => {
   ]);
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /does not match a release asset/);
+});
+
+test("requires the release tag to match every app manifest", (t) => {
+  const directory = workspace(t);
+  mkdirSync(join(directory, "src-tauri"));
+  writeFileSync(join(directory, "package.json"), JSON.stringify({ version: "1.2.3" }));
+  writeFileSync(join(directory, "package-lock.json"), JSON.stringify({
+    version: "1.2.3",
+    packages: { "": { version: "1.2.3" } },
+  }));
+  writeFileSync(join(directory, "src-tauri", "tauri.conf.json"), JSON.stringify({ version: "1.2.3" }));
+  writeFileSync(join(directory, "src-tauri", "Cargo.toml"), '[package]\nname = "pa-terminal"\nversion = "1.2.3"\n');
+  writeFileSync(join(directory, "src-tauri", "Cargo.lock"), '[[package]]\nname = "pa-terminal"\nversion = "1.2.3"\n');
+
+  const accepted = run("verify-release-version.mjs", ["v1.2.3", directory]);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  const rejected = run("verify-release-version.mjs", ["v1.2.4", directory]);
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /package.json: 1.2.3 \(expected 1.2.4\)/);
+});
+
+test("prepares the release version in every app manifest", (t) => {
+  const directory = workspace(t);
+  mkdirSync(join(directory, "src-tauri"));
+  writeFileSync(join(directory, "package.json"), JSON.stringify({ version: "1.2.3" }, null, 2));
+  writeFileSync(join(directory, "package-lock.json"), JSON.stringify({
+    version: "1.2.3",
+    packages: { "": { version: "1.2.3" } },
+  }, null, 2));
+  writeFileSync(join(directory, "src-tauri", "tauri.conf.json"), JSON.stringify({ version: "1.2.3" }, null, 2));
+  writeFileSync(join(directory, "src-tauri", "Cargo.toml"), '[package]\nname = "pa-terminal"\nversion = "1.2.3"\n\n[dependencies]\n');
+  writeFileSync(join(directory, "src-tauri", "Cargo.lock"), '[[package]]\nname = "dependency"\nversion = "9.9.9"\n\n[[package]]\nname = "pa-terminal"\nversion = "1.2.3"\n');
+
+  const prepared = run("set-release-version.mjs", ["v1.2.4", directory]);
+  assert.equal(prepared.status, 0, prepared.stderr);
+  const verified = run("verify-release-version.mjs", ["v1.2.4", directory]);
+  assert.equal(verified.status, 0, verified.stderr);
+  assert.match(readFileSync(join(directory, "src-tauri", "Cargo.lock"), "utf8"), /name = "dependency"\nversion = "9.9.9"/);
 });

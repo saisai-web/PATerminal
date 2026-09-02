@@ -1,22 +1,47 @@
 name: release
 
-# macOS (Intel + Apple Silicon の universal) と Windows (x64) のインストーラを作る。
-# Windows バンドルは MSVC / WebView2 / NSIS が要るので macOS 上ではビルドできない。
-# → Windows 版はこのワークフロー（windows-latest ランナー）で作るのが正規ルート。
+# GitHub Release を Publish したら、タグのバージョンをアプリへ設定し、その Release に
+# macOS (Intel + Apple Silicon の universal) と Windows (x64) のインストーラを追加する。
+# 全検証の成功後に Latest へ昇格するため、ビルド中や失敗時は旧版の自動更新を維持する。
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
+  # Release を作らず、署名済み成果物だけを Actions artifacts で確認する用途。
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      # Publish 直後の Release は GitHub により Latest になり得る。成果物と latest.json の
+      # 検証が終わるまでは旧版を /releases/latest に残す。
+      - name: keep the previous stable release as latest during the build
+        if: github.event_name == 'release' && !github.event.release.prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ github.event.release.id }}
+        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f make_latest=false >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      - name: validate release version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node pa-terminal/scripts/set-release-version.mjs "$RELEASE_TAG" pa-terminal
+          node pa-terminal/scripts/verify-release-version.mjs "$RELEASE_TAG" pa-terminal
+
   build:
+    needs: prepare-release
     strategy:
       fail-fast: false
-      # 各ジョブが同じ draft Release の latest.json を更新するため競合させない。
+      # 各ジョブが同じ Release の latest.json を更新するため競合させない。
       max-parallel: 1
       matrix:
         include:
@@ -34,12 +59,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: pa-terminal/package-lock.json
+
+      - name: set app version from release tag
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node pa-terminal/scripts/set-release-version.mjs "$RELEASE_TAG" pa-terminal
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -130,11 +163,11 @@ jobs:
         with:
           projectPath: pa-terminal
           args: ${{ matrix.args }} --config src-tauri/tauri.ci.conf.json
-          # タグ push のときだけ GitHub Release を作る。手動実行では artifacts のみ。
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: PATerminal ${{ github.ref_name }} — Run Your AI Agents in Parallel
-          releaseDraft: true
-          prerelease: false
+          # Publish 済み Release をIDで直接指定し、入力済みのタイトルと本文を変更しない。
+          # 手動実行では両方とも空になり、Release へはアップロードしない。
+          releaseId: ${{ github.event_name == 'release' && github.event.release.id || '' }}
+          tagName: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
+          releaseBody: ${{ github.event_name == 'release' && github.event.release.body || '' }}
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
 
@@ -161,33 +194,37 @@ jobs:
           xcrun stapler staple "$dmg_path"
           xcrun stapler validate "$dmg_path"
 
-      # tauri-action は tag build では上の公証前にDMGをuploadするため、公証・staple後の
-      # 同名DMGでDraft Release assetを置き換える。
-      - name: replace macOS DMG in draft release
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/')
+      # tauri-action は上の公証前にDMGをuploadするため、公証・staple後の同名DMGで
+      # Release assetを置き換える。
+      - name: replace macOS DMG in release
+        if: runner.os == 'macOS' && github.event_name == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           dmg_path="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
-          gh release upload "$GITHUB_REF_NAME" "$dmg_path" --clobber
+          gh release upload "$RELEASE_TAG" "$dmg_path" --clobber
 
       - name: write release checksums
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
         # target全体にはWindowsのWiX/NSIS用ツールもあるため、配布物のbundleだけを対象にする。
         run: |
           checksum_args=("${{ matrix.bundle-root }}" "SHA256SUMS-${{ matrix.target }}.txt")
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            checksum_args+=("${GITHUB_REF_NAME#v}")
+          if [[ -n "$RELEASE_TAG" ]]; then
+            checksum_args+=("${RELEASE_TAG#v}")
           fi
           node pa-terminal/scripts/write-release-checksums.mjs "${checksum_args[@]}"
 
-      - name: upload checksums to draft release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: upload checksums to release
+        if: github.event_name == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$GITHUB_REF_NAME" "SHA256SUMS-${{ matrix.target }}.txt" --clobber
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" "SHA256SUMS-${{ matrix.target }}.txt" --clobber
 
       - name: verify signed and notarized universal DMG
         if: runner.os == 'macOS'
@@ -219,33 +256,52 @@ jobs:
           if-no-files-found: warn
 
   verify-updater-release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
       - name: download updater manifest and release metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           release_dir="$RUNNER_TEMP/paterminal-updater"
           mkdir -p "$release_dir"
-          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$release_dir"
-          release_api_url="$(gh release view "$GITHUB_REF_NAME" --json apiUrl --jq .apiUrl)"
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$release_dir"
+          release_api_url="$(gh release view "$RELEASE_TAG" --json apiUrl --jq .apiUrl)"
           gh api "$release_api_url" > "$release_dir/release.json"
       # tauri-action v1 はGitHub APIのasset URLを出力する。匿名updaterでも取得できる
       # 公開Releaseの安定したdownload URLに置き換えてから検証・再uploadする。
       - name: normalize updater URLs for public downloads
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           node pa-terminal/scripts/normalize-updater-json.mjs \
             "$RUNNER_TEMP/paterminal-updater/latest.json" \
             "$RUNNER_TEMP/paterminal-updater/release.json" \
             "$GITHUB_REPOSITORY" \
-            "$GITHUB_REF_NAME"
-      - name: replace updater manifest in draft release
+            "$RELEASE_TAG"
+      - name: replace updater manifest in release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/paterminal-updater/latest.json" --clobber
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/paterminal-updater/latest.json" --clobber
       - name: verify updater targets, URLs, and signatures
-        run: node pa-terminal/scripts/verify-updater-json.mjs "$RUNNER_TEMP/paterminal-updater/latest.json"
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node pa-terminal/scripts/verify-updater-json.mjs "$RUNNER_TEMP/paterminal-updater/latest.json" "$RELEASE_TAG"
+
+  promote-release:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    needs: verify-updater-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: mark the verified release as latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ github.event.release.id }}
+        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f make_latest=true >/dev/null

@@ -2,10 +2,16 @@
 import { readFileSync } from "node:fs";
 
 const path = process.argv[2];
-if (!path || process.argv.length !== 3) throw new Error("Usage: node scripts/verify-updater-json.mjs <latest.json>");
+const expectedTag = process.argv[3];
+if (!path || process.argv.length > 4) {
+  throw new Error("Usage: node scripts/verify-updater-json.mjs <latest.json> [expected-tag]");
+}
 const manifest = JSON.parse(readFileSync(path, "utf8"));
 if (!/^v?\d+\.\d+\.\d+(?:[-+].+)?$/.test(manifest.version ?? "")) {
   throw new Error("latest.json has no valid semantic version");
+}
+if (expectedTag && expectedTag !== `v${manifest.version}`) {
+  throw new Error(`latest.json version ${manifest.version} does not match release tag ${expectedTag}`);
 }
 for (const target of ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]) {
   const entry = manifest.platforms?.[target];
