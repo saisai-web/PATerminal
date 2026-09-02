@@ -22,8 +22,22 @@ jobs:
         if: github.event_name == 'release' && !github.event.release.prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ github.event.release.id }}
-        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f make_latest=false >/dev/null
+          CURRENT_RELEASE_ID: ${{ github.event.release.id }}
+        shell: bash
+        run: |
+          previous_release_id="$(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.id != $CURRENT_RELEASE_ID and .draft == false and .prerelease == false) | [.published_at, .id] | @tsv" \
+              | sort | tail -n 1 | cut -f2
+          )"
+          if [[ -z "$previous_release_id" ]]; then
+            echo "No previous stable release exists; the first release will remain Latest during the build."
+            exit 0
+          fi
+          gh api --method PATCH \
+            "repos/$GITHUB_REPOSITORY/releases/$previous_release_id" \
+            -f make_latest=true >/dev/null
+          echo "Kept release ID $previous_release_id as Latest until verification completes."
 
       - uses: actions/checkout@v4
         with:
