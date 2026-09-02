@@ -33,6 +33,7 @@ export type PrInfo = {
   found: boolean;
   number: number | null;
   title: string | null;
+  headRefName: string | null;
   state: string | null; // OPEN / CLOSED / MERGED
   url: string | null;
   author: string | null;

@@ -33,6 +33,7 @@ await pageLog.addInitScript(() => {
     found: true,
     number: 12,
     title: "Add thing",
+    headRefName: "feat/x",
     state: "OPEN",
     url: "https://github.com/o/r/pull/12",
     author: "alice",
@@ -422,6 +423,96 @@ if (logShown) {
     prBranchTexts[0] === "feat/x → main" && prBranchTexts[1] === "branch → main" &&
       prBranchTitle === "fix/very-long-branch-name-for-the-list → main",
     `texts=${JSON.stringify(prBranchTexts)} title=${prBranchTitle}`);
+
+  // 一覧のボタンは詳細を開かず、保存済みの worktree 格納先で通常セッションを直接作る。
+  // 直前の Issue 操作で inside / .worktree を保存してあるため、その値が渡ることも確認する。
+  await pageLog.evaluate(() => {
+    window.__mockWorktreeFromPrResult = {
+      path: "/repo/.worktree/feat-x",
+      branch: "feat/x",
+      reused: false,
+    };
+    window.__mockWorktreeFromPrDelay = 120;
+  });
+  await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
+  const prDetailCallsBeforeListSession = await pageLog.evaluate(() => (window.__prDetailCalls ?? []).length);
+  const prWorktreeCallsBeforeListSession = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
+  const spawnsBeforeListSession = await pageLog.evaluate(() => window.__ptySpawns.length);
+  const listSessionButton = pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session");
+  // 同じ要素への連続 click も共通 busy 状態で1回に抑える。
+  await listSessionButton.evaluate((button) => {
+    button.click();
+    button.click();
+  });
+  check("PR list session action shows progress and suppresses duplicate creation",
+    await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").isDisabled() &&
+      ((await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").textContent()) ?? "").includes("準備中"));
+  await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforeListSession);
+  const listPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));
+  const listPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
+  const listPrSessionName = ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim();
+  check("PR list action passes the PR and saved worktree destination without opening detail",
+    await pageLog.evaluate((before) => (window.__prDetailCalls ?? []).length === before,
+      prDetailCallsBeforeListSession) &&
+      await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
+        prWorktreeCallsBeforeListSession) &&
+      listPrWorktreeCall?.root === "/repo" && listPrWorktreeCall?.number === 12 &&
+      listPrWorktreeCall?.branch === "feat/x" && listPrWorktreeCall?.directory === ".worktree" &&
+      listPrWorktreeCall?.location === "inside",
+    `call=${JSON.stringify(listPrWorktreeCall)}`);
+  check("successful PR list action closes the expanded list and focuses a named default-shell session",
+    !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+      listPrSpawn?.shell === null && listPrSpawn?.cwd === "/repo/.worktree/feat-x" &&
+      listPrSpawn?.args === null && listPrSessionName === "#12 Add thing" &&
+      await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),
+    `spawn=${JSON.stringify(listPrSpawn)} name=${listPrSessionName}`);
+
+  // 詳細側は失敗時に画面と理由を残し、同じボタンから再実行できる。
+  await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
+  await pageLog.locator("#git-panel-modal-body .pr-list-row").first().click();
+  await pageLog.waitForSelector("#pr-overlay:not([hidden]) #pr-files .commit-file-nav-item", { timeout: 3000 });
+  await pageLog.evaluate(() => {
+    window.__mockWorktreeFromPrDelay = 0;
+    window.__mockWorktreeFromPrResult = { error: "fetch failed for pull/12/head" };
+  });
+  const spawnsBeforePrFailure = await pageLog.evaluate(() => window.__ptySpawns.length);
+  await pageLog.locator("#pr-new-session").click();
+  await pageLog.waitForSelector("#pr-session-error:not([hidden])", { timeout: 3000 });
+  const prSessionFailure = (await pageLog.locator("#pr-session-error").textContent()) ?? "";
+  check("failed PR session creation keeps detail open, shows the reason, and allows retry",
+    await pageLog.locator("#pr-overlay").isVisible() &&
+      await pageLog.locator("#git-panel-overlay").isVisible() &&
+      prSessionFailure.includes("fetch failed for pull/12/head") &&
+      await pageLog.locator("#pr-new-session").isEnabled() &&
+      await pageLog.evaluate((before) => window.__ptySpawns.length === before, spawnsBeforePrFailure),
+    `error=${JSON.stringify(prSessionFailure)}`);
+  await pageLog.evaluate(() => {
+    window.__mockWorktreeFromPrResult = {
+      path: "/existing/feat-x",
+      branch: "feat/x",
+      reused: true,
+    };
+    window.__mockWorktreeFromPrDelay = 120;
+  });
+  const prWorktreeCallsBeforeRetry = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
+  const spawnsBeforePrRetry = await pageLog.evaluate(() => window.__ptySpawns.length);
+  await pageLog.locator("#pr-new-session").click();
+  check("the same PR is disabled in both list and detail while its worktree is prepared",
+    await pageLog.locator("#pr-new-session").isDisabled() &&
+      await pageLog.locator("#exp-git-prs .pr-list-row").first().locator(".pr-list-session").isDisabled());
+  await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforePrRetry);
+  const reusedPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
+  check("PR detail retry reuses the returned worktree and closes into a fresh regular session",
+    await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
+      prWorktreeCallsBeforeRetry) &&
+      !(await pageLog.locator("#pr-overlay").isVisible()) &&
+      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+      reusedPrSpawn?.shell === null && reusedPrSpawn?.cwd === "/existing/feat-x" &&
+      reusedPrSpawn?.args === null &&
+      ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim() === "#12 Add thing",
+    `spawn=${JSON.stringify(reusedPrSpawn)}`);
+
+  // 既存の詳細・diff 表示検証用に開き直す。
   await pageLog.locator("#exp-git-prs .pr-list-row").first().click();
   await pageLog.waitForSelector("#pr-overlay:not([hidden]) #pr-files .commit-file-nav-item", { timeout: 3000 });
   const prDetailCall = await pageLog.evaluate(() => (window.__prDetailCalls ?? [])[0]);
@@ -789,11 +880,38 @@ if (logShown) {
       openedPr === "https://github.com/o/r/pull/12", `url=${openedPr}`);
     await pageLog.keyboard.press("Escape");
     check("PR overlay closes with Escape", !(await pageLog.locator("#pr-overlay").isVisible()));
+    // 一覧を経由せず現在ブランチのバッジから開いた詳細も、PrInfo の headRefName で実行できる。
+    await pageLog.evaluate(() => {
+      window.__mockWorktreeFromPrDelay = 0;
+      window.__mockWorktreeFromPrResult = {
+        path: "/existing/current-pr",
+        branch: "feat/x",
+        reused: true,
+      };
+    });
+    const currentPrWorktreeCallsBefore = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
+    const currentPrSpawnsBefore = await pageLog.evaluate(() => window.__ptySpawns.length);
+    await pageLog.locator("#exp-git-pr").click();
+    await pageLog.waitForSelector("#pr-overlay:not([hidden])", { timeout: 3000 });
+    check("current-branch PR detail enables its session action from PrInfo headRefName",
+      await pageLog.locator("#pr-new-session").isEnabled());
+    await pageLog.locator("#pr-new-session").click();
+    await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, currentPrSpawnsBefore);
+    const currentPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));
+    check("current-branch PR badge creates and focuses a session for the head branch",
+      await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
+        currentPrWorktreeCallsBefore) &&
+        currentPrWorktreeCall?.number === 12 && currentPrWorktreeCall?.branch === "feat/x" &&
+        !(await pageLog.locator("#pr-overlay").isVisible()) &&
+        ((await pageLog.evaluate(() => window.__ptySpawns.at(-1)))?.cwd === "/existing/current-pr") &&
+        await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),
+      `call=${JSON.stringify(currentPrWorktreeCall)}`);
     // オーバーレイを閉じてもターミナルは生きている（stopPropagation の確認を兼ねる）
     // ブランチが変わったら PR を取り直す。PR 無し（gh 不在と同じ）はバッジ非表示
     await pageLog.evaluate(() => {
       window.__mockPrInfo = {
         found: false, number: null, title: null, state: null, url: null,
+        headRefName: null,
         author: null, body: null, additions: 0, deletions: 0, changedFiles: 0,
         files: [], comments: [],
       };

@@ -13,6 +13,12 @@ import { getActiveTab } from "./git-panel";
 import { statusEl } from "./git-log";
 import { getIssueRoot } from "./issues-tab";
 import { getPrListPrs } from "./pr-tab";
+import {
+  createPrSessionFromPr,
+  getPrSessionError,
+  isPrSessionBusy,
+  subscribePrSessionState,
+} from "./pr-session";
 import type { GitLog, PrInfo, PrSummary } from "./git-panel-types";
 
 const prBtn = document.querySelector<HTMLButtonElement>("#exp-git-pr")!;
@@ -94,8 +100,10 @@ const prOverlay = document.querySelector<HTMLDivElement>("#pr-overlay")!;
 const prPanel = document.querySelector<HTMLDivElement>("#pr-panel")!;
 const prStateEl = document.querySelector<HTMLSpanElement>("#pr-state")!;
 const prTitleEl = document.querySelector<HTMLSpanElement>("#pr-title")!;
+const prSessionBtn = document.querySelector<HTMLButtonElement>("#pr-new-session")!;
 const prOpenGhBtn = document.querySelector<HTMLButtonElement>("#pr-open-gh")!;
 const prCloseBtn = document.querySelector<HTMLButtonElement>("#pr-close")!;
+const prSessionErrorEl = document.querySelector<HTMLDivElement>("#pr-session-error")!;
 const prOverviewEl = document.querySelector<HTMLDivElement>("#pr-overview")!;
 const prFilesTabBtn = document.querySelector<HTMLButtonElement>("#pr-files-tab")!;
 const prConversationTabBtn = document.querySelector<HTMLButtonElement>("#pr-conversation-tab")!;
@@ -229,6 +237,18 @@ function setPrTab(tab: "files" | "conversation"): void {
   prBodyEl.hidden = files;
 }
 
+function renderPrSessionControls(number: number | null, headRefName: string | null): void {
+  const root = getIssueRoot();
+  const sessionBusy = isPrSessionBusy(root, number);
+  prSessionBtn.textContent = t(sessionBusy ? "pr.sessionPreparing" : "pr.newSession");
+  prSessionBtn.title = t("pr.newSessionTitle");
+  prSessionBtn.disabled = number === null || !headRefName || sessionBusy;
+  const sessionError = getPrSessionError(root, number);
+  prSessionErrorEl.hidden = !sessionError;
+  prSessionErrorEl.textContent = sessionError;
+  prSessionErrorEl.title = sessionError;
+}
+
 function renderPrOverlay(): void {
   const pr = shownPrInfo;
   const summaryInfo = shownPrSummary;
@@ -236,12 +256,14 @@ function renderPrOverlay(): void {
   const title = pr?.title ?? summaryInfo?.title ?? "";
   const state = pr?.state ?? summaryInfo?.state ?? null;
   const url = pr?.url ?? summaryInfo?.url ?? null;
+  const headRefName = pr?.headRefName ?? summaryInfo?.headRefName ?? null;
   prStateEl.hidden = state === null;
   prStateEl.textContent = summaryInfo?.isDraft ? t("git.prDraft") : prStateLabel(state);
   prStateEl.className = prStateClass(state);
   prTitleEl.textContent = `#${number ?? "?"} ${title}`.trim();
   prTitleEl.title = url ?? "";
   prOpenGhBtn.hidden = !url;
+  renderPrSessionControls(number, headRefName);
 
   prOverviewEl.replaceChildren();
   prBodyEl.replaceChildren();
@@ -320,6 +342,7 @@ function unavailablePrInfo(): PrInfo {
     found: false,
     number: null,
     title: null,
+    headRefName: null,
     state: null,
     url: null,
     author: null,
@@ -378,7 +401,7 @@ function openCurrentPrOverlay(): void {
   openPrOverlay(root, current.number, current, summary);
 }
 
-export function closePrOverlay(): void {
+export function closePrOverlay(restoreFocus = true): void {
   prOverlay.hidden = true;
   prOverlayToken++;
   shownPrInfo = null;
@@ -387,18 +410,29 @@ export function closePrOverlay(): void {
   shownPrDiffError = "";
   prFilesEl.replaceChildren();
   prBodyEl.replaceChildren();
-  if (prPreviousFocus?.isConnected) prPreviousFocus.focus();
+  if (restoreFocus && prPreviousFocus?.isConnected) prPreviousFocus.focus();
   prPreviousFocus = null;
 }
 
 prBtn.onclick = openCurrentPrOverlay;
+prSessionBtn.onclick = () => {
+  const root = getIssueRoot();
+  const number = shownPrInfo?.number ?? shownPrSummary?.number ?? null;
+  if (!root || number === null) return;
+  void createPrSessionFromPr({
+    root,
+    number,
+    title: shownPrInfo?.title ?? shownPrSummary?.title ?? "",
+    headRefName: shownPrInfo?.headRefName ?? shownPrSummary?.headRefName ?? null,
+  });
+};
 prFilesTabBtn.onclick = () => setPrTab("files");
 prConversationTabBtn.onclick = () => setPrTab("conversation");
 prOpenGhBtn.onclick = () => {
   const url = shownPrInfo?.url ?? shownPrSummary?.url;
   if (url) void invoke("open_url", { url }).catch(() => {});
 };
-prCloseBtn.onclick = closePrOverlay;
+prCloseBtn.onclick = () => closePrOverlay();
 prOverlay.addEventListener("pointerdown", (e) => {
   if (e.target === prOverlay) closePrOverlay(); // バックドロップクリックで閉じる
 });
@@ -415,3 +449,12 @@ window.addEventListener(
   },
   true,
 );
+
+// 一覧側から開始した同じ PR の状態も、開いている詳細ヘッダーへ同期する。
+subscribePrSessionState(() => {
+  if (prOverlay.hidden) return;
+  renderPrSessionControls(
+    shownPrInfo?.number ?? shownPrSummary?.number ?? null,
+    shownPrInfo?.headRefName ?? shownPrSummary?.headRefName ?? null,
+  );
+});

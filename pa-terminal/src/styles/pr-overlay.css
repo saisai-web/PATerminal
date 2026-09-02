@@ -45,6 +45,7 @@
   color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+#pr-new-session,
 #pr-open-gh {
   flex: none;
   font: inherit;
@@ -56,7 +57,17 @@
   border-radius: 4px;
   cursor: pointer;
 }
-#pr-open-gh:hover { border-color: var(--accent); }
+#pr-new-session:hover:enabled,
+#pr-open-gh:hover { color: var(--accent); border-color: var(--accent); }
+#pr-new-session:disabled { color: var(--dim); cursor: progress; }
+#pr-session-error {
+  flex: none;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--pane-bg);
+  overflow-wrap: anywhere;
+}
+#pr-session-error[hidden] { display: none; }
 #pr-close {
   flex: none;
   font: inherit;
@@ -210,5 +221,5 @@
 @media (max-width: 680px) {
   #pr-panel { width: 98vw; height: 94vh; max-height: 94vh; }
   #pr-open-gh { display: none; }
+  #pr-new-session { padding-inline: 7px; }
 }
-

@@ -45,6 +45,8 @@ pub(crate) struct PrInfo {
     found: bool,
     number: Option<i64>,
     title: Option<String>,
+    /// PR の head ブランチ。PR バッジから開いた詳細でも worktree を作れるよう返す。
+    head_ref_name: Option<String>,
     /// OPEN / CLOSED / MERGED
     state: Option<String>,
     url: Option<String>,
@@ -291,6 +293,7 @@ pub(crate) async fn pr_info(root: String, branch: String) -> Result<PrInfo, Stri
         found: false,
         number: None,
         title: None,
+        head_ref_name: None,
         state: None,
         url: None,
         author: None,
@@ -313,7 +316,7 @@ pub(crate) async fn pr_info(root: String, branch: String) -> Result<PrInfo, Stri
             "view",
             &branch,
             "--json",
-            "number,title,state,url,author,body,additions,deletions,changedFiles,files,comments,reviews",
+            "number,title,headRefName,state,url,author,body,additions,deletions,changedFiles,files,comments,reviews",
         ],
         10,
     )
@@ -403,6 +406,7 @@ pub(crate) async fn pr_info(root: String, branch: String) -> Result<PrInfo, Stri
         found: true,
         number: v["number"].as_i64(),
         title: v["title"].as_str().map(String::from),
+        head_ref_name: v["headRefName"].as_str().map(String::from),
         state: v["state"].as_str().map(String::from),
         url: v["url"].as_str().map(String::from),
         author: v["author"]["login"].as_str().map(String::from),

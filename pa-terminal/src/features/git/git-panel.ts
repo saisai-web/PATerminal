@@ -35,7 +35,8 @@ import {
   setIssueCreateTabActive,
 } from "./issue-create";
 import { fetchPrList, prsTabShown, renderPrList } from "./pr-tab";
-import { refreshPrBadge, renderPrBadge, renderPrOverlayTexts } from "./pr-overlay";
+import { closePrOverlay, refreshPrBadge, renderPrBadge, renderPrOverlayTexts } from "./pr-overlay";
+import { initPrSession } from "./pr-session";
 
 type GitPanelDeps = {
   /** エクスプローラーが表示中か。閉じている間は git_log の subprocess を起こさない */
@@ -46,15 +47,34 @@ type GitPanelDeps = {
     issueTitle: string;
     cwd: string;
   }) => void;
+  /** PR の worktree を通常シェルの新規セッションで開く */
+  createPrSession: (args: {
+    prNumber: number;
+    prTitle: string;
+    cwd: string;
+  }) => void;
 };
 
-let deps: GitPanelDeps = { isExplorerOpen: () => false, createIssueSession: () => {} };
+let deps: GitPanelDeps = {
+  isExplorerOpen: () => false,
+  createIssueSession: () => {},
+  createPrSession: () => {},
+};
 
 export function initGitPanel(d: GitPanelDeps): void {
   deps = d;
   initIssueCreate({
     getRoot: getIssueRoot,
     onCreated: (root) => refreshIssuesAfterCreate(root),
+  });
+  initPrSession({
+    onReady: ({ number, title, cwd }) => {
+      // 詳細と拡大一覧を閉じても以前のボタンへ focus を戻さない。直後に作る
+      // セッションのターミナルへ createWorkspace が focus を移すため。
+      closePrOverlay(false);
+      closeGitPanelModal(false);
+      deps.createPrSession({ prNumber: number, prTitle: title, cwd });
+    },
   });
 }
 

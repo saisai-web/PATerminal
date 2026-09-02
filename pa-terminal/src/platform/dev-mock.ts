@@ -544,6 +544,7 @@ if (!w.__TAURI_INTERNALS__) {
               found: false,
               number: null,
               title: null,
+              headRefName: null,
               state: null,
               url: null,
               author: null,
@@ -568,6 +569,7 @@ if (!w.__TAURI_INTERNALS__) {
             found: false,
             number: null,
             title: null,
+            headRefName: null,
             state: null,
             url: null,
             author: null,
@@ -664,6 +666,8 @@ if (!w.__TAURI_INTERNALS__) {
           const r = w.__mockWorktreeFromPrResult as
             | { error?: string; path?: string; branch?: string; reused?: boolean }
             | undefined;
+          const delay = Number(w.__mockWorktreeFromPrDelay ?? 0);
+          if (delay > 0) await new Promise((resolve) => window.setTimeout(resolve, delay));
           if (r?.error) throw new Error(r.error);
           return {
             path: r?.path ?? `${String(args.directory)}/${String(args.branch)}`,
