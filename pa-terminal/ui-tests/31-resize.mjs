@@ -160,6 +160,63 @@ check("switching panes never leaves the terminal viewport at the top",
   !!paneFocusAfter && paneFocusAfter.forced &&
     paneFocusAfter.top >= paneFocusAfter.height - paneFocusAfter.client - 1,
   JSON.stringify(paneFocusAfter));
+
+// close は layout/refit の直後に残ったペインへ focus する。WebKit が term.focus() 中に
+// viewport を先頭へ動かしても、Pane.focus() から戻る前に末尾へ補正されること。
+await pagePaneFocus.locator(".pane-body").nth(1).click();
+const paneCloseSetup = await pagePaneFocus.locator(".pane").first().evaluate(async (pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) return null;
+  const { panes } = await import("/src/workspace/state.ts");
+  const target = [...panes.values()].find((candidate) => candidate.el === pane);
+  if (!target) return null;
+  const xtermFocus = target.term.focus;
+  const paneFocus = target.focus;
+  target.term.focus = () => {
+    xtermFocus.call(target.term);
+    viewport.scrollTop = 0;
+    viewport.dispatchEvent(new Event("scroll"));
+    pane.dataset.forcedCloseScroll = "true";
+  };
+  target.focus = () => {
+    target.focus = paneFocus;
+    try {
+      paneFocus.call(target);
+      pane.dataset.closeFocusTop = String(viewport.scrollTop);
+    } finally {
+      target.term.focus = xtermFocus;
+    }
+  };
+  return {
+    top: viewport.scrollTop,
+    height: viewport.scrollHeight,
+    client: viewport.clientHeight,
+  };
+});
+check("the pane-close regression has enough terminal scrollback",
+  !!paneCloseSetup && paneCloseSetup.height > paneCloseSetup.client,
+  JSON.stringify(paneCloseSetup));
+await pagePaneFocus.locator(".pane-close").nth(1).click();
+await pagePaneFocus.waitForFunction(() => document.querySelectorAll(".pane").length === 1, undefined, {
+  timeout: 5000,
+});
+await pagePaneFocus.waitForTimeout(100);
+const paneCloseAfter = await pagePaneFocus.locator(".pane").first().evaluate((pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) return null;
+  return {
+    forced: pane.dataset.forcedCloseScroll === "true",
+    focusTop: Number(pane.dataset.closeFocusTop),
+    top: viewport.scrollTop,
+    height: viewport.scrollHeight,
+    client: viewport.clientHeight,
+  };
+});
+check("closing a pane never leaves the remaining terminal viewport at the top",
+  !!paneCloseAfter && paneCloseAfter.forced &&
+    paneCloseAfter.focusTop >= paneCloseAfter.height - paneCloseAfter.client - 1 &&
+    paneCloseAfter.top >= paneCloseAfter.height - paneCloseAfter.client - 1,
+  JSON.stringify(paneCloseAfter));
 await pagePaneFocus.close();
 
 const resizesOf = (id) => page.evaluate(

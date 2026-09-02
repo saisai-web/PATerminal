@@ -714,14 +714,23 @@ export class Pane {
     }
   }
 
+  /** xterm の buffer と DOM viewport を同じタイミングで末尾へ合わせる。
+      buffer が既に末尾だと term.scrollToBottom() は何もしないため、WebKit だけが
+      DOM scrollTop を先頭へ動かした直後は viewport も明示的に戻す必要がある。 */
+  private applyBottomScroll() {
+    this.term.scrollToBottom();
+    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  }
+
   /** レイアウト直後と WebKit の遅延リフロー後の両方で末尾へ合わせる。 */
   scrollToBottom() {
     if (this.destroyed) return;
-    this.term.scrollToBottom();
+    this.applyBottomScroll();
     if (this.scrollBottomRaf) return;
     this.scrollBottomRaf = requestAnimationFrame(() => {
       this.scrollBottomRaf = 0;
-      if (!this.destroyed) this.term.scrollToBottom();
+      if (!this.destroyed) this.applyBottomScroll();
     });
   }
 
