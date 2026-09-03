@@ -470,6 +470,10 @@ if (gitOpsOpen) {
   check("worktree modal defaults to outside ~/worktrees and the current branch",
     defaultOutside && defaultDirectory === "~/worktrees" && defaultBase === "refs/heads/main",
     `outside=${defaultOutside} directory=${defaultDirectory} base=${defaultBase}`);
+  // 環境ファイル（gitignore 対象）の引き継ぎは既定で on。今回は off にして作る
+  check("worktree modal defaults to inheriting ignored files",
+    await pageGitOps.locator("#worktree-inherit input[value=yes]").isChecked());
+  await pageGitOps.locator("#worktree-inherit input[value=no]").check();
   // 配下モードへ切り替えるとそのモードの既定（.worktree）が出る
   await pageGitOps.locator("#worktree-loc input[value=inside]").check();
   const insideDirectory = await pageGitOps.locator("#worktree-directory").inputValue();
@@ -491,7 +495,8 @@ if (gitOpsOpen) {
       && worktreeCall?.baseRef === "refs/remotes/origin/develop"
       && worktreeCall?.branch === "feature/strip-worktree"
       && worktreeCall?.directory === ".worktree"
-      && worktreeCall?.location === "inside",
+      && worktreeCall?.location === "inside"
+      && worktreeCall?.inherit === false,
     `call=${JSON.stringify(worktreeCall)}`);
   const worktreeMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
   check("worktree result is shown and the modal closes",
@@ -528,6 +533,13 @@ if (gitOpsOpen) {
   check("worktree session is placed after the source session in the same group hierarchy",
     worktreeSession.sameGroup && worktreeSession.immediatelyAfter,
     `session=${JSON.stringify(worktreeSession)}`);
+  // 引き継ぐ / 引き継がないの選択は次回のモーダルにも残る
+  await pageGitOps.locator("#git-worktree").click();
+  await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
+  check("worktree modal remembers the inherit choice",
+    await pageGitOps.locator("#worktree-inherit input[value=no]").isChecked());
+  await pageGitOps.locator("#worktree-cancel").click();
+  await pageGitOps.waitForSelector("#worktree-overlay", { state: "hidden" });
   const sidebarAfterGroupedWorktree = await pageGitOps.evaluate(() => {
     const list = document.querySelector("#ws-list");
     return {

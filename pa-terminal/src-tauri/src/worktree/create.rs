@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use super::ignore::ensure_worktree_ignored;
+use super::inherit::inherit_ignored;
 use super::path::{
     normalized_worktree_directory, resolved_external_directory, worktree_dir_name,
     worktree_parent_path,
@@ -78,6 +79,10 @@ pub(crate) struct WorktreeResult {
     path: String,
     branch: String,
     reused: bool,
+    /// 作成元から引き継いだ gitignore 対象の最上位エントリ数（再利用時と引き継ぎなしは 0）
+    inherited: usize,
+    /// 引き継ぎで一部失敗したときの内容。worktree 自体はできているので致命扱いにしない
+    inherit_warning: Option<String>,
 }
 
 /// 格納先ディレクトリの解決。2つ目が `Some` のときだけルートの `.gitignore` を触る
@@ -149,6 +154,7 @@ fn free_worktree_target(worktrees_dir: &std::path::Path, branch: &str) -> Result
 /// 配下のときだけルートの `.gitignore` へ格納先を追記する。
 /// 未指定時は `directory` の解釈が変わってしまうので、従来どおり "inside" として扱う
 /// （フロントは常に明示的に渡す）。
+/// `inherit` が真なら、作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーする。
 #[tauri::command]
 pub(crate) async fn git_worktree_create(
     root: String,
@@ -156,6 +162,7 @@ pub(crate) async fn git_worktree_create(
     branch: String,
     directory: String,
     location: Option<String>,
+    inherit: Option<bool>,
 ) -> Result<WorktreeResult, String> {
     let root_path = PathBuf::from(&root);
     if !root_path.is_dir()
@@ -178,6 +185,8 @@ pub(crate) async fn git_worktree_create(
             path,
             branch,
             reused: true,
+            inherited: 0,
+            inherit_warning: None,
         });
     }
 
@@ -195,10 +204,13 @@ pub(crate) async fn git_worktree_create(
         return Err(git_output_text(&out));
     }
     add_worktree_ignore(&root_path, &root, ignore_directory.as_deref(), &target);
+    let (inherited, inherit_warning) = inherit_into(&root, &target, inherit).await;
     Ok(WorktreeResult {
         path: target_s,
         branch,
         reused: false,
+        inherited,
+        inherit_warning,
     })
 }
 
@@ -218,6 +230,26 @@ fn add_worktree_ignore(
     let _ = ensure_worktree_ignored(root_path, root, directory, &relative_target);
 }
 
+/// 作成元の gitignore 対象を新しい worktree へコピーする（`inherit` が真のときだけ）。
+/// `.gitignore` 追記と同じく `worktree add` 成功後に走らせ、失敗は警告として返すだけにする。
+/// ファイル走査は重いので、非同期ランタイムを塞がないよう blocking スレッドで行う。
+async fn inherit_into(
+    root: &str,
+    target: &std::path::Path,
+    inherit: Option<bool>,
+) -> (usize, Option<String>) {
+    if !inherit.unwrap_or(false) {
+        return (0, None);
+    }
+    let root = root.to_string();
+    let target = target.to_path_buf();
+    match tauri::async_runtime::spawn_blocking(move || inherit_ignored(&root, &target)).await {
+        Ok(Ok(summary)) => (summary.copied, summary.warning_text()),
+        Ok(Err(e)) => (0, Some(e)),
+        Err(e) => (0, Some(e.to_string())),
+    }
+}
+
 /// GitHub の PR（head ブランチ）で作業するための worktree を用意する。
 ///
 /// 「PR のブランチを持ってくる」ことだけが仕事で、gh は使わない（PR の一覧は
@@ -231,6 +263,7 @@ pub(crate) async fn git_worktree_from_pr(
     branch: String,
     directory: String,
     location: Option<String>,
+    inherit: Option<bool>,
 ) -> Result<WorktreeResult, String> {
     let root_path = PathBuf::from(&root);
     if !root_path.is_dir() {
@@ -249,6 +282,8 @@ pub(crate) async fn git_worktree_from_pr(
             path,
             branch,
             reused: true,
+            inherited: 0,
+            inherit_warning: None,
         });
     }
 
@@ -298,10 +333,13 @@ pub(crate) async fn git_worktree_from_pr(
         return Err(git_output_text(&out));
     }
     add_worktree_ignore(&root_path, &root, ignore_directory.as_deref(), &target);
+    let (inherited, inherit_warning) = inherit_into(&root, &target, inherit).await;
     Ok(WorktreeResult {
         path: target_s,
         branch,
         reused: false,
+        inherited,
+        inherit_warning,
     })
 }
 
@@ -373,6 +411,7 @@ mod tests {
             "feature/pr-head".into(),
             outside.to_string_lossy().into_owned(),
             Some("outside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -395,6 +434,7 @@ mod tests {
             "feature/pr-head".into(),
             outside.to_string_lossy().into_owned(),
             Some("outside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -426,6 +466,7 @@ mod tests {
             "pr-7".into(),
             ".worktree".into(),
             Some("inside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -456,6 +497,7 @@ mod tests {
             "already/local".into(),
             outside.to_string_lossy().into_owned(),
             Some("outside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -479,6 +521,7 @@ mod tests {
                 branch.into(),
                 ".worktree".into(),
                 Some("inside".into()),
+                None,
             )
             .await
             .is_err());
@@ -505,6 +548,7 @@ mod tests {
             "refs/heads/main".into(),
             "issue/42-fix".into(),
             ".worktree".into(),
+            None,
             None,
         )
         .await
@@ -549,6 +593,7 @@ mod tests {
             "feature/test".into(),
             ".trees".into(),
             Some("inside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -584,6 +629,7 @@ mod tests {
             "feature/outside".into(),
             outside.to_string_lossy().into_owned(),
             Some("outside".into()),
+            None,
         )
         .await
         .unwrap();
@@ -627,5 +673,130 @@ mod tests {
             .await
             .is_err());
         let _ = fs::remove_dir_all(&outside);
+    }
+
+    /// `.env` と `node_modules/` を ignore する単独リポジトリ（作成元の環境ファイル付き）
+    fn repo_with_ignored_env(root: &Path) {
+        test_git(root, &["init", "--quiet"]);
+        test_git(root, &["config", "user.name", "PATerminal Test"]);
+        test_git(
+            root,
+            &["config", "user.email", "paterminal@example.invalid"],
+        );
+        fs::write(root.join("tracked.txt"), "base\n").unwrap();
+        fs::write(root.join(".gitignore"), ".env\nnode_modules/\n").unwrap();
+        test_git(root, &["add", "tracked.txt", ".gitignore"]);
+        test_git(root, &["commit", "--quiet", "-m", "initial"]);
+        test_git(root, &["branch", "-M", "main"]);
+        fs::write(root.join(".env"), "SECRET=1\n").unwrap();
+        fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+        fs::write(root.join("node_modules/pkg/index.js"), "pkg\n").unwrap();
+    }
+
+    #[tokio::test]
+    async fn worktree_inherits_ignored_files_only_when_asked() {
+        let repo = TempRepo::new();
+        let repo_dir = repo.0.join("repo");
+        fs::create_dir(&repo_dir).unwrap();
+        repo_with_ignored_env(&repo_dir);
+        let root = repo_dir.to_string_lossy().into_owned();
+        let outside = repo.0.join("trees");
+
+        let result = git_worktree_create(
+            root.clone(),
+            "refs/heads/main".into(),
+            "feature/with-env".into(),
+            outside.to_string_lossy().into_owned(),
+            Some("outside".into()),
+            Some(true),
+        )
+        .await
+        .unwrap();
+        let target = PathBuf::from(&result.path);
+        assert_eq!(result.inherited, 2, "{:?}", result.inherit_warning);
+        assert!(result.inherit_warning.is_none());
+        assert_eq!(
+            fs::read_to_string(target.join(".env")).unwrap(),
+            "SECRET=1\n"
+        );
+        assert_eq!(
+            fs::read_to_string(target.join("node_modules/pkg/index.js")).unwrap(),
+            "pkg\n"
+        );
+        assert_eq!(
+            fs::read_to_string(target.join("tracked.txt")).unwrap(),
+            "base\n"
+        );
+
+        // 再利用時は何もコピーしない（作成元で後から増えたものも入らない）
+        fs::write(repo_dir.join(".env.local"), "later\n").unwrap();
+        let again = git_worktree_create(
+            root.clone(),
+            "refs/heads/main".into(),
+            "feature/with-env".into(),
+            outside.to_string_lossy().into_owned(),
+            Some("outside".into()),
+            Some(true),
+        )
+        .await
+        .unwrap();
+        assert!(again.reused);
+        assert_eq!(again.inherited, 0);
+        assert!(!target.join(".env.local").exists());
+
+        for (branch, inherit) in [("feature/no-env", Some(false)), ("feature/unset", None)] {
+            let result = git_worktree_create(
+                root.clone(),
+                "refs/heads/main".into(),
+                branch.into(),
+                outside.to_string_lossy().into_owned(),
+                Some("outside".into()),
+                inherit,
+            )
+            .await
+            .unwrap();
+            let target = PathBuf::from(&result.path);
+            assert_eq!(result.inherited, 0);
+            assert!(!target.join(".env").exists(), "{branch}");
+            assert!(!target.join("node_modules").exists(), "{branch}");
+        }
+    }
+
+    #[tokio::test]
+    async fn inside_worktree_inherits_without_copying_the_worktree_container() {
+        let repo = TempRepo::new();
+        repo_with_ignored_env(&repo.0);
+        let root = repo.0.to_string_lossy().into_owned();
+
+        let first = git_worktree_create(
+            root.clone(),
+            "refs/heads/main".into(),
+            "feature/first".into(),
+            ".worktree".into(),
+            Some("inside".into()),
+            Some(true),
+        )
+        .await
+        .unwrap();
+        let second = git_worktree_create(
+            root.clone(),
+            "refs/heads/main".into(),
+            "feature/second".into(),
+            ".worktree".into(),
+            Some("inside".into()),
+            Some(true),
+        )
+        .await
+        .unwrap();
+        for result in [&first, &second] {
+            let target = PathBuf::from(&result.path);
+            assert_eq!(result.inherited, 2, "{:?}", result.inherit_warning);
+            assert_eq!(
+                fs::read_to_string(target.join(".env")).unwrap(),
+                "SECRET=1\n"
+            );
+            // `.worktree/` 自体も ignore 対象だが、他の worktree を巻き込んでコピーしない
+            assert!(!target.join(".worktree").exists());
+        }
     }
 }

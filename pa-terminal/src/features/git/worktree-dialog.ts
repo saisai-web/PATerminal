@@ -47,6 +47,9 @@ const worktreeDirLabelEl = document.querySelector<HTMLSpanElement>("#worktree-di
 const worktreeLocRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#worktree-loc input[type=radio]"),
 );
+const worktreeInheritRadios = Array.from(
+  document.querySelectorAll<HTMLInputElement>("#worktree-inherit input[type=radio]"),
+);
 const worktreeIgnoreHintEl = document.querySelector<HTMLParagraphElement>("#worktree-ignore-hint")!;
 const worktreeExternalHintEl =
   document.querySelector<HTMLParagraphElement>("#worktree-external-hint")!;
@@ -84,6 +87,11 @@ export function getWorktreeDialogRoot(): string | null {
 
 function worktreeLocationMode(): WorktreeLocation {
   return worktreeLocRadios.find((r) => r.checked)?.value === "outside" ? "outside" : "inside";
+}
+
+/** 作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーするか */
+function worktreeInheritMode(): boolean {
+  return worktreeInheritRadios.find((r) => r.checked)?.value !== "no";
 }
 
 function worktreeSourceMode(): WorktreeSource {
@@ -212,7 +220,9 @@ export function updateWorktreeDialog(): void {
   worktreeBranchEl.disabled = disabled;
   worktreePrSel.disabled = disabled || worktreePrLoading;
   worktreeDirectoryEl.disabled = disabled;
-  for (const radio of [...worktreeLocRadios, ...worktreeSourceRadios]) radio.disabled = disabled;
+  for (const radio of [...worktreeLocRadios, ...worktreeSourceRadios, ...worktreeInheritRadios]) {
+    radio.disabled = disabled;
+  }
   worktreeCloseBtn.disabled = isActionBusy();
   worktreeCancelBtn.disabled = isActionBusy();
   const ready = worktreeSourceMode() === "pr"
@@ -242,6 +252,7 @@ async function openWorktreeDialog(): Promise<void> {
   // 前回使った置き場所を復元する（settings.worktree に保存してある）
   const prefs = getWorktreePrefs();
   for (const radio of worktreeLocRadios) radio.checked = radio.value === prefs.location;
+  for (const radio of worktreeInheritRadios) radio.checked = (radio.value === "yes") === prefs.inherit;
   worktreeDirectoryEl.value = worktreeDirFor(prefs.location);
   applyWorktreeLocationMode();
   worktreeErrorEl.hidden = true;
@@ -322,10 +333,24 @@ for (const radio of worktreeLocRadios) {
     updateWorktreeDialog();
   });
 }
+/** 作成結果の文言。引き継いだ件数を添え、一部失敗があれば警告を続ける。 */
+function worktreeResultMessage(result: WorktreeResult): string {
+  const path = result.path;
+  let message = result.reused
+    ? t("agent.worktreeReused", { path })
+    : result.inherited > 0
+      ? t("agent.worktreeCreatedInherited", { path, count: String(result.inherited) })
+      : t("agent.worktreeCreated", { path });
+  const warning = result.inheritWarning?.trim();
+  if (warning) message += `\n${t("agent.worktreeInheritWarning", { error: warning })}`;
+  return message;
+}
+
 worktreeSubmitBtn.onclick = () => {
   const root = worktreeDialogRoot;
   const directory = worktreeDirectoryEl.value.trim();
   const location = worktreeLocationMode();
+  const inherit = worktreeInheritMode();
   const source = worktreeSourceMode();
   const pr = source === "pr" ? selectedPr() : null;
   const baseRef = worktreeBaseSel.value;
@@ -348,6 +373,7 @@ worktreeSubmitBtn.onclick = () => {
               branch,
               directory,
               location,
+              inherit,
             })
           : await invoke<WorktreeResult>("git_worktree_create", {
               root,
@@ -355,14 +381,15 @@ worktreeSubmitBtn.onclick = () => {
               branch,
               directory,
               location,
+              inherit,
             });
         updateWorktreePrefs(
           location === "outside"
-            ? { location, outsideDir: directory }
-            : { location, insideDir: directory },
+            ? { location, outsideDir: directory, inherit }
+            : { location, insideDir: directory, inherit },
         );
         outcome.created = result;
-        return t(result.reused ? "agent.worktreeReused" : "agent.worktreeCreated", { path: result.path });
+        return worktreeResultMessage(result);
       },
       (error) => {
         worktreeErrorEl.textContent = error;

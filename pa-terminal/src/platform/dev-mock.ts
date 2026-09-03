@@ -645,13 +645,18 @@ if (!w.__TAURI_INTERNALS__) {
             branch: args.branch,
             directory: args.directory,
             location: args.location,
+            inherit: args.inherit,
           });
-          const r = w.__mockWorktreeResult as { error?: string; path?: string; branch?: string } | undefined;
+          const r = w.__mockWorktreeResult as
+            | { error?: string; path?: string; branch?: string; inherited?: number; inheritWarning?: string }
+            | undefined;
           if (r?.error) throw new Error(r.error);
           return {
             path: r?.path ?? `${String(args.root)}/${String(args.directory)}/issue-1`,
             branch: r?.branch ?? args.branch,
             reused: false,
+            inherited: r?.inherited ?? 0,
+            inheritWarning: r?.inheritWarning ?? null,
           };
         }
         case "git_worktree_from_pr": {
@@ -662,9 +667,10 @@ if (!w.__TAURI_INTERNALS__) {
             branch: args.branch,
             directory: args.directory,
             location: args.location,
+            inherit: args.inherit,
           });
           const r = w.__mockWorktreeFromPrResult as
-            | { error?: string; path?: string; branch?: string; reused?: boolean }
+            | { error?: string; path?: string; branch?: string; reused?: boolean; inherited?: number }
             | undefined;
           const delay = Number(w.__mockWorktreeFromPrDelay ?? 0);
           if (delay > 0) await new Promise((resolve) => window.setTimeout(resolve, delay));
@@ -673,6 +679,8 @@ if (!w.__TAURI_INTERNALS__) {
             path: r?.path ?? `${String(args.directory)}/${String(args.branch)}`,
             branch: r?.branch ?? args.branch,
             reused: r?.reused ?? false,
+            inherited: r?.inherited ?? 0,
+            inheritWarning: null,
           };
         }
         case "git_worktree_list": {
