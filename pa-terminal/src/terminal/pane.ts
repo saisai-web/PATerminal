@@ -95,6 +95,33 @@ function retryDelay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+/**
+ * ユーザーの打鍵ではなく、ターミナル側が自動で生成して PTY へ流すデータか。
+ * - TUI の問い合わせへの応答: CPR / DECXCPR（`ESC [ r ; c R`）、DA1 / DA2 / DECRQM など
+ *   private prefix 付き CSI（`ESC [ ?` / `ESC [ >`）、DSR（`ESC [ 0 n`）、OSC 色応答、
+ *   DCS（DECRQSS）応答。claude / codex は起動時とリサイズ時にこれらを問い合わせる
+ * - フォーカス通知 `ESC [ I` / `ESC [ O`（DECSET 1004。セッション切替の focus() で出る）
+ * - マウス報告（SGR / X10）と、alt buffer でホイールが変換される上下矢印
+ * これらを「操作」と数えると、開いただけ・見ただけのペインが実行中になって
+ * 完了通知が量産される。
+ */
+const UNSOLICITED_TERMINAL_DATA: RegExp[] = [
+  /^\x1b\[[?>]/,
+  /^\x1b\[\d+;\d+R$/,
+  /^\x1b\[\d*n$/,
+  /^\x1b\]/,
+  /^\x1bP[\s\S]*\x1b\\$/,
+  /^\x1b\[[IO]$/,
+  /^\x1b\[<\d+;\d+;\d+[Mm]$/,
+  /^\x1b\[M[\s\S]{3}$/,
+  /^(\x1b(\[|O)[ABCD])+$/,
+];
+
+export function isUnsolicitedTerminalData(data: string): boolean {
+  if (data.charCodeAt(0) !== 0x1b) return false;
+  return UNSOLICITED_TERMINAL_DATA.some((re) => re.test(data));
+}
+
 export class Pane {
   readonly id: string;
   readonly el: HTMLDivElement;
@@ -365,10 +392,10 @@ export class Pane {
     this.writeChain = new Promise<void>((resolve) => (spawnDone = resolve));
 
     this.term.onData((data) => {
-      // DECSET 1004 を有効にした TUI は、textarea の focus / blur を
-      // ESC [ I / ESC [ O として受け取る。セッション切替の focus() だけでも
-      // onData が発火するため、PTY へは転送するがユーザー操作とは数えない。
-      const marksActivity = data !== "\x1b[I" && data !== "\x1b[O";
+      // TUI の問い合わせに xterm が自動で返す応答（カーソル位置・DA・色）やフォーカス
+      // 通知は、PTY へは転送するがユーザー操作とは数えない（claude / codex を開いた
+      // だけで「実行中」にしない）。
+      const marksActivity = !isUnsolicitedTerminalData(data);
       if (marksActivity) this.activityEngaged = true;
       diag.data += data.length;
       diagPush(`d:${data.length <= 4 ? JSON.stringify(data) : data.length}`);
