@@ -90,3 +90,16 @@ jobs:
         # ここも一緒にビルド/リンクすると Windows では数十秒級の追加コストになる。
         # Windows 固有のコンパイル時アサート・単体テストは lib クレート側にあるので --lib で足りる
         run: cargo test --locked --lib
+
+      # 失敗時の診断: テスト exe が起動できない（STATUS_ENTRYPOINT_NOT_FOUND 等）ときに、
+      # どの DLL のどのエントリを要求しているかをログに残す
+      - name: Dump test binary imports (on failure)
+        if: failure()
+        shell: pwsh
+        working-directory: pa-terminal/src-tauri
+        run: |
+          $dumpbin = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $exe = Get-ChildItem target\debug\deps\pa_terminal_lib-*.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          Write-Host "dumpbin=$($dumpbin.FullName) exe=$($exe.FullName)"
+          if ($dumpbin -and $exe) { & $dumpbin.FullName /IMPORTS $exe.FullName }
+          Get-ChildItem target\debug\deps\*.dll -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "dll: $($_.Name) $($_.Length) $($_.LastWriteTime)" }
