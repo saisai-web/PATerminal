@@ -266,6 +266,12 @@
 }
 #settings-update-result .update-warning,
 #settings-update-result .update-error { color: var(--alarm); }
+#settings-update-result .update-error-detail {
+  color: var(--dim);
+  font-size: 11px;
+  word-break: break-all;
+  user-select: text;
+}
 #settings-update-progress { margin-top: 8px; color: var(--text); }
 #settings-update-result:empty { display: none; }
 

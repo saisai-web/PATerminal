@@ -192,7 +192,7 @@ export const es: Dict = {
   "ws.sortRecentTitle": "Ordenar por uso reciente",
   "ws.notePlaceholder": "Añade una nota breve...",
   "ws.noteViewTitle": "Ver y editar la nota",
-  "ws.noteEditHint": "Enter para guardar · Esc para cancelar",
+  "ws.noteEditHint": "Enter para guardar · Shift+Enter para nueva línea · Esc para cancelar",
   "ctx.duplicate": "Copiar sesión",
   "ctx.duplicateTitle": "Abrir una sesión nueva de un solo panel en el mismo directorio",
   "ctx.duplicateN": "Copiar sesión ×{n}",

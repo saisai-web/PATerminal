@@ -153,6 +153,10 @@ jobs:
         working-directory: pa-terminal
         run: npm run check:third-party-notices
 
+      # 配布済みアプリは TAURI_UPDATER_PUBLIC_KEY を埋め込み、その鍵で成果物の署名を検証する。
+      # 秘密鍵(secret)と公開鍵(variable)が別ペアだと、ビルドは成功しても全ユーザーの
+      # アプリ内更新が「署名付きアップデートをインストールできませんでした」で失敗する
+      # (v0.2.2/v0.2.3 で発生)。鍵をローテーションするときは両方を同時に差し替えること。
       - name: require signed updater keys
         shell: bash
         env:
@@ -175,6 +179,21 @@ jobs:
             exit 1
           fi
           node pa-terminal/scripts/write-updater-config.mjs pa-terminal/src-tauri/tauri.ci.conf.json
+
+      # ビルド前に秘密鍵でダミーファイルへ署名し、公開鍵で検証できることを確かめる。
+      - name: verify updater signing key matches the embedded public key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+        # workflow_dispatch で古いタグを再ビルドするとスクリプトが無いことがあるため存在を確認する。
+        run: |
+          if [[ -f pa-terminal/scripts/check-updater-keypair.mjs ]]; then
+            node pa-terminal/scripts/check-updater-keypair.mjs
+          else
+            echo "::warning::This tag predates check-updater-keypair.mjs; the key pair is not verified before the build"
+          fi
 
       - name: require Apple signing and notarization secrets
         if: runner.os == 'macOS'
@@ -318,9 +337,11 @@ jobs:
     needs: [prepare-release, build]
     runs-on: ubuntu-latest
     steps:
+      # 検証スクリプトはタグではなくワークフローを実行した ref から使う。
+      # 古いタグを再ビルドしても最新の署名検証が効く。
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.prepare-release.outputs.release_tag }}
+          ref: ${{ github.sha }}
       - name: download updater manifest and release metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -328,10 +349,13 @@ jobs:
         shell: bash
         run: |
           release_dir="$RUNNER_TEMP/paterminal-updater"
-          mkdir -p "$release_dir"
+          mkdir -p "$release_dir/assets"
           gh release download "$RELEASE_TAG" --pattern latest.json --dir "$release_dir"
           release_api_url="$(gh release view "$RELEASE_TAG" --json apiUrl --jq .apiUrl)"
           gh api "$release_api_url" > "$release_dir/release.json"
+          # latest.json の署名を、実際に配布する成果物と公開鍵で検証するために取得する。
+          gh release download "$RELEASE_TAG" --dir "$release_dir/assets" \
+            --pattern '*.tar.gz' --pattern '*.exe' --pattern '*.msi' --pattern '*.sig'
       # tauri-action v1 はGitHub APIのasset URLを出力する。匿名updaterでも取得できる
       # 公開Releaseの安定したdownload URLに置き換えてから検証・再uploadする。
       - name: normalize updater URLs for public downloads
@@ -348,10 +372,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/paterminal-updater/latest.json" --clobber
+      # 公開鍵で検証できない署名なら失敗し、promote-release へ進まず旧版が Latest のまま残る。
       - name: verify updater targets, URLs, and signatures
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
-        run: node pa-terminal/scripts/verify-updater-json.mjs "$RUNNER_TEMP/paterminal-updater/latest.json" "$RELEASE_TAG"
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+        run: |
+          node pa-terminal/scripts/verify-updater-json.mjs \
+            "$RUNNER_TEMP/paterminal-updater/latest.json" "$RELEASE_TAG" \
+            --assets "$RUNNER_TEMP/paterminal-updater/assets"
 
   promote-release:
     if: needs.prepare-release.outputs.release_tag != '' && needs.prepare-release.outputs.prerelease != 'true'

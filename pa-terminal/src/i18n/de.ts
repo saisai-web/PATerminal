@@ -192,7 +192,7 @@ export const de: Dict = {
   "ws.sortRecentTitle": "Nach letzter Nutzung sortieren",
   "ws.notePlaceholder": "Kurze Notiz hinzufügen...",
   "ws.noteViewTitle": "Notiz anzeigen und bearbeiten",
-  "ws.noteEditHint": "Enter zum Speichern · Esc zum Abbrechen",
+  "ws.noteEditHint": "Enter zum Speichern · Shift+Enter für neue Zeile · Esc zum Abbrechen",
   "ctx.duplicate": "Sitzung kopieren",
   "ctx.duplicateTitle": "Neue Sitzung mit einem Bereich im selben Verzeichnis öffnen",
   "ctx.duplicateN": "Sitzung ×{n} kopieren",

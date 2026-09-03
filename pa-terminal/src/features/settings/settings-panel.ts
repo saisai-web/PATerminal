@@ -86,6 +86,8 @@ let appVersion: string | null = null;
 let officialUpdate: OfficialUpdateInfo | null = null;
 let updateInstallState: "idle" | "confirm" | "installing" | "error" = "idle";
 let updateInstallProgress: number | null = null;
+/** updater が返した生のエラー。署名不一致か取得失敗かをユーザー報告から判別できるようにする。 */
+let updateInstallError = "";
 
 export function getTheme(): ThemeId {
   return currentTheme;
@@ -273,6 +275,12 @@ function renderUpdateResult() {
             failure.className = "update-error";
             failure.textContent = t("settings.installFailed");
             settingsUpdateResultEl.append(failure);
+            if (updateInstallError) {
+              const detail = document.createElement("div");
+              detail.className = "update-error-detail";
+              detail.textContent = updateInstallError;
+              settingsUpdateResultEl.append(detail);
+            }
           }
         }
         const fallback = document.createElement("button");
@@ -327,9 +335,11 @@ async function checkUpdate() {
 async function installUpdate() {
   updateInstallState = "installing";
   updateInstallProgress = null;
+  updateInstallError = "";
   renderSettingsPanel();
   if (!(await flushSessionSave())) {
     updateInstallState = "error";
+    updateInstallError = t("save.failed");
     renderSettingsPanel();
     return;
   }
@@ -338,8 +348,9 @@ async function installUpdate() {
       updateInstallProgress = progress;
       if (!settingsOverlay.hidden) renderUpdateResult();
     });
-  } catch {
+  } catch (err) {
     updateInstallState = "error";
+    updateInstallError = err instanceof Error ? err.message : String(err);
     renderSettingsPanel();
   }
 }

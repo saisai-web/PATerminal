@@ -192,7 +192,7 @@ export const zhHans: Dict = {
   "ws.sortRecentTitle": "按最近操作排序",
   "ws.notePlaceholder": "添加简短备注...",
   "ws.noteViewTitle": "查看和编辑备注",
-  "ws.noteEditHint": "Enter 保存 · Esc 取消",
+  "ws.noteEditHint": "Enter 保存 · Shift+Enter 换行 · Esc 取消",
   "ctx.duplicate": "复制会话",
   "ctx.duplicateTitle": "在同一目录下新建单窗格会话",
   "ctx.duplicateN": "复制会话 ×{n}",
