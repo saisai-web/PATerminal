@@ -9,7 +9,8 @@ const pageAct = await browser.newPage({ viewport: { width: 1280, height: 820 } }
 pageAct.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await pageAct.addInitScript(() => {
   // 製品では通知まで連続1分静止を待つ。ここでは通知経路だけを短時間で検証する。
-  window.__activityTuning = { notificationIdleMs: 25 };
+  // 打鍵なしの出力を実行中と見なすまでの連続出力時間（製品では3秒）も短縮する。
+  window.__activityTuning = { notificationIdleMs: 25, outputBusyMs: 40 };
   window.__mockSessionLoad = JSON.stringify({
     version: 3,
     activeId: "wa",
@@ -35,6 +36,11 @@ await pageAct.waitForTimeout(400);
   const emit = (event, payload) =>
     pageAct.evaluate(([ev, pl]) => window.__emit(ev, pl), [event, payload]);
   const notifCount = () => pageAct.evaluate(() => window.__notifications.length);
+  // 打鍵なしの出力が outputBusyMs を超えて続いた = 実作業として実行中になる
+  const startBusy = async (id) => {
+    await emit("pty:act", { id, busy: true, busyMs: 0 });
+    await pageAct.waitForTimeout(120);
+  };
   const hasClass = (wsId, cls) =>
     pageAct.evaluate(
       ([id, c]) => document.querySelector(`.ws-item[data-ws-id="${id}"]`)?.classList.contains(c) ?? false,
@@ -66,6 +72,14 @@ await pageAct.waitForTimeout(400);
     (await statusText("wb")) === "完了" && !(await hasClass("wb", "is-busy")));
   await pageAct.locator('.ws-item[data-ws-id="wa"] .ws-head').click();
 
+  // TUI の問い合わせ（カーソル位置 / DA / 色）に xterm が自動で返す応答は、onData を
+  // 通っても操作ではない。claude / codex を開いただけでは実行中にしない
+  await pageAct.evaluate(() => window.__ptyPushAll("\x1b[6n\x1b[c\x1b]11;?\x07"));
+  await pageAct.waitForTimeout(80);
+  check("terminal query replies do not show running",
+    (await statusText("wa")) === "完了" && !(await hasClass("wa", "is-busy")) &&
+      (await statusText("wb")) === "完了" && !(await hasClass("wb", "is-busy")));
+
   // 初回の起動出力と BEL は完了のまま。最初の idle 後から通常判定を開始する
   await emit("pty:act", { id: idA, busy: true, busyMs: 0 });
   await emit("pty:bell", { id: idA });
@@ -89,8 +103,12 @@ await pageAct.waitForTimeout(400);
   await emit("pty:act", { id: idB, busy: false, busyMs: 100 });
   await pageAct.locator('.ws-item[data-ws-id="wa"] .ws-head').click();
 
-  // busy 開始 → アクティブセッションでも緑ドットは付く
+  // 出力だけの busy 開始は、短い再描画と区別するため outputBusyMs 続くまで表示を変えない
   await emit("pty:act", { id: idA, busy: true, busyMs: 0 });
+  check("output-only busy start is provisional",
+    !(await hasClass("wa", "is-busy")) && (await statusText("wa")) === "完了");
+  // 出力が続く → アクティブセッションでも緑ドットは付く
+  await pageAct.waitForTimeout(120);
   check("busy start shows is-busy dot", await hasClass("wa", "is-busy"));
   check("busy start shows running text", (await statusText("wa")) === "実行中");
 
@@ -104,7 +122,7 @@ await pageAct.waitForTimeout(400);
     `notifs=${await notifCount()}`);
 
   // 非アクティブセッションの完了 → オレンジドット + 通知
-  await emit("pty:act", { id: idB, busy: true, busyMs: 0 });
+  await startBusy(idB);
   check("hidden session busy dot", await hasClass("wb", "is-busy"));
   await emit("pty:act", { id: idB, busy: false, busyMs: 6000 });
   await pageAct.waitForTimeout(150);
@@ -114,21 +132,39 @@ await pageAct.waitForTimeout(400);
   check("inactive completion shows done text", (await statusText("wb")) === "完了");
 
   // クールダウン: 直後の再完了は通知を間引く
+  await startBusy(idB);
   await emit("pty:act", { id: idB, busy: false, busyMs: 6000 });
   await pageAct.waitForTimeout(150);
   check("notification cooldown suppresses repeat", (await notifCount()) === 1,
     `notifs=${await notifCount()}`);
-
-  // 短い活動（busyMs < 5000）の静止は通知しない
-  await emit("pty:act", { id: idB, busy: false, busyMs: 1000 });
-  await pageAct.waitForTimeout(150);
-  check("short activity does not notify", (await notifCount()) === 1);
 
   // セッションをアクティブ化すると注意ドットが消える
   await pageAct.locator('.ws-item[data-ws-id="wb"] .ws-head').click();
   await pageAct.waitForTimeout(100);
   check("activating session clears attention", !(await hasClass("wb", "is-attn")));
   check("activating session keeps status text", (await statusText("wb")) === "完了");
+
+  // 再描画の burst（セッション切替のフォーカス通知・リサイズ・起動時の問い合わせで
+  // TUI が短く出力しただけ）。操作済みで非アクティブなセッションでも、実行中にも
+  // 完了・未読ドット・通知にもならない（開いただけで通知が量産されていたバグ）
+  await pageAct.locator('.ws-item[data-ws-id="wa"] .ws-head').click();
+  await emit("pty:act", { id: idB, busy: true, busyMs: 0 });
+  check("redraw burst does not show running",
+    (await statusText("wb")) === "完了" && !(await hasClass("wb", "is-busy")));
+  await emit("pty:act", { id: idB, busy: false, busyMs: 300 });
+  await pageAct.waitForTimeout(150);
+  check("redraw burst on inactive session adds no attention or notification",
+    !(await hasClass("wb", "is-attn")) && (await notifCount()) === 1 &&
+      (await statusText("wb")) === "完了",
+    `notifs=${await notifCount()}`);
+  // 静止直後の再描画 burst も同様（idle が来るたびに完了扱いにしない）
+  await emit("pty:act", { id: idB, busy: true, busyMs: 0 });
+  await emit("pty:act", { id: idB, busy: false, busyMs: 100 });
+  await pageAct.waitForTimeout(150);
+  check("repeated idle without work stays quiet",
+    !(await hasClass("wb", "is-attn")) && (await notifCount()) === 1,
+    `notifs=${await notifCount()}`);
+  await pageAct.locator('.ws-item[data-ws-id="wb"] .ws-head').click();
 
   // ベル（非アクティブ = wa）→ 完了扱いのオレンジ + 通知
   await emit("pty:bell", { id: idA });
@@ -147,7 +183,7 @@ await pageAct.waitForTimeout(400);
   check("focused bell keeps done text", (await statusText("wb")) === "完了");
 
   // renderSidebar の全再構築でもドットが再導出される（検索欄で再描画を起こす）
-  await emit("pty:act", { id: idA, busy: true, busyMs: 0 });
+  await startBusy(idA);
   await pageAct.locator("#ws-search").fill("a");
   await pageAct.locator("#ws-search").fill("");
   await pageAct.waitForTimeout(100);
@@ -195,8 +231,7 @@ await pageAct.waitForTimeout(400);
     (await hasClass("wa", "is-wait")) && (await statusText("wa")) === "入力待ち");
 
   // 応答して出力が再開すれば入力待ちは解除される
-  await emit("pty:act", { id: idA, busy: true, busyMs: 0 });
-  await pageAct.waitForTimeout(100);
+  await startBusy(idA);
   check("output resume clears waiting",
     !(await hasClass("wa", "is-wait")) && (await statusText("wa")) === "実行中");
   await emit("pty:act", { id: idA, busy: false, busyMs: 100, waiting: false });
@@ -204,7 +239,7 @@ await pageAct.waitForTimeout(400);
   check("idle without waiting returns to done", (await statusText("wa")) === "完了");
 
   // 見ているセッションの入力待ちはラベルだけ（通知も未読ドットも出さない）
-  await emit("pty:act", { id: idB, busy: true, busyMs: 0 });
+  await startBusy(idB);
   await emit("pty:act", { id: idB, busy: false, busyMs: 200, waiting: true });
   await pageAct.waitForTimeout(150);
   check("active+focused waiting shows label without notification",

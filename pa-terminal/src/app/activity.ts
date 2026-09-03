@@ -15,6 +15,7 @@ import { updateAgentWatch } from "../features/agents/watch";
 import { notifyPairActivity, notifyPairExit, notifyPairSignal } from "../features/pair/pair";
 import { isNotificationsEnabled } from "../features/settings/settings-panel";
 import { getActiveWs, isAppFocused, panes } from "../workspace/state";
+import type { Pane } from "../terminal/pane";
 import type { ActivityState, Workspace } from "../workspace/types";
 
 const wsList = document.querySelector<HTMLDivElement>("#ws-list")!;
@@ -56,6 +57,51 @@ function notificationIdleMs(): number {
   const tuning = (window as Window & { __activityTuning?: { notificationIdleMs?: unknown } })
     .__activityTuning?.notificationIdleMs;
   return typeof tuning === "number" && tuning >= 0 ? tuning : NOTIFY_IDLE_MS;
+}
+
+/**
+ * 打鍵を伴わない PTY 出力を「実行中」と見なすまでの連続出力時間。
+ * Rust の busy は1バイトの出力でも立つが、TUI はセッション切替（フォーカス通知・
+ * リサイズ）や起動時の問い合わせだけでも再描画する。その burst は数百 ms で終わり、
+ * 2 秒の静止判定を足しても 2.x 秒で idle になる。一方、claude / codex の実作業は
+ * スピナー等で出力が途切れないので、これを超えて続いたときだけ実行中に切り替える。
+ * ユーザーの打鍵（Pane.write）は従来どおり即座に実行中になる。
+ */
+const OUTPUT_BUSY_MS = 3000;
+const outputBusyTimers = new Map<string, number>(); // paneId → window.setTimeout の ID
+
+/** UI テストでは3秒待たずに遷移だけ検証する。製品では常に OUTPUT_BUSY_MS。 */
+function outputBusyMs(): number {
+  const tuning = (window as Window & { __activityTuning?: { outputBusyMs?: unknown } })
+    .__activityTuning?.outputBusyMs;
+  return typeof tuning === "number" && tuning >= 0 ? tuning : OUTPUT_BUSY_MS;
+}
+
+function cancelOutputBusy(pane: Pane): void {
+  const timer = outputBusyTimers.get(pane.id);
+  if (timer === undefined) return;
+  window.clearTimeout(timer);
+  outputBusyTimers.delete(pane.id);
+}
+
+/** 出力が OUTPUT_BUSY_MS 続いたら実行中へ。途中で idle / exit が来れば取り消される。 */
+function scheduleOutputBusy(pane: Pane): void {
+  cancelOutputBusy(pane);
+  const timer = window.setTimeout(() => {
+    outputBusyTimers.delete(pane.id);
+    if (panes.get(pane.id) !== pane || !pane.alive || pane.busy) return;
+    // 起動完了後に出力を続けている既知の agent だけは、打鍵なしでも作業中と見なす
+    // （cron / loop など agent 自身が起こしたターン）。通常のシェルの出力は操作を待つ。
+    if (!pane.activityEngaged) {
+      if (!pane.activityReady || !pane.spec.agent) return;
+      pane.activityEngaged = true;
+    }
+    pane.busy = true;
+    pane.waiting = false;
+    cancelIdleNotification(pane.ws);
+    updateWsActivity(pane.ws);
+  }, outputBusyMs());
+  outputBusyTimers.set(pane.id, timer);
 }
 
 function cancelIdleNotification(ws: Workspace): void {
@@ -144,6 +190,7 @@ async function notifyWs(ws: Workspace, title: string, body: string) {
 void listen<{ id: string }>("pty:exit", (e) => {
   const pane = panes.get(e.payload.id);
   if (!pane) return;
+  cancelOutputBusy(pane);
   cancelIdleNotification(pane.ws);
   pane.busy = false;
   pane.waiting = false; // 終了したペインは誰の応答も待っていない
@@ -157,42 +204,42 @@ void listen<{ id: string }>("pty:exit", (e) => {
 void listen<{ id: string; busy: boolean; busyMs: number; waiting: boolean }>("pty:act", (e) => {
   const pane = panes.get(e.payload.id);
   if (!pane) return;
-  // PTY はシェル起動やセッション可視化でも制御出力を返す。それだけで「実行中」にせず、
-  // 実際にターミナルへ入力したペイン、または起動完了後に出力を再開した既知の agent だけを対象にする。
-  // claude / codex の初期画面描画は activityReady 前なので、ペインを開いただけでは実行中にならない。
-  if (e.payload.busy && !pane.activityEngaged && pane.activityReady && pane.spec.agent) {
-    pane.activityEngaged = true;
+  cancelOutputBusy(pane);
+  if (e.payload.busy) {
+    // 出力が流れ始めた。打鍵で既に実行中ならそのまま。そうでなければ、シェル起動・
+    // セッション可視化・フォーカス通知・リサイズによる TUI の再描画かもしれないので、
+    // 出力が OUTPUT_BUSY_MS 続いたときだけ実行中にする（scheduleOutputBusy）。
+    // それまでは表示（実行中 / 入力待ち / 完了）も注意ドットも変えない。
+    if (pane.busy) cancelIdleNotification(pane.ws);
+    else scheduleOutputBusy(pane);
+    // ペアモード: busy/idle 遷移が自動ハンドオフの合図。生の遷移をそのまま渡す
+    notifyPairActivity(pane, true, e.payload.busyMs, false);
+    return;
   }
-  pane.busy = e.payload.busy && pane.activityEngaged;
-  if (pane.busy) cancelIdleNotification(pane.ws);
-  if (!e.payload.busy) pane.activityReady = true;
-  // 出力中に鳴った BEL は、静止して種別が分かるまで保留してある。
-  // 通知自体は「連続1分の静止」まで遅らせる。
+  // 静止した。実際に実行中だった（打鍵、または OUTPUT_BUSY_MS 続いた出力）ときだけ
+  // 「完了」への遷移として扱う。再描画の burst が静止しただけなら、状態・注意ドット・
+  // 通知の予約はいずれも触らない（開いただけのセッションから通知が量産されていた）。
+  // 出力中に鳴った BEL は完了の合図なので、短いターンでも遷移に数える。
+  const completed = pane.busy || pane.bellPending;
+  pane.busy = false;
+  pane.activityReady = true;
   pane.bellPending = false;
   // claude / codex の承認ダイアログのように「応答しないと進まない」画面で止まった時だけ
   // 入力待ちにする。それ以外は出力から完了と区別できないので、既定値は完了のまま。
   // BEL は完了時にも鳴るので、状態分類には使わない。
-  const waiting = !e.payload.busy && e.payload.waiting && pane.activityEngaged;
+  const waiting = e.payload.waiting && pane.activityEngaged;
   pane.waiting = waiting;
   pane.ws.activity = "done";
-  if (waiting && shouldAlert(pane.ws)) {
-    pane.ws.attention = "waiting";
-  } else if (
-    // 実際の活動が静止した = 完了。デスクトップ通知は下の遅延タイマーが送る。
-    !e.payload.busy &&
-    !waiting &&
-    pane.activityEngaged &&
-    shouldAlert(pane.ws)
-  ) {
-    pane.ws.attention = "done";
+  if (completed && shouldAlert(pane.ws)) {
+    // 実際の活動が静止した = 完了 / 入力待ち。デスクトップ通知は下の遅延タイマーが送る。
+    pane.ws.attention = waiting ? "waiting" : "done";
   }
-  if (!e.payload.busy) scheduleIdleNotification(pane.ws);
+  if (completed) scheduleIdleNotification(pane.ws);
   updateWsActivity(pane.ws);
-  // ペアモード: busy/idle 遷移が自動ハンドオフの合図（waiting 中は何も送らない）
-  notifyPairActivity(pane, e.payload.busy, e.payload.busyMs, waiting);
+  notifyPairActivity(pane, false, e.payload.busyMs, waiting);
   // エージェントの終了は「出力が流れて静止」と同時に起きることが多い。
   // 静止の瞬間に検知スイープを1回前倒しし、再開バナーの遅れを抑える
-  if (!e.payload.busy) updateAgentWatch();
+  updateAgentWatch();
 });
 
 void listen<{ id: string; bracketedPaste: boolean }>("pty:mode", (e) => {
@@ -216,9 +263,10 @@ void listen<{ id: string }>("pty:bell", (e) => {
   // シェル初期化中の BEL はプロンプト準備音であって、完了通知にも使わない。
   // 最初の pty:act idle を受け取るまでは初期状態の「完了」を保つ。
   if (!pane.activityReady || !pane.activityEngaged) return;
-  // BEL は「質問した時」にも「終わった時」にも鳴る。出力の途中なら静止まで判断を待ち、
-  // pty:act の waiting を見てから入力待ち / 完了のどちらかで通知する
-  if (pane.busy) {
+  // BEL は「質問した時」にも「終わった時」にも鳴る。出力の途中（実行中への切替待ちを
+  // 含む）なら静止まで判断を待ち、pty:act の waiting を見てから入力待ち / 完了の
+  // どちらかで通知する
+  if (pane.busy || outputBusyTimers.has(pane.id)) {
     pane.bellPending = true;
     return;
   }

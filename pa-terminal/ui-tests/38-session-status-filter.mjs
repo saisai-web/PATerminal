@@ -8,6 +8,8 @@ const { browser, check, BASE_URL } = ctx;
 const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.addInitScript(() => {
+  // 打鍵なしの出力は製品では3秒続いてから実行中になる。ここでは遷移だけ短時間で検証する。
+  window.__activityTuning = { outputBusyMs: 20 };
   window.__mockSessionLoad = JSON.stringify({
     version: 4,
     activeId: "filter-a",
@@ -97,7 +99,7 @@ await setFilter("waiting");
 check("waiting state remains after its attention is cleared",
   JSON.stringify(await visibleNames()) === JSON.stringify(["Gamma"]));
 await emit("pty:act", { id: idC, busy: true, busyMs: 0, waiting: false });
-await page.waitForTimeout(30);
+await page.waitForTimeout(100); // outputBusyMs 経過で実行中へ
 check("a waiting session leaves the filter when output resumes", (await visibleNames()).length === 0);
 await setFilter("running");
 check("running filter updates after output resumes",
