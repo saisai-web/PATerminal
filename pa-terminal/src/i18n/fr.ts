@@ -183,7 +183,7 @@ export const fr: Dict = {
   "ws.sortRecentTitle": "Trier par utilisation récente",
   "ws.notePlaceholder": "Ajouter une courte note...",
   "ws.noteViewTitle": "Afficher et modifier la note",
-  "ws.noteEditHint": "Entrée pour enregistrer · Échap pour annuler",
+  "ws.noteEditHint": "Entrée pour enregistrer · Maj+Entrée pour un saut de ligne · Échap pour annuler",
   "ctx.duplicate": "Copier la session",
   "ctx.duplicateTitle": "Ouvrir une nouvelle session à un seul panneau dans le même dossier",
   "ctx.duplicateN": "Copier la session ×{n}",

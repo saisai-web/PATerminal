@@ -183,7 +183,7 @@ export const hi: Dict = {
   "ws.sortRecentTitle": "हाल के उपयोग के क्रम में लगाएँ",
   "ws.notePlaceholder": "छोटा नोट जोड़ें...",
   "ws.noteViewTitle": "नोट देखें और संपादित करें",
-  "ws.noteEditHint": "सहेजने के लिए Enter · रद्द करने के लिए Esc",
+  "ws.noteEditHint": "सहेजने के लिए Enter · नई पंक्ति के लिए Shift+Enter · रद्द करने के लिए Esc",
   "ctx.duplicate": "सत्र की प्रति बनाएँ",
   "ctx.duplicateTitle": "उसी डायरेक्टरी में एक पैनल वाला नया सत्र खोलें",
   "ctx.duplicateN": "सत्र की {n} प्रतियाँ बनाएँ",

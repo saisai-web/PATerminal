@@ -72,7 +72,7 @@ export type WorkspaceGroup = {
 export type Workspace = {
   id: string;
   name: string;
-  /** サイドバーに表示するセッション固有の一行メモ */
+  /** サイドバーと先頭ペインのバーに表示するセッション固有のメモ */
   note?: string;
   /** サイドバーの同じ階層内で先頭に固定する */
   pinned?: boolean;

@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { setFocused } from "../terminal/focus";
 import { appendSidebarEntry, groupById, placeSidebarEntryAfter, placeSidebarEntryAt } from "./groups";
 import { t } from "../i18n";
-import { dividerEls, layout, splitRects } from "../terminal/layout";
+import { dividerEls, layout, splitRects, syncPaneNotes } from "../terminal/layout";
 import { makePane } from "../terminal/pane";
 import { flushResizes } from "../terminal/resize";
 import type { Pane } from "../terminal/pane";
@@ -120,8 +120,10 @@ export function updateWorkspaceNote(w: Workspace, value: unknown) {
   const note = normalizeWorkspaceNote(value);
   if (w.note === note) return;
   w.note = note;
-  // メモ欄は常設 input のため、ここで再描画すると入力中のフォーカスが失われる。
-  // 検索と次回の描画は更新済みのモデルを参照する。
+  // サイドバーは再描画せず（入力フォーカスを維持）、ペインバーだけを同期する。
+  // 空↔非空や行数変更で本文領域の高さが変わるため、表示中なら即座に再フィットする。
+  if (w === getActiveWs()) layout(w);
+  else syncPaneNotes(w);
   scheduleSave();
 }
 

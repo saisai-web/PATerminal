@@ -183,7 +183,7 @@ export const ptBR: Dict = {
   "ws.sortRecentTitle": "Ordenar por uso recente",
   "ws.notePlaceholder": "Adicione uma nota curta...",
   "ws.noteViewTitle": "Ver e editar a nota",
-  "ws.noteEditHint": "Enter para salvar · Esc para cancelar",
+  "ws.noteEditHint": "Enter para salvar · Shift+Enter para nova linha · Esc para cancelar",
   "ctx.duplicate": "Copiar sessão",
   "ctx.duplicateTitle": "Abrir uma nova sessão de painel único no mesmo diretório",
   "ctx.duplicateN": "Copiar sessão ×{n}",

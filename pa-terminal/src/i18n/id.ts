@@ -183,7 +183,7 @@ export const id: Dict = {
   "ws.sortRecentTitle": "Urutkan menurut penggunaan terakhir",
   "ws.notePlaceholder": "Tambahkan catatan singkat...",
   "ws.noteViewTitle": "Lihat & edit catatan",
-  "ws.noteEditHint": "Enter untuk menyimpan · Esc untuk batal",
+  "ws.noteEditHint": "Enter untuk menyimpan · Shift+Enter untuk baris baru · Esc untuk batal",
   "ctx.duplicate": "Salin sesi",
   "ctx.duplicateTitle": "Buka sesi baru dengan satu panel di direktori yang sama",
   "ctx.duplicateN": "Salin sesi ×{n}",

@@ -183,7 +183,7 @@ export const tr: Dict = {
   "ws.sortRecentTitle": "Son kullanıma göre sırala",
   "ws.notePlaceholder": "Kısa bir not ekle...",
   "ws.noteViewTitle": "Notu görüntüle ve düzenle",
-  "ws.noteEditHint": "Kaydetmek için Enter · İptal için Esc",
+  "ws.noteEditHint": "Kaydetmek için Enter · Yeni satır için Shift+Enter · İptal için Esc",
   "ctx.duplicate": "Oturumu kopyala",
   "ctx.duplicateTitle": "Aynı dizinde tek bölmeli yeni bir oturum aç",
   "ctx.duplicateN": "Oturumu ×{n} kopyala",

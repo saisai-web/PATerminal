@@ -183,7 +183,7 @@ export const vi: Dict = {
   "ws.sortRecentTitle": "Sắp xếp theo lần dùng gần nhất",
   "ws.notePlaceholder": "Thêm ghi chú ngắn...",
   "ws.noteViewTitle": "Xem và sửa ghi chú",
-  "ws.noteEditHint": "Enter để lưu · Esc để hủy",
+  "ws.noteEditHint": "Enter để lưu · Shift+Enter để xuống dòng · Esc để hủy",
   "ctx.duplicate": "Sao chép phiên",
   "ctx.duplicateTitle": "Mở phiên mới một khung trong cùng thư mục",
   "ctx.duplicateN": "Sao chép phiên ×{n}",

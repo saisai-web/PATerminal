@@ -160,6 +160,8 @@ export class Pane {
   /** true ならセッション復元起動（run ではなく resumeRun を使う） */
   private readonly resumed: boolean;
   private readonly cwdEl: HTMLSpanElement;
+  /** セッションメモはツリー先頭 leaf のペインバーだけに表示する。 */
+  private readonly noteEl: HTMLDivElement;
   private webglLoaded = false;
   /** 要素サイズの変化を拾う保険。layout() を呼び忘れた経路（モーダルの開閉など）でも
       サイズを合わせ直す。ポーリングではなくイベント駆動 */
@@ -198,6 +200,8 @@ export class Pane {
 
     const bar = document.createElement("div");
     bar.className = "pane-bar";
+    const head = document.createElement("div");
+    head.className = "pane-bar-head";
     const label = document.createElement("span");
     label.className = "pane-title";
     label.textContent = spec.title ?? "shell";
@@ -219,7 +223,11 @@ export class Pane {
       e.stopPropagation();
       void closePane(this.ws, this.id);
     };
-    bar.append(label, this.cwdEl, close);
+    head.append(label, this.cwdEl, close);
+    this.noteEl = document.createElement("div");
+    this.noteEl.className = "pane-note";
+    this.noteEl.hidden = true;
+    bar.append(head, this.noteEl);
 
     const body = document.createElement("div");
     body.className = "pane-body";
@@ -768,6 +776,14 @@ export class Pane {
     // 先頭へ戻すことがある。scroll イベントで buffer.ydisp まで先頭へ変わる前と
     // 次フレームの両方を scrollToBottom() が補正するので、常に focus の後に呼ぶ。
     this.scrollToBottom();
+  }
+
+  /** メモ本文と表示先を同期する。全文は省略時も title から確認できる。 */
+  setWorkspaceNote(note: string | undefined, first: boolean) {
+    const value = note ?? "";
+    this.noteEl.textContent = value;
+    this.noteEl.title = value;
+    this.noteEl.hidden = !first || !value;
   }
 
   async destroy() {

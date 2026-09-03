@@ -183,7 +183,7 @@ export const th: Dict = {
   "ws.sortRecentTitle": "เรียงตามการใช้งานล่าสุด",
   "ws.notePlaceholder": "เพิ่มโน้ตสั้น ๆ...",
   "ws.noteViewTitle": "ดูและแก้ไขบันทึก",
-  "ws.noteEditHint": "Enter เพื่อบันทึก · Esc เพื่อยกเลิก",
+  "ws.noteEditHint": "Enter เพื่อบันทึก · Shift+Enter เพื่อขึ้นบรรทัดใหม่ · Esc เพื่อยกเลิก",
   "ctx.duplicate": "คัดลอกเซสชัน",
   "ctx.duplicateTitle": "เปิดเซสชันใหม่แผงเดียวในไดเรกทอรีเดิม",
   "ctx.duplicateN": "คัดลอกเซสชัน ×{n}",

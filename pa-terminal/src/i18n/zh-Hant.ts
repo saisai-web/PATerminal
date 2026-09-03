@@ -183,7 +183,7 @@ export const zhHant: Dict = {
   "ws.sortRecentTitle": "依最近操作排序",
   "ws.notePlaceholder": "新增簡短備註...",
   "ws.noteViewTitle": "檢視與編輯備註",
-  "ws.noteEditHint": "Enter 儲存 · Esc 取消",
+  "ws.noteEditHint": "Enter 儲存 · Shift+Enter 換行 · Esc 取消",
   "ctx.duplicate": "複製工作階段",
   "ctx.duplicateTitle": "在相同目錄開啟單一窗格的新工作階段",
   "ctx.duplicateN": "複製工作階段 ×{n}",

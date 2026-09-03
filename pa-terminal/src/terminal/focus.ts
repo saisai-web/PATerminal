@@ -68,11 +68,12 @@ export function setFocused(id: string) {
   const focusedPane = activeWs.panes.get(id);
   if (focusedPane) {
     const bar = focusedPane.el.querySelector<HTMLDivElement>(".pane-bar");
-    if (bar) {
-      if (paneActions.parentElement !== bar) {
-        const close = bar.querySelector<HTMLButtonElement>(".pane-close");
-        if (close) bar.insertBefore(paneActions, close);
-        else bar.append(paneActions);
+    const head = bar?.querySelector<HTMLDivElement>(".pane-bar-head");
+    if (head) {
+      if (paneActions.parentElement !== head) {
+        const close = head.querySelector<HTMLButtonElement>(".pane-close");
+        if (close) head.insertBefore(paneActions, close);
+        else head.append(paneActions);
       }
       paneActions.hidden = false;
     }
