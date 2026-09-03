@@ -104,9 +104,10 @@
             <span id="quick-phrase-bar-hint" aria-live="polite"><!-- ショートカット / 選択中の操作ヒント --></span>
           </div>
         </div>
-        <div id="agent-panel" hidden>
+        <!-- 初回起動は定型文バーと同じく1行表示から始める。保存済み設定は boot() が上書きする。 -->
+        <div id="agent-panel" class="is-collapsed" hidden>
           <div id="agent-head">
-            <button id="agent-collapse" type="button" aria-expanded="true" aria-controls="agent-content" data-i18n-title="agent.collapse" title="変更ストリップをたたむ">▾</button>
+            <button id="agent-collapse" type="button" aria-expanded="false" aria-controls="agent-content" data-i18n-title="agent.expand" title="変更ストリップを開く">▸</button>
             <button id="agent-title" type="button" data-i18n-title="agent.viewAllChanges" title="すべての変更を一覧表示" disabled>
               <span id="agent-title-label">ChangeFile</span>
               <span id="agent-summary" hidden></span>

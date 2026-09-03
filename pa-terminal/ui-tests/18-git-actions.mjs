@@ -63,10 +63,13 @@ if (gitOpsOpen) {
     const chips = [...document.querySelectorAll(".agent-file-row")];
     const changes = document.querySelector("#git-changes");
     const actions = document.querySelector("#git-actions");
+    const collapseButton = document.querySelector("#agent-collapse");
     const actionRows = [...document.querySelectorAll("#git-actions .git-action-row")];
     const actionButtons = [...document.querySelectorAll("#git-remote-actions button")];
     return {
       compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
+      collapseButtonExpanded: collapseButton?.getAttribute("aria-expanded"),
+      collapseButtonText: collapseButton?.textContent,
       changes: Boolean(changes?.getClientRects().length),
       actions: Boolean(actions?.getClientRects().length),
       actionCount: document.querySelectorAll("#git-actions button").length,
@@ -79,7 +82,9 @@ if (gitOpsOpen) {
     };
   });
   check("git changes default to a compact all-changes button",
-    defaultStrip.compact === true && !defaultStrip.changes && defaultStrip.actions
+    defaultStrip.compact === true
+      && defaultStrip.collapseButtonExpanded === "false" && defaultStrip.collapseButtonText === "▸"
+      && !defaultStrip.changes && defaultStrip.actions
       && defaultStrip.actionCount === 7 && defaultStrip.rows === 1,
     `state=${JSON.stringify(defaultStrip)}`);
   check("compact git hides file chips and keeps commands in two horizontal-scroll rows",
