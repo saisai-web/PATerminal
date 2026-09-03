@@ -83,6 +83,7 @@ jobs:
         with:
           workspaces: pa-terminal/src-tauri -> target
           key: windows
+          prefix-key: v1-rust
 
       - name: Unit tests
         working-directory: pa-terminal/src-tauri
