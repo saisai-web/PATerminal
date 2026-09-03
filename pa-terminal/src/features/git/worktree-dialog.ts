@@ -9,6 +9,7 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { PrList, PrSummary } from "./git-panel-types";
 import { getGitRoot } from "./agent-panel";
 import { isActionBusy, runGitAction } from "./git-actions";
@@ -47,6 +48,9 @@ const worktreeDirLabelEl = document.querySelector<HTMLSpanElement>("#worktree-di
 const worktreeLocRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#worktree-loc input[type=radio]"),
 );
+const worktreeInheritRadios = Array.from(
+  document.querySelectorAll<HTMLInputElement>("#worktree-inherit input[type=radio]"),
+);
 const worktreeIgnoreHintEl = document.querySelector<HTMLParagraphElement>("#worktree-ignore-hint")!;
 const worktreeExternalHintEl =
   document.querySelector<HTMLParagraphElement>("#worktree-external-hint")!;
@@ -63,6 +67,12 @@ const worktreeBranchField = document.querySelector<HTMLLabelElement>("#worktree-
 const worktreePrField = document.querySelector<HTMLLabelElement>("#worktree-pr-field")!;
 const worktreePrSel = document.querySelector<HTMLSelectElement>("#worktree-pr")!;
 const worktreePrHintEl = document.querySelector<HTMLParagraphElement>("#worktree-pr-hint")!;
+const worktreeProgressEl = document.querySelector<HTMLDivElement>("#worktree-progress")!;
+const worktreeProgressTitleEl = document.querySelector<HTMLSpanElement>("#worktree-progress-title")!;
+const worktreeProgressDetailEl = document.querySelector<HTMLSpanElement>("#worktree-progress-detail")!;
+const worktreeProgressBarEl = worktreeProgressEl.querySelector<HTMLDivElement>(".wt-progress-bar")!;
+const worktreeProgressFillEl = document.querySelector<HTMLDivElement>("#worktree-progress-fill")!;
+const worktreeProgressCountEl = document.querySelector<HTMLSpanElement>("#worktree-progress-count")!;
 
 type WorktreeSource = "branch" | "pr";
 
@@ -73,6 +83,50 @@ let worktreeLoadToken = 0;
 let worktreePrs: PrSummary[] | null = null;
 let worktreePrLoading = false;
 let worktreePrToken = 0;
+/** 作成中（worktree add → 環境ファイルのコピー）。ローディングを出している間だけ true */
+let worktreeWorking = false;
+
+type WorktreeInheritProgress = {
+  root: string;
+  target: string;
+  done: number;
+  total: number;
+  entry: string;
+};
+
+/** ローディングの表示。`progress` が無い間は件数不明の流れる帯にする。 */
+function showWorktreeProgress(progress: WorktreeInheritProgress | null): void {
+  worktreeProgressEl.hidden = false;
+  if (!progress) {
+    worktreeProgressTitleEl.textContent = t("agent.worktreeProgressCreating");
+    worktreeProgressDetailEl.textContent = "";
+    worktreeProgressCountEl.textContent = "";
+    worktreeProgressBarEl.classList.add("is-indeterminate");
+    worktreeProgressFillEl.style.width = "0";
+    return;
+  }
+  const finished = progress.total > 0 && progress.done >= progress.total;
+  worktreeProgressTitleEl.textContent = t(
+    finished ? "agent.worktreeProgressFinishing" : "agent.worktreeProgressCopying",
+  );
+  worktreeProgressDetailEl.textContent = progress.entry;
+  worktreeProgressCountEl.textContent = progress.total > 0 ? `${progress.done} / ${progress.total}` : "";
+  worktreeProgressBarEl.classList.remove("is-indeterminate");
+  const ratio = progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0;
+  worktreeProgressFillEl.style.width = `${Math.round(ratio * 100)}%`;
+}
+
+function hideWorktreeProgress(): void {
+  worktreeProgressEl.hidden = true;
+  worktreeProgressBarEl.classList.add("is-indeterminate");
+  worktreeProgressFillEl.style.width = "0";
+}
+
+// Rust からの引き継ぎ進捗。root が一致する（= このダイアログが頼んだ）ものだけ表示に反映する
+void listen<WorktreeInheritProgress>("worktree:inherit", (e) => {
+  if (!worktreeWorking || e.payload.root !== worktreeDialogRoot) return;
+  showWorktreeProgress(e.payload);
+});
 
 export function isWorktreeDialogOpen(): boolean {
   return !worktreeOverlay.hidden;
@@ -84,6 +138,11 @@ export function getWorktreeDialogRoot(): string | null {
 
 function worktreeLocationMode(): WorktreeLocation {
   return worktreeLocRadios.find((r) => r.checked)?.value === "outside" ? "outside" : "inside";
+}
+
+/** 作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーするか */
+function worktreeInheritMode(): boolean {
+  return worktreeInheritRadios.find((r) => r.checked)?.value !== "no";
 }
 
 function worktreeSourceMode(): WorktreeSource {
@@ -212,7 +271,9 @@ export function updateWorktreeDialog(): void {
   worktreeBranchEl.disabled = disabled;
   worktreePrSel.disabled = disabled || worktreePrLoading;
   worktreeDirectoryEl.disabled = disabled;
-  for (const radio of [...worktreeLocRadios, ...worktreeSourceRadios]) radio.disabled = disabled;
+  for (const radio of [...worktreeLocRadios, ...worktreeSourceRadios, ...worktreeInheritRadios]) {
+    radio.disabled = disabled;
+  }
   worktreeCloseBtn.disabled = isActionBusy();
   worktreeCancelBtn.disabled = isActionBusy();
   const ready = worktreeSourceMode() === "pr"
@@ -242,6 +303,7 @@ async function openWorktreeDialog(): Promise<void> {
   // 前回使った置き場所を復元する（settings.worktree に保存してある）
   const prefs = getWorktreePrefs();
   for (const radio of worktreeLocRadios) radio.checked = radio.value === prefs.location;
+  for (const radio of worktreeInheritRadios) radio.checked = (radio.value === "yes") === prefs.inherit;
   worktreeDirectoryEl.value = worktreeDirFor(prefs.location);
   applyWorktreeLocationMode();
   worktreeErrorEl.hidden = true;
@@ -322,10 +384,24 @@ for (const radio of worktreeLocRadios) {
     updateWorktreeDialog();
   });
 }
+/** 作成結果の文言。引き継いだ件数を添え、一部失敗があれば警告を続ける。 */
+function worktreeResultMessage(result: WorktreeResult): string {
+  const path = result.path;
+  let message = result.reused
+    ? t("agent.worktreeReused", { path })
+    : result.inherited > 0
+      ? t("agent.worktreeCreatedInherited", { path, count: String(result.inherited) })
+      : t("agent.worktreeCreated", { path });
+  const warning = result.inheritWarning?.trim();
+  if (warning) message += `\n${t("agent.worktreeInheritWarning", { error: warning })}`;
+  return message;
+}
+
 worktreeSubmitBtn.onclick = () => {
   const root = worktreeDialogRoot;
   const directory = worktreeDirectoryEl.value.trim();
   const location = worktreeLocationMode();
+  const inherit = worktreeInheritMode();
   const source = worktreeSourceMode();
   const pr = source === "pr" ? selectedPr() : null;
   const baseRef = worktreeBaseSel.value;
@@ -337,6 +413,8 @@ worktreeSubmitBtn.onclick = () => {
     // runGitAction のコールバックから成功結果も受け取る。可変オブジェクトに入れるのは、
     // TypeScript がネストしたコールバック内のローカル変数代入を到達可能と判定しないため。
     const outcome: { created: WorktreeResult | null } = { created: null };
+    worktreeWorking = true;
+    showWorktreeProgress(null);
     const ok = await runGitAction(
       async () => {
         // PR は「そのブランチを用意する」ので既存ブランチも受け付ける専用コマンド。
@@ -348,6 +426,7 @@ worktreeSubmitBtn.onclick = () => {
               branch,
               directory,
               location,
+              inherit,
             })
           : await invoke<WorktreeResult>("git_worktree_create", {
               root,
@@ -355,20 +434,23 @@ worktreeSubmitBtn.onclick = () => {
               branch,
               directory,
               location,
+              inherit,
             });
         updateWorktreePrefs(
           location === "outside"
-            ? { location, outsideDir: directory }
-            : { location, insideDir: directory },
+            ? { location, outsideDir: directory, inherit }
+            : { location, insideDir: directory, inherit },
         );
         outcome.created = result;
-        return t(result.reused ? "agent.worktreeReused" : "agent.worktreeCreated", { path: result.path });
+        return worktreeResultMessage(result);
       },
       (error) => {
         worktreeErrorEl.textContent = error;
         worktreeErrorEl.hidden = false;
       },
     );
+    worktreeWorking = false;
+    hideWorktreeProgress();
     if (ok && outcome.created) {
       // 先にモーダルを閉じてから作る。closeWorktreeDialog のボタン focus より後に
       // 新しいターミナルを focus させ、そのまま入力できる状態にするため。

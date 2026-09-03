@@ -59,6 +59,9 @@ const settingsWorktreeLocRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#settings-worktree-loc input[type=radio]"),
 );
 const settingsWorktreeDirEl = document.querySelector<HTMLInputElement>("#settings-worktree-dir")!;
+const settingsWorktreeInheritRadios = Array.from(
+  document.querySelectorAll<HTMLInputElement>("#settings-worktree-inherit input[type=radio]"),
+);
 const settingsWorktreeDirLabelEl = document.querySelector<HTMLSpanElement>("#settings-worktree-dir-label")!;
 const settingsNavItems = Array.from(
   document.querySelectorAll<HTMLButtonElement>("#settings-nav .settings-nav-item"),
@@ -404,6 +407,7 @@ export function renderSettingsPanel() {
   if (document.activeElement !== settingsWorktreeDirEl) {
     settingsWorktreeDirEl.value = worktreeDirFor(wtPrefs.location);
   }
+  for (const r of settingsWorktreeInheritRadios) r.checked = (r.value === "yes") === wtPrefs.inherit;
 }
 
 /** 左ナビで選んだセクションだけを右側に表示する（diff オーバーレイと同じ流儀） */
@@ -533,3 +537,10 @@ settingsWorktreeDirEl.addEventListener("change", () => {
   }
   renderSettingsPanel(); // 無効値は直前の値へ戻す
 });
+// Worktree 作成時に作成元の環境ファイル（gitignore 対象）を引き継ぐか
+for (const radio of settingsWorktreeInheritRadios) {
+  radio.onchange = () => {
+    updateWorktreePrefs({ inherit: radio.value === "yes" });
+    renderSettingsPanel();
+  };
+}

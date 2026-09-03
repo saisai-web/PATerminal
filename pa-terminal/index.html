@@ -347,6 +347,20 @@
             <span data-i18n="agent.worktreeLocation">作成される場所</span>
             <output id="worktree-location"></output>
           </div>
+          <div class="git-action-field">
+            <span data-i18n="agent.worktreeInherit">環境ファイル（gitignore対象）</span>
+            <div id="worktree-inherit" class="wt-loc">
+              <label>
+                <input type="radio" name="worktree-inherit" value="yes" checked />
+                <span data-i18n="agent.worktreeInheritYes">引き継ぐ</span>
+              </label>
+              <label>
+                <input type="radio" name="worktree-inherit" value="no" />
+                <span data-i18n="agent.worktreeInheritNo">引き継がない</span>
+              </label>
+            </div>
+          </div>
+          <p data-i18n="agent.worktreeInheritHint">作成元でgitignoreされているファイル（.env、node_modules、.venv など）を新しいworktreeへコピーします。</p>
           <p id="worktree-pr-hint" hidden data-i18n="agent.worktreePrHint">PRのブランチでworktreeを作り、そのセッションを開きます。同じブランチのworktreeが既にあれば作らずに再利用します。</p>
           <p id="worktree-ignore-hint" hidden data-i18n="agent.worktreeIgnoreHint">格納先がignore対象でなければ、ルートの.gitignoreへ自動で追記します。</p>
           <p id="worktree-external-hint" data-i18n="agent.worktreeExternalHint">リポジトリ外なので.gitignoreは変更しません。</p>
@@ -359,6 +373,18 @@
         <div class="git-action-foot">
           <button id="worktree-cancel" data-i18n="agent.commitCancel">キャンセル</button>
           <button id="worktree-submit" class="is-primary" data-i18n="agent.worktreeCreate">作成</button>
+        </div>
+        <!-- 作成中のローディング。worktree add → 環境ファイルのコピー（進捗は worktree:inherit イベント） -->
+        <div id="worktree-progress" class="wt-progress" role="status" aria-live="polite" hidden>
+          <div class="wt-progress-card">
+            <div class="wt-progress-spinner" aria-hidden="true"></div>
+            <div class="wt-progress-text">
+              <span id="worktree-progress-title" class="wt-progress-title"></span>
+              <span id="worktree-progress-detail" class="wt-progress-detail"></span>
+            </div>
+            <div class="wt-progress-bar is-indeterminate"><div id="worktree-progress-fill" class="wt-progress-fill"></div></div>
+            <span id="worktree-progress-count" class="wt-progress-count"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -737,6 +763,20 @@
                 <span id="settings-worktree-dir-label">格納先</span>
                 <input id="settings-worktree-dir" type="text" maxlength="512" autocomplete="off" spellcheck="false" />
               </label>
+              <div class="settings-field">
+                <span data-i18n="agent.worktreeInherit">環境ファイル（gitignore対象）</span>
+                <div id="settings-worktree-inherit" class="wt-loc">
+                  <label>
+                    <input type="radio" name="settings-worktree-inherit" value="yes" />
+                    <span data-i18n="agent.worktreeInheritYes">引き継ぐ</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="settings-worktree-inherit" value="no" />
+                    <span data-i18n="agent.worktreeInheritNo">引き継がない</span>
+                  </label>
+                </div>
+              </div>
+              <p class="settings-hint" data-i18n="agent.worktreeInheritHint">作成元でgitignoreされているファイル（.env、node_modules、.venv など）を新しいworktreeへコピーします。</p>
             </section>
             <section id="settings-license" data-section="license" hidden>
               <h3 data-i18n="settings.licenseSection">ライセンス</h3>

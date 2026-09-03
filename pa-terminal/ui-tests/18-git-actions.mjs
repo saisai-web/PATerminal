@@ -475,6 +475,10 @@ if (gitOpsOpen) {
   check("worktree modal defaults to outside ~/worktrees and the current branch",
     defaultOutside && defaultDirectory === "~/worktrees" && defaultBase === "refs/heads/main",
     `outside=${defaultOutside} directory=${defaultDirectory} base=${defaultBase}`);
+  // 環境ファイル（gitignore 対象）の引き継ぎは既定で on。今回は off にして作る
+  check("worktree modal defaults to inheriting ignored files",
+    await pageGitOps.locator("#worktree-inherit input[value=yes]").isChecked());
+  await pageGitOps.locator("#worktree-inherit input[value=no]").check();
   // 配下モードへ切り替えるとそのモードの既定（.worktree）が出る
   await pageGitOps.locator("#worktree-loc input[value=inside]").check();
   const insideDirectory = await pageGitOps.locator("#worktree-directory").inputValue();
@@ -496,7 +500,8 @@ if (gitOpsOpen) {
       && worktreeCall?.baseRef === "refs/remotes/origin/develop"
       && worktreeCall?.branch === "feature/strip-worktree"
       && worktreeCall?.directory === ".worktree"
-      && worktreeCall?.location === "inside",
+      && worktreeCall?.location === "inside"
+      && worktreeCall?.inherit === false,
     `call=${JSON.stringify(worktreeCall)}`);
   const worktreeMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
   check("worktree result is shown and the modal closes",
@@ -533,6 +538,13 @@ if (gitOpsOpen) {
   check("worktree session is placed after the source session in the same group hierarchy",
     worktreeSession.sameGroup && worktreeSession.immediatelyAfter,
     `session=${JSON.stringify(worktreeSession)}`);
+  // 引き継ぐ / 引き継がないの選択は次回のモーダルにも残る
+  await pageGitOps.locator("#git-worktree").click();
+  await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
+  check("worktree modal remembers the inherit choice",
+    await pageGitOps.locator("#worktree-inherit input[value=no]").isChecked());
+  await pageGitOps.locator("#worktree-cancel").click();
+  await pageGitOps.waitForSelector("#worktree-overlay", { state: "hidden" });
   const sidebarAfterGroupedWorktree = await pageGitOps.evaluate(() => {
     const list = document.querySelector("#ws-list");
     return {
@@ -562,6 +574,42 @@ if (gitOpsOpen) {
       && sidebarAfterGroupedWorktree.calls.includes("feature/strip-worktree")
       && groupedWorktreeView?.visible,
     `sidebar=${JSON.stringify(sidebarAfterGroupedWorktree)} view=${JSON.stringify(groupedWorktreeView)}`);
+
+  // 引き継ぎ中はフォームの上にローディングを重ね、進捗イベント（worktree:inherit）で件数と対象を出す
+  await pageGitOps.locator("#git-worktree").click();
+  await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
+  check("worktree progress overlay is hidden while idle",
+    await pageGitOps.locator("#worktree-progress").isHidden());
+  await pageGitOps.locator("#worktree-inherit input[value=yes]").check();
+  await pageGitOps.locator("#worktree-branch").fill("feature/with-env");
+  await pageGitOps.evaluate(() => { window.__mockWorktreeCreateDelay = 600; });
+  const spawnsBeforeInherit = await pageGitOps.evaluate(() => window.__ptySpawns.length);
+  await pageGitOps.locator("#worktree-submit").click();
+  await pageGitOps.waitForSelector("#worktree-progress:not([hidden])");
+  const progressWhileCopying = await pageGitOps.evaluate(() => ({
+    title: document.querySelector("#worktree-progress-title")?.textContent,
+    detail: document.querySelector("#worktree-progress-detail")?.textContent,
+    count: document.querySelector("#worktree-progress-count")?.textContent,
+    fill: document.querySelector("#worktree-progress-fill")?.style.width,
+    determinate: !document.querySelector(".wt-progress-bar")?.classList.contains("is-indeterminate"),
+    cancelDisabled: document.querySelector("#worktree-cancel")?.disabled,
+  }));
+  check("worktree progress overlay shows the copied entry, count, and a determinate bar",
+    progressWhileCopying.title === "環境ファイルをコピー中…"
+      && progressWhileCopying.detail === "node_modules"
+      && progressWhileCopying.count === "1 / 3"
+      && progressWhileCopying.fill === "33%"
+      && progressWhileCopying.determinate
+      && progressWhileCopying.cancelDisabled === true,
+    `progress=${JSON.stringify(progressWhileCopying)}`);
+  await pageGitOps.waitForFunction(
+    (before) => window.__ptySpawns.length === before + 1,
+    spawnsBeforeInherit,
+  );
+  check("worktree progress overlay is hidden again once the worktree is ready",
+    await pageGitOps.locator("#worktree-progress").isHidden()
+      && await pageGitOps.locator("#worktree-overlay").isHidden());
+  await pageGitOps.evaluate(() => { window.__mockWorktreeCreateDelay = 0; });
 
   // リポジトリ外モード: ラベル・ヒント・プレビューが切り替わり、location が渡る
   await pageGitOps.locator("#git-worktree").click();

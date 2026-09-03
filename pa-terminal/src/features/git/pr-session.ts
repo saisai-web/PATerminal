@@ -79,6 +79,7 @@ export async function createPrSessionFromPr(request: PrSessionRequest): Promise<
       branch,
       directory: worktreeDirFor(prefs.location),
       location: prefs.location,
+      inherit: prefs.inherit,
     });
   } catch (error) {
     errors.set(key, { kind: "failure", error: String(error) });

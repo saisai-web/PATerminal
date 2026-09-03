@@ -540,6 +540,8 @@ async function createIssueSession(
         branch: newBranch,
         directory: worktreeDirectory,
         location,
+        // 環境ファイルの引き継ぎは Worktree モーダル / 設定で選んだ既定に従う
+        inherit: getWorktreePrefs().inherit,
       });
       updateWorktreePrefs(
         location === "outside"

@@ -1,15 +1,19 @@
 export default async function (ctx) {
 const { browser, check, BASE_URL } = ctx;
 
+// 打鍵なしの出力を実行中と見なすまでの連続出力時間（製品では3秒）。テストでは短縮するが、
+// 「出力開始 → 状態を読む → idle を送る」の往復（CI の遅いランナーで 100ms を超える）より
+// 十分長くないと、短い再描画 burst のつもりが実作業と判定されて flaky になる
+const OUTPUT_BUSY_MS = 250;
+
 // ============================================================
 // 稼働インジケータ + 通知（pty:act / pty:bell → ドット・デスクトップ通知）
 // ============================================================
 
 const pageAct = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 pageAct.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
-await pageAct.addInitScript(() => {
-  // 打鍵なしの出力を実行中と見なすまでの連続出力時間（製品では3秒）を短縮する。
-  window.__activityTuning = { outputBusyMs: 40 };
+await pageAct.addInitScript((outputBusyMs) => {
+  window.__activityTuning = { outputBusyMs };
   window.__mockSessionLoad = JSON.stringify({
     version: 3,
     activeId: "wa",
@@ -23,7 +27,7 @@ await pageAct.addInitScript(() => {
         root: { kind: "leaf", title: "c", run: "claude" } },
     ],
   });
-});
+}, OUTPUT_BUSY_MS);
 await pageAct.goto(BASE_URL);
 await pageAct.waitForSelector(".pane", { timeout: 10000 });
 await pageAct.waitForTimeout(400);
@@ -38,7 +42,7 @@ await pageAct.waitForTimeout(400);
   // 打鍵なしの出力が outputBusyMs を超えて続いた = 実作業として実行中になる
   const startBusy = async (id) => {
     await emit("pty:act", { id, busy: true, busyMs: 0 });
-    await pageAct.waitForTimeout(120);
+    await pageAct.waitForTimeout(OUTPUT_BUSY_MS + 150);
   };
   const hasClass = (wsId, cls) =>
     pageAct.evaluate(
@@ -107,7 +111,7 @@ await pageAct.waitForTimeout(400);
   check("output-only busy start is provisional",
     !(await hasClass("wa", "is-busy")) && (await statusText("wa")) === "完了");
   // 出力が続く → アクティブセッションでも緑ドットは付く
-  await pageAct.waitForTimeout(120);
+  await pageAct.waitForTimeout(OUTPUT_BUSY_MS + 150);
   check("busy start shows is-busy dot", await hasClass("wa", "is-busy"));
   check("busy start shows running text", (await statusText("wa")) === "実行中");
 

@@ -16,6 +16,8 @@ official = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Windows のマニフェストを lib テスト exe にも入れるため（build.rs 参照）
+embed-resource = "3"
 
 [profile.test]
 # Windows の `cargo test` は PDB 生成込みのリンクが支配的コスト（CI 実測で数分級）。

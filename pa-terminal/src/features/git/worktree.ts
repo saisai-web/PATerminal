@@ -18,7 +18,15 @@ import type { IssueBranchLink, IssueList, IssueSummary } from "./git-panel-types
 
 export type WorktreeBranch = { name: string; reference: string; current: boolean };
 export type WorktreeBranches = { branches: WorktreeBranch[] };
-export type WorktreeResult = { path: string; branch: string; reused: boolean };
+export type WorktreeResult = {
+  path: string;
+  branch: string;
+  reused: boolean;
+  /** 作成元から引き継いだ gitignore 対象の最上位エントリ数（再利用・引き継ぎなしは 0） */
+  inherited: number;
+  /** 引き継ぎで一部失敗したときの内容（worktree 自体はできている） */
+  inheritWarning?: string | null;
+};
 
 export type WorktreeEntry = {
   path: string;
@@ -74,12 +82,15 @@ export type WorktreePrefs = {
   outsideDir: string;
   /** Issue 実行で最後にユーザーが選んだベースブランチの完全な ref */
   issueBaseRef?: string;
+  /** 作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーするか */
+  inherit: boolean;
 };
 
 const DEFAULT_PREFS: WorktreePrefs = {
   location: "outside",
   insideDir: ".worktree",
   outsideDir: "~/worktrees",
+  inherit: true,
 };
 
 let prefs: WorktreePrefs = { ...DEFAULT_PREFS };
@@ -104,6 +115,8 @@ export function setWorktreePrefs(value: unknown): void {
     insideDir: dir(saved.insideDir, DEFAULT_PREFS.insideDir),
     outsideDir: dir(saved.outsideDir, DEFAULT_PREFS.outsideDir),
     issueBaseRef: dir(saved.issueBaseRef, "") || undefined,
+    // 明示的に false を保存してある場合だけ引き継がない。未設定・壊れた値は既定の「引き継ぐ」
+    inherit: saved.inherit !== false,
   };
 }
 
@@ -114,7 +127,8 @@ export function updateWorktreePrefs(patch: Partial<WorktreePrefs>): void {
     next.location === prefs.location &&
     next.insideDir === prefs.insideDir &&
     next.outsideDir === prefs.outsideDir &&
-    next.issueBaseRef === prefs.issueBaseRef
+    next.issueBaseRef === prefs.issueBaseRef &&
+    next.inherit === prefs.inherit
   ) {
     return;
   }

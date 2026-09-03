@@ -85,6 +85,10 @@ check("worktree location defaults to outside", outsideChecked);
 await page.locator('#settings-worktree-loc input[value="inside"]').check();
 await page.locator("#settings-worktree-dir").fill(".my-worktrees");
 await page.locator("#settings-worktree-dir").dispatchEvent("change");
+// 環境ファイル（gitignore 対象）の引き継ぎは既定 on。off に切り替えて保存される
+const inheritChecked = await page.locator('#settings-worktree-inherit input[value="yes"]').isChecked();
+check("worktree inherit defaults to on", inheritChecked);
+await page.locator('#settings-worktree-inherit input[value="no"]').check();
 await page.click("#settings-close");
 await page.waitForTimeout(1600); // scheduleSave のデバウンス + アイドル保存待ち
 
@@ -93,7 +97,8 @@ check("swapped pair defaults persisted",
   saved.pair?.implCmd === "codex" && saved.pair?.reviewCmd === "claude",
   `pair=${JSON.stringify(saved.pair)}`);
 check("worktree defaults persisted",
-  saved.worktree?.location === "inside" && saved.worktree?.insideDir === ".my-worktrees",
+  saved.worktree?.location === "inside" && saved.worktree?.insideDir === ".my-worktrees"
+    && saved.worktree?.inherit === false,
   `worktree=${JSON.stringify(saved.worktree)}`);
 
 // 自動Enter: ボタンから対象セッションを選び、選択したセッションの全ペインへEnterを送る

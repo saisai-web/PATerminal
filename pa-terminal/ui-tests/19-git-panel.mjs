@@ -330,7 +330,7 @@ if (logShown) {
   check("worktree action uses selected base and new branch",
     worktreeCall?.root === "/repo" && worktreeCall?.baseRef === "refs/remotes/origin/main" &&
       worktreeCall?.branch === "issue/42-custom" && worktreeCall?.directory === ".worktree" &&
-      worktreeCall?.location === "inside",
+      worktreeCall?.location === "inside" && worktreeCall?.inherit === true,
     `call=${JSON.stringify(worktreeCall)}`);
   check("regular issue session starts inside created worktree",
     worktreeSpawn?.shell === null &&
@@ -458,7 +458,7 @@ if (logShown) {
         prWorktreeCallsBeforeListSession) &&
       listPrWorktreeCall?.root === "/repo" && listPrWorktreeCall?.number === 12 &&
       listPrWorktreeCall?.branch === "feat/x" && listPrWorktreeCall?.directory === ".worktree" &&
-      listPrWorktreeCall?.location === "inside",
+      listPrWorktreeCall?.location === "inside" && listPrWorktreeCall?.inherit === true,
     `call=${JSON.stringify(listPrWorktreeCall)}`);
   check("successful PR list action closes the expanded list and focuses a named default-shell session",
     !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
