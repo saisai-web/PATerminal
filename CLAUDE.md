@@ -96,7 +96,8 @@ made a session show "running" when it was only opened, and every idle afterwards
 - Output without a keystroke becomes "running" only after it has continued for
   `OUTPUT_BUSY_MS`; a short burst never changes the label, attention dot, or timers.
 - An idle counts as a completion only if the pane was actually busy or a BEL arrived during
-  output. Only completions set attention and schedule the idle notification.
+  output. Only completions set attention and send the notification, which goes out
+  immediately; there is no extra idle wait, so do not add one back to hide false completions.
 
 Verify with `ui-tests/21-activity.mjs` and `ui-tests/38-session-status-filter.mjs`, then
 confirm on a real machine that opening a claude / codex pane and switching sessions neither

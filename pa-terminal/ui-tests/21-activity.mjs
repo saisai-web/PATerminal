@@ -8,9 +8,8 @@ const { browser, check, BASE_URL } = ctx;
 const pageAct = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 pageAct.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await pageAct.addInitScript(() => {
-  // 製品では通知まで連続1分静止を待つ。ここでは通知経路だけを短時間で検証する。
-  // 打鍵なしの出力を実行中と見なすまでの連続出力時間（製品では3秒）も短縮する。
-  window.__activityTuning = { notificationIdleMs: 25, outputBusyMs: 40 };
+  // 打鍵なしの出力を実行中と見なすまでの連続出力時間（製品では3秒）を短縮する。
+  window.__activityTuning = { outputBusyMs: 40 };
   window.__mockSessionLoad = JSON.stringify({
     version: 3,
     activeId: "wa",

@@ -45,19 +45,9 @@ export function wsActivityText(state: ActivityState): string {
   return t("ws.statusDone");
 }
 
-/** 出力が静止した状態がこの時間続いたときだけ通知する。 */
-const NOTIFY_IDLE_MS = 60_000;
 /** 同一セッションへの連続通知の間引き。 */
 const NOTIFY_COOLDOWN_MS = 5000;
 const lastNotified = new Map<string, number>(); // wsId → epoch ms
-const idleNotifyTimers = new Map<string, number>(); // wsId → window.setTimeout の ID
-
-/** UI テストでは1分待たずに通知の経路だけ検証する。製品では常に NOTIFY_IDLE_MS。 */
-function notificationIdleMs(): number {
-  const tuning = (window as Window & { __activityTuning?: { notificationIdleMs?: unknown } })
-    .__activityTuning?.notificationIdleMs;
-  return typeof tuning === "number" && tuning >= 0 ? tuning : NOTIFY_IDLE_MS;
-}
 
 /**
  * 打鍵を伴わない PTY 出力を「実行中」と見なすまでの連続出力時間。
@@ -98,42 +88,25 @@ function scheduleOutputBusy(pane: Pane): void {
     }
     pane.busy = true;
     pane.waiting = false;
-    cancelIdleNotification(pane.ws);
     updateWsActivity(pane.ws);
   }, outputBusyMs());
   outputBusyTimers.set(pane.id, timer);
 }
 
-function cancelIdleNotification(ws: Workspace): void {
-  const timer = idleNotifyTimers.get(ws.id);
-  if (timer === undefined) return;
-  window.clearTimeout(timer);
-  idleNotifyTimers.delete(ws.id);
-}
-
 /**
- * 2秒の Rust 側静止判定はステータス更新・ペアモードにも使うため維持し、OS 通知だけは
- * ワークスペース内の全ペインが連続して1分静止した後に送る。次の実作業が始まれば取消す。
+ * 実際の作業が静止した時点で通知する。再描画だけの busy / idle は completed にならない
+ * （pty:act 側のゲート）ので、静止後にさらに待つ必要はない。同じセッションの別ペインが
+ * まだ作業中なら、そのセッション全体はまだ終わっていないので送らない。
  */
-function scheduleIdleNotification(ws: Workspace): void {
-  cancelIdleNotification(ws);
-  // 完了時に見ていたセッションは、あとで別のセッションへ移っただけで通知しない。
+function notifyCompletion(ws: Workspace, waiting: boolean): void {
+  // 完了時に見ていたセッションは通知しない。
   if (!shouldAlert(ws)) return;
-  if (![...ws.panes.values()].some((pane) => pane.activityEngaged)) return;
   if ([...ws.panes.values()].some((pane) => pane.busy)) return;
-  const timer = window.setTimeout(() => {
-    idleNotifyTimers.delete(ws.id);
-    // タイマー待ちの間にセッションを閉じた・再開した場合は何もしない。
-    if (![...ws.panes.values()].some((pane) => pane.activityEngaged)) return;
-    if ([...ws.panes.values()].some((pane) => pane.busy)) return;
-    const waiting = [...ws.panes.values()].some((pane) => pane.waiting);
-    if (waiting) {
-      void notifyWs(ws, t("notif.waitTitle"), t("notif.waitBody", { ws: ws.name }));
-    } else {
-      void notifyWs(ws, t("notif.doneTitle"), t("notif.doneBody", { ws: ws.name }));
-    }
-  }, notificationIdleMs());
-  idleNotifyTimers.set(ws.id, timer);
+  if (waiting) {
+    void notifyWs(ws, t("notif.waitTitle"), t("notif.waitBody", { ws: ws.name }));
+  } else {
+    void notifyWs(ws, t("notif.doneTitle"), t("notif.doneBody", { ws: ws.name }));
+  }
 }
 
 /** 該当セッション項目のドットと文字ラベルだけを外科的に更新（renderSidebar は呼ばない。
@@ -191,7 +164,6 @@ void listen<{ id: string }>("pty:exit", (e) => {
   const pane = panes.get(e.payload.id);
   if (!pane) return;
   cancelOutputBusy(pane);
-  cancelIdleNotification(pane.ws);
   pane.busy = false;
   pane.waiting = false; // 終了したペインは誰の応答も待っていない
   updateWsActivity(pane.ws);
@@ -210,8 +182,7 @@ void listen<{ id: string; busy: boolean; busyMs: number; waiting: boolean }>("pt
     // セッション可視化・フォーカス通知・リサイズによる TUI の再描画かもしれないので、
     // 出力が OUTPUT_BUSY_MS 続いたときだけ実行中にする（scheduleOutputBusy）。
     // それまでは表示（実行中 / 入力待ち / 完了）も注意ドットも変えない。
-    if (pane.busy) cancelIdleNotification(pane.ws);
-    else scheduleOutputBusy(pane);
+    if (!pane.busy) scheduleOutputBusy(pane);
     // ペアモード: busy/idle 遷移が自動ハンドオフの合図。生の遷移をそのまま渡す
     notifyPairActivity(pane, true, e.payload.busyMs, false);
     return;
@@ -231,10 +202,10 @@ void listen<{ id: string; busy: boolean; busyMs: number; waiting: boolean }>("pt
   pane.waiting = waiting;
   pane.ws.activity = "done";
   if (completed && shouldAlert(pane.ws)) {
-    // 実際の活動が静止した = 完了 / 入力待ち。デスクトップ通知は下の遅延タイマーが送る。
+    // 実際の活動が静止した = 完了 / 入力待ち。見ていないセッションなら即座に通知する。
     pane.ws.attention = waiting ? "waiting" : "done";
   }
-  if (completed) scheduleIdleNotification(pane.ws);
+  if (completed) notifyCompletion(pane.ws, waiting);
   updateWsActivity(pane.ws);
   notifyPairActivity(pane, false, e.payload.busyMs, waiting);
   // エージェントの終了は「出力が流れて静止」と同時に起きることが多い。
@@ -275,6 +246,6 @@ void listen<{ id: string }>("pty:bell", (e) => {
   if (shouldAlert(pane.ws)) {
     pane.ws.attention = "done";
   }
-  scheduleIdleNotification(pane.ws);
+  notifyCompletion(pane.ws, false);
   updateWsActivity(pane.ws);
 });
