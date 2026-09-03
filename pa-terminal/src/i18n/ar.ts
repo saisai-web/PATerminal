@@ -183,7 +183,7 @@ export const ar: Dict = {
   "ws.sortRecentTitle": "ترتيب حسب آخر استخدام",
   "ws.notePlaceholder": "أضف ملاحظة قصيرة...",
   "ws.noteViewTitle": "عرض الملاحظة وتحريرها",
-  "ws.noteEditHint": "Enter للحفظ · Esc للإلغاء",
+  "ws.noteEditHint": "Enter للحفظ · Shift+Enter لسطر جديد · Esc للإلغاء",
   "ctx.duplicate": "نسخ الجلسة",
   "ctx.duplicateTitle": "فتح جلسة جديدة بجزء واحد في المجلد نفسه",
   "ctx.duplicateN": "نسخ الجلسة ×{n}",

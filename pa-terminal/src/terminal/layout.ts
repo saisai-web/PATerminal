@@ -10,6 +10,17 @@ import type { Rect, Workspace } from "../workspace/types";
 
 let rafId = 0;
 
+/** ツリー順の先頭 leaf だけへセッションメモを表示する。 */
+export function syncPaneNotes(ws: Workspace) {
+  let firstPaneId: string | undefined;
+  let node = ws.root;
+  while (node?.kind === "split") node = node.a;
+  if (node?.kind === "leaf") firstPaneId = node.pane.id;
+  for (const pane of ws.panes.values()) {
+    pane.setWorkspaceNote(ws.note, pane.id === firstPaneId);
+  }
+}
+
 /** ドラッグ中の place を rAF 1本にまとめるためのハンドル。
     サイドバー / エクスプローラーのリサイズも同じ枠を使う */
 export function getRafId(): number {
@@ -30,6 +41,7 @@ export const splitRects = new Map<SplitNode, Rect>();
 
 export function layout(ws: Workspace | null = getActiveWs()) {
   if (!ws) return;
+  syncPaneNotes(ws);
   // 1ペインだけのときは閉じるボタンを隠す（最後の1枚は閉じられない）
   ws.layer.classList.toggle("single-pane", ws.root?.kind === "leaf");
   const r = ws.layer.getBoundingClientRect();

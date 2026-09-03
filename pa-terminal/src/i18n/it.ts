@@ -183,7 +183,7 @@ export const it: Dict = {
   "ws.sortRecentTitle": "Ordina per uso recente",
   "ws.notePlaceholder": "Aggiungi una breve nota...",
   "ws.noteViewTitle": "Mostra e modifica la nota",
-  "ws.noteEditHint": "Invio per salvare · Esc per annullare",
+  "ws.noteEditHint": "Invio per salvare · Maiusc+Invio per nuova riga · Esc per annullare",
   "ctx.duplicate": "Copia sessione",
   "ctx.duplicateTitle": "Apri una nuova sessione a riquadro singolo nella stessa cartella",
   "ctx.duplicateN": "Copia sessione ×{n}",

@@ -569,9 +569,10 @@ function groupHasDisplayMatch(
 }
 
 function workspaceMatchesSearch(workspace: Workspace, query: string): boolean {
+  const searchableNote = workspace.note?.replace(/\s+/g, " ").toLowerCase();
   return (
     workspace.name.toLowerCase().includes(query) ||
-    (workspace.note?.toLowerCase().includes(query) ?? false)
+    (searchableNote?.includes(query) ?? false)
   );
 }
 

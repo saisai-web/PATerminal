@@ -183,7 +183,7 @@ export const ja: Dict = {
   "ws.sortRecentTitle": "最近操作した順に並べ替え",
   "ws.notePlaceholder": "ここにメモを書く…",
   "ws.noteViewTitle": "メモを表示・編集",
-  "ws.noteEditHint": "Enter で保存・Esc で取り消し",
+  "ws.noteEditHint": "Enter で保存・Shift+Enter で改行・Esc で取り消し",
   "ctx.duplicate": "セッションをコピー",
   "ctx.duplicateTitle": "同じディレクトリでペイン1つの新しいセッションを開く",
   "ctx.duplicateN": "セッションを{n}個コピー",

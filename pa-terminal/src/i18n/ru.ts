@@ -183,7 +183,7 @@ export const ru: Dict = {
   "ws.sortRecentTitle": "Сортировать по последнему использованию",
   "ws.notePlaceholder": "Добавьте короткую заметку...",
   "ws.noteViewTitle": "Просмотр и изменение заметки",
-  "ws.noteEditHint": "Enter — сохранить · Esc — отменить",
+  "ws.noteEditHint": "Enter — сохранить · Shift+Enter — новая строка · Esc — отменить",
   "ctx.duplicate": "Копировать сессию",
   "ctx.duplicateTitle": "Открыть новую сессию с одной панелью в том же каталоге",
   "ctx.duplicateN": "Копировать сессию ×{n}",

@@ -58,7 +58,8 @@ window.addEventListener("resize", () => closeNotePopover());
  * セッション項目に常設する一言メモ欄を作る。
  * 欄自体は1行のボタン表示（長文は … で省略・全文は title）で、クリックすると
  * 欄の直下に編集ポップオーバー（セッション名 + textarea + ヒント / 文字数）を開く。
- * Enter・外側クリック・blur = 保存して閉じる / Escape = 取り消して閉じる。
+ * Enter・外側クリック・blur = 保存して閉じる / Shift+Enter = 改行 /
+ * Escape = 取り消して閉じる。IME の変換確定 Enter は編集を継続する。
  * 編集中の内容は欄へライブ反映し、確定値だけを commit へ渡す。
  * onItemClick は欄の mousedown を「セッション項目のクリック」として扱うかの判定。
  * true を返したら編集は開かない（欄が項目の中央を広く覆うため、丸ごと飲み込むと
@@ -117,6 +118,10 @@ export function createSessionNoteField(
     hint.textContent = t("ws.noteEditHint");
     const count = document.createElement("span");
     count.className = "ws-note-popover-count";
+    // WebKit では composition 中でも KeyboardEvent.isComposing が false になる場合が
+    // あるため、composition イベントの状態も併用する。keyCode=229 は IME が処理した
+    // キーを示すため、Enter 保存として扱わない。
+    let composing = false;
     const syncCount = () => {
       count.textContent = `${ta.value.length}/${WORKSPACE_NOTE_MAX_LENGTH}`;
     };
@@ -127,12 +132,19 @@ export function createSessionNoteField(
       setDisplay(ta.value); // 確定は閉じるとき。欄にはライブで映す
       syncCount();
     });
+    ta.addEventListener("compositionstart", () => {
+      composing = true;
+    });
+    ta.addEventListener("compositionend", () => {
+      composing = false;
+    });
     ta.addEventListener("keydown", (event) => {
       event.stopPropagation(); // グローバルショートカットへ流さない（Escape は window 側で拾う）
-      if (event.key === "Enter" && !event.isComposing) {
-        event.preventDefault();
-        closeNotePopover(); // 保存して閉じる
-      }
+      if (event.key !== "Enter") return;
+      if (event.isComposing || composing || event.keyCode === 229) return;
+      if (event.shiftKey) return; // textarea 既定の改行を許可する
+      event.preventDefault();
+      closeNotePopover(); // 保存して閉じる
     });
     // ポップオーバー内のクリックを項目クリックへ流さない
     for (const type of ["click", "dblclick"] as const) {

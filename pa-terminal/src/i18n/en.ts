@@ -199,7 +199,7 @@ export const en = {
   "ws.sortRecentTitle": "Sort by last used",
   "ws.notePlaceholder": "Add a short note...",
   "ws.noteViewTitle": "View & edit note",
-  "ws.noteEditHint": "Enter to save · Esc to cancel",
+  "ws.noteEditHint": "Enter to save · Shift+Enter for new line · Esc to cancel",
   "ctx.duplicate": "Copy session",
   "ctx.duplicateTitle": "Open a new single-pane session in the same directory",
   "ctx.duplicateN": "Copy session ×{n}",

@@ -183,7 +183,7 @@ export const ko: Dict = {
   "ws.sortRecentTitle": "최근 사용한 순으로 정렬",
   "ws.notePlaceholder": "짧은 메모 추가...",
   "ws.noteViewTitle": "메모 보기·편집",
-  "ws.noteEditHint": "Enter 저장 · Esc 취소",
+  "ws.noteEditHint": "Enter 저장 · Shift+Enter 줄바꿈 · Esc 취소",
   "ctx.duplicate": "세션 복사",
   "ctx.duplicateTitle": "같은 디렉터리에서 창 1개짜리 새 세션 열기",
   "ctx.duplicateN": "세션 {n}개 복사",
