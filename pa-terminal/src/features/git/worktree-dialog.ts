@@ -9,6 +9,7 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { PrList, PrSummary } from "./git-panel-types";
 import { getGitRoot } from "./agent-panel";
 import { isActionBusy, runGitAction } from "./git-actions";
@@ -66,6 +67,12 @@ const worktreeBranchField = document.querySelector<HTMLLabelElement>("#worktree-
 const worktreePrField = document.querySelector<HTMLLabelElement>("#worktree-pr-field")!;
 const worktreePrSel = document.querySelector<HTMLSelectElement>("#worktree-pr")!;
 const worktreePrHintEl = document.querySelector<HTMLParagraphElement>("#worktree-pr-hint")!;
+const worktreeProgressEl = document.querySelector<HTMLDivElement>("#worktree-progress")!;
+const worktreeProgressTitleEl = document.querySelector<HTMLSpanElement>("#worktree-progress-title")!;
+const worktreeProgressDetailEl = document.querySelector<HTMLSpanElement>("#worktree-progress-detail")!;
+const worktreeProgressBarEl = worktreeProgressEl.querySelector<HTMLDivElement>(".wt-progress-bar")!;
+const worktreeProgressFillEl = document.querySelector<HTMLDivElement>("#worktree-progress-fill")!;
+const worktreeProgressCountEl = document.querySelector<HTMLSpanElement>("#worktree-progress-count")!;
 
 type WorktreeSource = "branch" | "pr";
 
@@ -76,6 +83,50 @@ let worktreeLoadToken = 0;
 let worktreePrs: PrSummary[] | null = null;
 let worktreePrLoading = false;
 let worktreePrToken = 0;
+/** 作成中（worktree add → 環境ファイルのコピー）。ローディングを出している間だけ true */
+let worktreeWorking = false;
+
+type WorktreeInheritProgress = {
+  root: string;
+  target: string;
+  done: number;
+  total: number;
+  entry: string;
+};
+
+/** ローディングの表示。`progress` が無い間は件数不明の流れる帯にする。 */
+function showWorktreeProgress(progress: WorktreeInheritProgress | null): void {
+  worktreeProgressEl.hidden = false;
+  if (!progress) {
+    worktreeProgressTitleEl.textContent = t("agent.worktreeProgressCreating");
+    worktreeProgressDetailEl.textContent = "";
+    worktreeProgressCountEl.textContent = "";
+    worktreeProgressBarEl.classList.add("is-indeterminate");
+    worktreeProgressFillEl.style.width = "0";
+    return;
+  }
+  const finished = progress.total > 0 && progress.done >= progress.total;
+  worktreeProgressTitleEl.textContent = t(
+    finished ? "agent.worktreeProgressFinishing" : "agent.worktreeProgressCopying",
+  );
+  worktreeProgressDetailEl.textContent = progress.entry;
+  worktreeProgressCountEl.textContent = progress.total > 0 ? `${progress.done} / ${progress.total}` : "";
+  worktreeProgressBarEl.classList.remove("is-indeterminate");
+  const ratio = progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0;
+  worktreeProgressFillEl.style.width = `${Math.round(ratio * 100)}%`;
+}
+
+function hideWorktreeProgress(): void {
+  worktreeProgressEl.hidden = true;
+  worktreeProgressBarEl.classList.add("is-indeterminate");
+  worktreeProgressFillEl.style.width = "0";
+}
+
+// Rust からの引き継ぎ進捗。root が一致する（= このダイアログが頼んだ）ものだけ表示に反映する
+void listen<WorktreeInheritProgress>("worktree:inherit", (e) => {
+  if (!worktreeWorking || e.payload.root !== worktreeDialogRoot) return;
+  showWorktreeProgress(e.payload);
+});
 
 export function isWorktreeDialogOpen(): boolean {
   return !worktreeOverlay.hidden;
@@ -362,6 +413,8 @@ worktreeSubmitBtn.onclick = () => {
     // runGitAction のコールバックから成功結果も受け取る。可変オブジェクトに入れるのは、
     // TypeScript がネストしたコールバック内のローカル変数代入を到達可能と判定しないため。
     const outcome: { created: WorktreeResult | null } = { created: null };
+    worktreeWorking = true;
+    showWorktreeProgress(null);
     const ok = await runGitAction(
       async () => {
         // PR は「そのブランチを用意する」ので既存ブランチも受け付ける専用コマンド。
@@ -396,6 +449,8 @@ worktreeSubmitBtn.onclick = () => {
         worktreeErrorEl.hidden = false;
       },
     );
+    worktreeWorking = false;
+    hideWorktreeProgress();
     if (ok && outcome.created) {
       // 先にモーダルを閉じてから作る。closeWorktreeDialog のボタン focus より後に
       // 新しいターミナルを focus させ、そのまま入力できる状態にするため。

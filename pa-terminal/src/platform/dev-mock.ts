@@ -650,9 +650,19 @@ if (!w.__TAURI_INTERNALS__) {
           const r = w.__mockWorktreeResult as
             | { error?: string; path?: string; branch?: string; inherited?: number; inheritWarning?: string }
             | undefined;
+          const path = r?.path ?? `${String(args.root)}/${String(args.directory)}/issue-1`;
+          // 引き継ぎの進捗イベントを再現する（遅延中に 1/3 → 3/3 を流す）
+          const delay = Number(w.__mockWorktreeCreateDelay ?? 0);
+          if (delay > 0) {
+            const progress = (done: number, total: number, entry: string) =>
+              emit("worktree:inherit", { root: args.root, target: path, done, total, entry });
+            if (args.inherit) progress(1, 3, "node_modules");
+            await new Promise((resolve) => window.setTimeout(resolve, delay));
+            if (args.inherit) progress(3, 3, "");
+          }
           if (r?.error) throw new Error(r.error);
           return {
-            path: r?.path ?? `${String(args.root)}/${String(args.directory)}/issue-1`,
+            path,
             branch: r?.branch ?? args.branch,
             reused: false,
             inherited: r?.inherited ?? 0,

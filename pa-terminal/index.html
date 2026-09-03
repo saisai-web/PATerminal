@@ -373,6 +373,18 @@
           <button id="worktree-cancel" data-i18n="agent.commitCancel">キャンセル</button>
           <button id="worktree-submit" class="is-primary" data-i18n="agent.worktreeCreate">作成</button>
         </div>
+        <!-- 作成中のローディング。worktree add → 環境ファイルのコピー（進捗は worktree:inherit イベント） -->
+        <div id="worktree-progress" class="wt-progress" role="status" aria-live="polite" hidden>
+          <div class="wt-progress-card">
+            <div class="wt-progress-spinner" aria-hidden="true"></div>
+            <div class="wt-progress-text">
+              <span id="worktree-progress-title" class="wt-progress-title"></span>
+              <span id="worktree-progress-detail" class="wt-progress-detail"></span>
+            </div>
+            <div class="wt-progress-bar is-indeterminate"><div id="worktree-progress-fill" class="wt-progress-fill"></div></div>
+            <span id="worktree-progress-count" class="wt-progress-count"></span>
+          </div>
+        </div>
       </div>
     </div>
     <div id="file-overlay" hidden>

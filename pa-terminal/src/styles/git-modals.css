@@ -9,6 +9,7 @@
 }
 .git-action-overlay[hidden] { display: none; }
 .git-action-panel {
+  position: relative; /* 作成中のローディング（.wt-progress）を重ねる基準 */
   width: min(580px, 94vw);
   max-height: 86vh;
   display: flex;
@@ -99,6 +100,93 @@
   white-space: pre-wrap;
 }
 .git-action-error[hidden] { display: none; }
+
+/* worktree 作成中のローディング。フォームの上に半透明で重ね、進捗バーで
+   環境ファイルのコピー（node_modules など時間がかかる）の進み具合を見せる */
+.wt-progress {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--chrome) 82%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.wt-progress[hidden] { display: none; }
+.wt-progress-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 12px;
+  width: min(380px, 100%);
+  padding: 18px 20px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px var(--shadow);
+}
+.wt-progress-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  animation: wt-spin 0.9s linear infinite;
+}
+.wt-progress-text { display: grid; gap: 3px; min-width: 0; }
+.wt-progress-title { font-size: 13px; font-weight: 700; }
+.wt-progress-detail {
+  min-height: 1.4em;
+  color: var(--dim);
+  font: 11px ui-monospace, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wt-progress-bar {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 999px;
+}
+.wt-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.25s ease-out;
+}
+/* 件数がまだ分からない間（worktree add 中・列挙中）は流れる帯で「動いている」ことだけ見せる */
+.wt-progress-bar.is-indeterminate .wt-progress-fill {
+  width: 38%;
+  transition: none;
+  animation: wt-bar-slide 1.3s ease-in-out infinite;
+}
+.wt-progress-count {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 1.2em;
+  color: var(--dim);
+  font: 11px ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes wt-spin { to { transform: rotate(360deg); } }
+@keyframes wt-bar-slide {
+  0% { left: -38%; }
+  100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wt-progress-spinner { animation-duration: 2.4s; }
+  .wt-progress-bar.is-indeterminate .wt-progress-fill { animation: none; width: 100%; opacity: 0.4; }
+}
 
 /* worktree の作成先モード（配下 / 外）と、共有の worktree 一覧 */
 .wt-loc { display: flex; flex-wrap: wrap; gap: 14px; }

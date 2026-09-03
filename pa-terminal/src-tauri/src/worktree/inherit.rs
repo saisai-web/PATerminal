@@ -18,6 +18,7 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use super::list::worktree_entries;
 use super::path::canonical_or_nearest;
@@ -25,6 +26,17 @@ use crate::git::{git_output_text, run_git};
 
 /// 警告として結果に載せる行数の上限（`#git-msg` の帯を溢れさせない）。
 const MAX_WARNING_LINES: usize = 5;
+/// 進捗通知の最短間隔。小さなファイルが大量にあっても IPC を溢れさせない
+/// （最初と最後は間隔に関係なく必ず通知する）。
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(80);
+
+/// コピーの進み具合。`done` は着手済みの最上位エントリ数で、`entry` はいま扱っているもの。
+#[derive(Debug, Clone)]
+pub(crate) struct InheritProgress {
+    pub(crate) done: usize,
+    pub(crate) total: usize,
+    pub(crate) entry: String,
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct InheritSummary {
@@ -62,12 +74,27 @@ impl InheritSummary {
 
 /// `root` の gitignore 対象を `target`（作成直後の worktree）へコピーする。
 /// 列挙自体（git / worktree 一覧）に失敗したときだけ `Err`。ファイル単位の失敗は警告。
-pub(crate) fn inherit_ignored(root: &str, target: &Path) -> Result<InheritSummary, String> {
+/// `progress` には最上位エントリごとの進み具合を渡す（UI のローディング表示用）。
+pub(crate) fn inherit_ignored(
+    root: &str,
+    target: &Path,
+    progress: &mut dyn FnMut(InheritProgress),
+) -> Result<InheritSummary, String> {
     let root_c = canonical_or_nearest(Path::new(root));
     let protected = protected_paths(root, &root_c, target)?;
     let entries = list_ignored_entries(root)?;
     let mut summary = InheritSummary::default();
-    for rel in entries {
+    let total = entries.len();
+    let mut last_report: Option<Instant> = None;
+    for (index, rel) in entries.into_iter().enumerate() {
+        if last_report.map_or(true, |at| at.elapsed() >= PROGRESS_INTERVAL) {
+            last_report = Some(Instant::now());
+            progress(InheritProgress {
+                done: index,
+                total,
+                entry: rel.to_string_lossy().into_owned(),
+            });
+        }
         if rel.components().any(|c| c.as_os_str() == ".git") {
             continue;
         }
@@ -85,6 +112,11 @@ pub(crate) fn inherit_ignored(root: &str, target: &Path) -> Result<InheritSummar
             summary.copied += 1;
         }
     }
+    progress(InheritProgress {
+        done: total,
+        total,
+        entry: String::new(),
+    });
     Ok(summary)
 }
 
@@ -332,7 +364,7 @@ mod tests {
 
         let target = repo.0.join("trees/feature");
         add_worktree(&root, &target, "feature");
-        let summary = inherit_ignored(&root.to_string_lossy(), &target).unwrap();
+        let summary = inherit_ignored(&root.to_string_lossy(), &target, &mut |_| {}).unwrap();
 
         assert!(summary.warnings.is_empty(), "{:?}", summary.warnings);
         assert_eq!(summary.copied, 3, "{summary:?}");
@@ -385,7 +417,7 @@ mod tests {
 
         let target = repo.0.join("trees/feature");
         add_worktree(&root, &target, "feature");
-        inherit_ignored(&root.to_string_lossy(), &target).unwrap();
+        inherit_ignored(&root.to_string_lossy(), &target, &mut |_| {}).unwrap();
 
         let mode = fs::metadata(target.join(".venv/bin/tool"))
             .unwrap()
@@ -409,7 +441,7 @@ mod tests {
 
         let target = root.join(".worktree/new");
         add_worktree(&root, &target, "new");
-        let summary = inherit_ignored(&root.to_string_lossy(), &target).unwrap();
+        let summary = inherit_ignored(&root.to_string_lossy(), &target, &mut |_| {}).unwrap();
 
         assert!(summary.warnings.is_empty(), "{:?}", summary.warnings);
         assert!(!target.join(".worktree").exists());
@@ -423,6 +455,29 @@ mod tests {
     }
 
     #[test]
+    fn reports_progress_from_first_entry_to_completion() {
+        let repo = TempRepo::new();
+        let root = repo.0.join("repo");
+        fs::create_dir(&root).unwrap();
+        init_repo(&root, ".env\nnode_modules/\n");
+        fs::write(root.join(".env"), "x\n").unwrap();
+        fs::create_dir_all(root.join("node_modules")).unwrap();
+
+        let target = repo.0.join("trees/feature");
+        add_worktree(&root, &target, "feature");
+        let mut seen: Vec<(usize, usize, String)> = Vec::new();
+        inherit_ignored(&root.to_string_lossy(), &target, &mut |p| {
+            seen.push((p.done, p.total, p.entry));
+        })
+        .unwrap();
+
+        // 最初のエントリで 0/N、最後に N/N（entry は空）が必ず届く
+        assert_eq!(seen.first().map(|s| (s.0, s.1)), Some((0, 2)));
+        assert!(!seen[0].2.is_empty());
+        assert_eq!(seen.last().unwrap(), &(2, 2, String::new()));
+    }
+
+    #[test]
     fn never_overwrites_an_existing_destination() {
         let repo = TempRepo::new();
         let root = repo.0.join("repo");
@@ -433,7 +488,7 @@ mod tests {
         let target = repo.0.join("trees/feature");
         add_worktree(&root, &target, "feature");
         fs::write(target.join(".env"), "keep\n").unwrap();
-        let summary = inherit_ignored(&root.to_string_lossy(), &target).unwrap();
+        let summary = inherit_ignored(&root.to_string_lossy(), &target, &mut |_| {}).unwrap();
 
         assert_eq!(fs::read_to_string(target.join(".env")).unwrap(), "keep\n");
         assert_eq!(summary.copied, 0);
