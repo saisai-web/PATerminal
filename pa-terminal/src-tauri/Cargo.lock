@@ -2567,6 +2567,7 @@ version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
+ "embed-resource",
  "portable-pty",
  "reqwest 0.12.28",
  "serde",

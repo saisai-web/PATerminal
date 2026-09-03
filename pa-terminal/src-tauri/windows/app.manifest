@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Windows のアプリケーションマニフェスト。tauri-build の既定と同じ内容で、Common Controls v6
+  への依存を宣言する（muda / rfd が使う TaskDialogIndirect は v6 にしか無い）。
+  build.rs がこれをリソースとして **全ターゲット**（本体 exe と lib のテスト exe）へリンクする。
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+</assembly>
