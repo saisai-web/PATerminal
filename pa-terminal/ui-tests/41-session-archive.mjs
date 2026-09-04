@@ -20,7 +20,7 @@ await page.addInitScript(() => {
       { id: "archive-b", name: "Beta", shellKind: "default", broadcast: false,
         root: { kind: "leaf", title: "b" } },
       { id: "archive-c", name: "Gamma", shellKind: "default", broadcast: false,
-        root: { kind: "leaf", title: "c" } },
+        group: "archive-group", root: { kind: "leaf", title: "c" } },
       { id: "archive-d", name: "Delta", archived: true, group: "archive-group",
         shellKind: "default", broadcast: false, root: { kind: "leaf", title: "d" } },
     ],
@@ -125,6 +125,32 @@ await reload.locator('[data-status-filter="archived"]').click();
 check("restarted archive tab restores every archived session",
   JSON.stringify(await reload.locator(".ws-item:visible .ws-name").allTextContents()) ===
     JSON.stringify(["Beta", "Gamma"]));
+
+// アーカイブ画面のグループ一括クローズは、その枝に混在している通常セッションを
+// 巻き込まず、アーカイブ済みのものだけを対象にする。
+await reload.locator('.ws-group[data-group-id="archive-group"]').click({ button: "right" });
+await reload.locator("#ctx-menu button", { hasText: "グループごと全セッションを閉じる" }).click();
+await reload.waitForFunction(() => {
+  if (!window.__savedSession) return false;
+  const saved = JSON.parse(window.__savedSession);
+  return !saved.workspaces.some((workspace) => workspace.id === "archive-c");
+}, null, { timeout: 6000 });
+check("archive group close-all closes only archived sessions in that group",
+  JSON.stringify(await reload.locator(".ws-item:visible .ws-name").allTextContents()) ===
+    JSON.stringify(["Beta"]));
+await reload.locator('[data-status-filter="all"]').click();
+const preservedNormalState = {
+  names: await reload.locator(".ws-item:visible .ws-name").allTextContents(),
+  groupName: await reload
+    .locator('.ws-group[data-group-id="archive-group"] .ws-group-name')
+    .textContent(),
+  deltaCount: await reload.locator('.ws-item[data-ws-id="archive-d"]').count(),
+};
+check("archive group close-all preserves normal sessions and their group",
+  JSON.stringify(preservedNormalState.names) ===
+    JSON.stringify(["Alpha", "Delta"]) &&
+    preservedNormalState.groupName === "Later" && preservedNormalState.deltaCount === 1,
+  JSON.stringify(preservedNormalState));
 await reload.close();
 
 }

@@ -76,6 +76,11 @@ export function isSessionStatusFilterActive(): boolean {
   return currentFilter !== "all";
 }
 
+/** アーカイブ画面固有の一括操作で、通常セッションを巻き込まないために使う。 */
+export function isArchiveSessionStatusFilterActive(): boolean {
+  return currentFilter === "archived";
+}
+
 /** 件数・キーボード移動で使う現在タブの母集団。状態絞り込みより先に
     アーカイブ済みと通常セッションを完全に分離する。 */
 export function isWorkspaceInSessionFilterScope(workspace: Workspace): boolean {
