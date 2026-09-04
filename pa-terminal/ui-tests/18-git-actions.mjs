@@ -23,11 +23,14 @@ await pageGitOps.addInitScript(() => {
     branches: ["origin/develop", "origin/main"],
     remotes: ["origin"],
   };
+  // 作業中は develop。ベースブランチの初期値は現在のブランチではなく既定ブランチ（main）
   window.__mockWorktreeBranches = {
     branches: [
-      { name: "main", reference: "refs/heads/main", current: true },
+      { name: "develop", reference: "refs/heads/develop", current: true },
+      { name: "main", reference: "refs/heads/main", current: false },
       { name: "origin/develop", reference: "refs/remotes/origin/develop", current: false },
     ],
+    defaultRef: "refs/heads/main",
   };
   window.__mockWorktreeResult = {
     path: "/repo/.worktree/feature-strip-worktree",
@@ -472,7 +475,7 @@ if (gitOpsOpen) {
   const defaultDirectory = await pageGitOps.locator("#worktree-directory").inputValue();
   const defaultBase = await pageGitOps.locator("#worktree-base").inputValue();
   const defaultOutside = await pageGitOps.locator("#worktree-loc input[value=outside]").isChecked();
-  check("worktree modal defaults to outside ~/worktrees and the current branch",
+  check("worktree modal defaults to outside ~/worktrees and the repository default branch",
     defaultOutside && defaultDirectory === "~/worktrees" && defaultBase === "refs/heads/main",
     `outside=${defaultOutside} directory=${defaultDirectory} base=${defaultBase}`);
   // 環境ファイル（gitignore 対象）の引き継ぎは既定で on。今回は off にして作る

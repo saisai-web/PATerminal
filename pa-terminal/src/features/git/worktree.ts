@@ -17,7 +17,22 @@ import { t } from "../../i18n";
 import type { IssueBranchLink, IssueList, IssueSummary } from "./git-panel-types";
 
 export type WorktreeBranch = { name: string; reference: string; current: boolean };
-export type WorktreeBranches = { branches: WorktreeBranch[] };
+export type WorktreeBranches = {
+  branches: WorktreeBranch[];
+  /** リポジトリの既定ブランチ（origin/HEAD → main / master）。無ければ null */
+  defaultRef?: string | null;
+};
+
+/**
+ * ベースブランチの初期値。どの経路から worktree を作っても既定ブランチを最初に
+ * 選ぶ（作業中のブランチから枝を切ってしまう事故を避ける）。既定が分からない
+ * リポジトリだけ現在のブランチ、それも無ければ先頭にする。
+ */
+export function defaultBaseRef(result: WorktreeBranches): string {
+  const { branches, defaultRef } = result;
+  if (defaultRef && branches.some((b) => b.reference === defaultRef)) return defaultRef;
+  return branches.find((b) => b.current)?.reference ?? branches[0]?.reference ?? "";
+}
 export type WorktreeResult = {
   path: string;
   branch: string;
@@ -80,8 +95,6 @@ export type WorktreePrefs = {
   insideDir: string;
   /** リポジトリ外モードの格納先（絶対パス / ~ / ..） */
   outsideDir: string;
-  /** Issue 実行で最後にユーザーが選んだベースブランチの完全な ref */
-  issueBaseRef?: string;
   /** 作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーするか */
   inherit: boolean;
 };
@@ -114,7 +127,6 @@ export function setWorktreePrefs(value: unknown): void {
     location: saved.location === "inside" ? "inside" : "outside",
     insideDir: dir(saved.insideDir, DEFAULT_PREFS.insideDir),
     outsideDir: dir(saved.outsideDir, DEFAULT_PREFS.outsideDir),
-    issueBaseRef: dir(saved.issueBaseRef, "") || undefined,
     // 明示的に false を保存してある場合だけ引き継がない。未設定・壊れた値は既定の「引き継ぐ」
     inherit: saved.inherit !== false,
   };
@@ -127,7 +139,6 @@ export function updateWorktreePrefs(patch: Partial<WorktreePrefs>): void {
     next.location === prefs.location &&
     next.insideDir === prefs.insideDir &&
     next.outsideDir === prefs.outsideDir &&
-    next.issueBaseRef === prefs.issueBaseRef &&
     next.inherit === prefs.inherit
   ) {
     return;

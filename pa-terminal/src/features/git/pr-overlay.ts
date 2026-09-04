@@ -13,12 +13,8 @@ import { getActiveTab } from "./git-panel";
 import { statusEl } from "./git-log";
 import { getIssueRoot } from "./issues-tab";
 import { getPrListPrs } from "./pr-tab";
-import {
-  createPrSessionFromPr,
-  getPrSessionError,
-  isPrSessionBusy,
-  subscribePrSessionState,
-} from "./pr-session";
+import { openWorktreeDialogForPr } from "./pr-worktree";
+import { isWorktreeDialogOpen } from "./worktree-dialog";
 import type { GitLog, PrInfo, PrSummary } from "./git-panel-types";
 
 const prBtn = document.querySelector<HTMLButtonElement>("#exp-git-pr")!;
@@ -103,7 +99,6 @@ const prTitleEl = document.querySelector<HTMLSpanElement>("#pr-title")!;
 const prSessionBtn = document.querySelector<HTMLButtonElement>("#pr-new-session")!;
 const prOpenGhBtn = document.querySelector<HTMLButtonElement>("#pr-open-gh")!;
 const prCloseBtn = document.querySelector<HTMLButtonElement>("#pr-close")!;
-const prSessionErrorEl = document.querySelector<HTMLDivElement>("#pr-session-error")!;
 const prOverviewEl = document.querySelector<HTMLDivElement>("#pr-overview")!;
 const prFilesTabBtn = document.querySelector<HTMLButtonElement>("#pr-files-tab")!;
 const prConversationTabBtn = document.querySelector<HTMLButtonElement>("#pr-conversation-tab")!;
@@ -238,15 +233,9 @@ function setPrTab(tab: "files" | "conversation"): void {
 }
 
 function renderPrSessionControls(number: number | null, headRefName: string | null): void {
-  const root = getIssueRoot();
-  const sessionBusy = isPrSessionBusy(root, number);
-  prSessionBtn.textContent = t(sessionBusy ? "pr.sessionPreparing" : "pr.newSession");
+  prSessionBtn.textContent = t("pr.newSession");
   prSessionBtn.title = t("pr.newSessionTitle");
-  prSessionBtn.disabled = number === null || !headRefName || sessionBusy;
-  const sessionError = getPrSessionError(root, number);
-  prSessionErrorEl.hidden = !sessionError;
-  prSessionErrorEl.textContent = sessionError;
-  prSessionErrorEl.title = sessionError;
+  prSessionBtn.disabled = number === null || !headRefName;
 }
 
 function renderPrOverlay(): void {
@@ -416,14 +405,13 @@ export function closePrOverlay(restoreFocus = true): void {
 
 prBtn.onclick = openCurrentPrOverlay;
 prSessionBtn.onclick = () => {
-  const root = getIssueRoot();
   const number = shownPrInfo?.number ?? shownPrSummary?.number ?? null;
-  if (!root || number === null) return;
-  void createPrSessionFromPr({
-    root,
+  if (number === null) return;
+  void openWorktreeDialogForPr(number, {
     number,
     title: shownPrInfo?.title ?? shownPrSummary?.title ?? "",
-    headRefName: shownPrInfo?.headRefName ?? shownPrSummary?.headRefName ?? null,
+    headRefName: shownPrInfo?.headRefName ?? shownPrSummary?.headRefName ?? "",
+    state: shownPrInfo?.state ?? shownPrSummary?.state ?? "OPEN",
   });
 };
 prFilesTabBtn.onclick = () => setPrTab("files");
@@ -441,7 +429,8 @@ prPanel.addEventListener("keydown", (e) => e.stopPropagation());
 window.addEventListener(
   "keydown",
   (e) => {
-    if (!prOverlay.hidden && e.key === "Escape") {
+    // 上に Worktree モーダルが乗っている間はそちらの Escape に任せる
+    if (!prOverlay.hidden && e.key === "Escape" && !isWorktreeDialogOpen()) {
       e.stopPropagation();
       e.preventDefault();
       closePrOverlay();
@@ -450,11 +439,3 @@ window.addEventListener(
   true,
 );
 
-// 一覧側から開始した同じ PR の状態も、開いている詳細ヘッダーへ同期する。
-subscribePrSessionState(() => {
-  if (prOverlay.hidden) return;
-  renderPrSessionControls(
-    shownPrInfo?.number ?? shownPrSummary?.number ?? null,
-    shownPrInfo?.headRefName ?? shownPrSummary?.headRefName ?? null,
-  );
-});

@@ -8,11 +8,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import { getDeps, getActiveTab, renderWorktreesTab } from "./git-panel";
+import { isActionBusy, runGitAction } from "./git-actions";
 import { formatDate, statusEl } from "./git-log";
 import { fetchPrList, fetchPrListIfStale, renderPrList, resetPrList } from "./pr-tab";
 import { closePrOverlay } from "./pr-overlay";
-import { getWorktreePrefs, updateWorktreePrefs, worktreeDirFor } from "./worktree";
+import {
+  defaultBaseRef,
+  getWorktreePrefs,
+  updateWorktreePrefs,
+  worktreeDirFor,
+} from "./worktree";
 import { syncIssueCreateRoot } from "./issue-create";
+import { closeWorktreeDialogForRoot } from "./worktree-dialog";
+import { createWorktreeProgress, worktreeResultMessage } from "./worktree-progress";
 import type { WorktreeBranch, WorktreeBranches, WorktreeLocation, WorktreeResult } from "./worktree";
 import type { GitLog, IssueBranchLink, IssueInfo, IssueList, IssueSummary } from "./git-panel-types";
 
@@ -26,11 +34,16 @@ let selectedIssueNumber: number | null = null;
 let selectedIssue: IssueInfo | null = null;
 let issueDetailToken = 0;
 let issueBranches: WorktreeBranch[] = [];
-let issueBranchesBusyFor: string | null = null;
+/** ベースブランチの初期値（既定ブランチ）。一覧が取れていないときは空 */
+let issueDefaultBaseRef = "";
+/** 取得中の root と Promise。同じ root の重複呼び出しは同じ結果を待つ */
+let issueBranchesPending: { root: string; promise: Promise<void> } | null = null;
 const ISSUE_REFRESH_MS = 60_000;
 
 const issueOverlay = document.querySelector<HTMLDivElement>("#issue-overlay")!;
 const issuePanel = document.querySelector<HTMLDivElement>("#issue-panel")!;
+/** 作成中のローディング。Worktree モーダルと同じ部品を Issue 詳細の上に重ねる */
+const issueWorktreeProgress = createWorktreeProgress(issuePanel, "issue-worktree");
 const issueStateEl = document.querySelector<HTMLSpanElement>("#issue-state")!;
 const issueTitleEl = document.querySelector<HTMLSpanElement>("#issue-title")!;
 const issueOpenGhBtn = document.querySelector<HTMLButtonElement>("#issue-open-gh")!;
@@ -82,6 +95,8 @@ export function updateIssueTarget(res: GitLog | null): void {
     }
     return;
   }
+  // PR 画面から開いた Worktree モーダルも、その root の画面と一緒に閉じる
+  closeWorktreeDialogForRoot(issueRoot);
   issueRoot = root;
   syncIssueCreateRoot();
   issueListData = null;
@@ -90,7 +105,8 @@ export function updateIssueTarget(res: GitLog | null): void {
   closeIssueOverlay();
   closePrOverlay();
   issueBranches = [];
-  issueBranchesBusyFor = null;
+  issueDefaultBaseRef = "";
+  issueBranchesPending = null;
   issueListToken++;
   if (getActiveTab() === "issues") {
     renderIssues();
@@ -271,15 +287,20 @@ function renderIssueOverlay(): void {
   }
 }
 
-async function fetchIssueBranches(root: string): Promise<void> {
-  if (issueBranchesBusyFor === root) return;
-  issueBranchesBusyFor = root;
-  try {
+function fetchIssueBranches(root: string): Promise<void> {
+  // 取得中に同じ Issue を開き直しても空のまま描画しないよう、同じ Promise を待たせる
+  if (issueBranchesPending?.root === root) return issueBranchesPending.promise;
+  const promise = (async () => {
     const res = await invoke<WorktreeBranches>("git_worktree_branches", { root }).catch(() => null);
-    if (root === issueRoot) issueBranches = res?.branches ?? [];
-  } finally {
-    if (issueBranchesBusyFor === root) issueBranchesBusyFor = null;
-  }
+    if (root === issueRoot) {
+      issueBranches = res?.branches ?? [];
+      issueDefaultBaseRef = res ? defaultBaseRef(res) : "";
+    }
+  })().finally(() => {
+    if (issueBranchesPending?.root === root) issueBranchesPending = null;
+  });
+  issueBranchesPending = { root, promise };
+  return promise;
 }
 
 function issueBranchName(issue: IssueInfo): string {
@@ -424,19 +445,14 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
   baseLabel.textContent = t("issue.baseBranch");
   const base = document.createElement("select");
   const prefs = getWorktreePrefs();
-  const preferredBase = issueBranches.some((b) => b.reference === prefs.issueBaseRef)
-    ? prefs.issueBaseRef
-    : issueBranches.find((b) => b.current)?.reference ?? issueBranches[0]?.reference;
+  // Worktree モーダルと同じく、作業中のブランチではなく既定ブランチを起点にする
   for (const b of issueBranches) {
     const option = document.createElement("option");
     option.value = b.reference;
     option.textContent = b.name;
-    option.selected = b.reference === preferredBase;
+    option.selected = b.reference === issueDefaultBaseRef;
     base.append(option);
   }
-  base.onchange = () => {
-    if (base.value) updateWorktreePrefs({ issueBaseRef: base.value });
-  };
   const branchLabel = document.createElement("label");
   branchLabel.textContent = t("issue.newBranch");
   const branch = document.createElement("input");
@@ -482,7 +498,33 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
     };
   }
   applyLocation();
-  fields.append(baseLabel, base, branchLabel, branch, locLabel, loc, directoryLabel, directory);
+  // 環境ファイル（gitignore 対象）の引き継ぎ。Worktree モーダルと同じ選択肢・同じ既定
+  const inheritLabel = document.createElement("label");
+  inheritLabel.textContent = t("agent.worktreeInherit");
+  const inheritEl = document.createElement("div");
+  inheritEl.className = "wt-loc";
+  const inheritRadios: HTMLInputElement[] = [];
+  for (const value of ["yes", "no"] as const) {
+    const item = document.createElement("label");
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = `issue-worktree-inherit-${issue.number ?? "x"}`;
+    radio.value = value;
+    radio.checked = (value === "yes") === prefs.inherit;
+    const text = document.createElement("span");
+    text.textContent = t(value === "yes" ? "agent.worktreeInheritYes" : "agent.worktreeInheritNo");
+    item.append(radio, text);
+    inheritEl.append(item);
+    inheritRadios.push(radio);
+  }
+  const inheritOf = (): boolean => inheritRadios.find((r) => r.checked)?.value !== "no";
+  const inheritHint = document.createElement("p");
+  inheritHint.className = "issue-worktree-hint";
+  inheritHint.textContent = t("agent.worktreeInheritHint");
+  fields.append(
+    baseLabel, base, branchLabel, branch, locLabel, loc, directoryLabel, directory,
+    inheritLabel, inheritEl, inheritHint,
+  );
   checkbox.onchange = () => {
     fields.hidden = !checkbox.checked;
   };
@@ -503,8 +545,11 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
       branch,
       directory,
       locationOf,
+      inheritOf,
       create,
       message,
+      // 作成中は Worktree モーダルと同じく入力を全部止める（ラジオも含む）
+      [checkbox, base, branch, directory, ...locRadios, ...inheritRadios],
     );
   actions.append(create);
   run.append(runTitle, toggle, fields, actions, message);
@@ -519,49 +564,80 @@ async function createIssueSession(
   branch: HTMLInputElement,
   directory: HTMLInputElement,
   locationOf: () => WorktreeLocation,
+  inheritOf: () => boolean,
   button: HTMLButtonElement,
   message: HTMLDivElement,
+  fields: (HTMLInputElement | HTMLSelectElement)[],
 ): Promise<void> {
-  button.disabled = true;
+  // worktree を使わないときは git 操作が無いので、そのままリポジトリルートで開く
+  if (!useWorktree.checked) {
+    message.classList.remove("is-error");
+    message.textContent = "";
+    getDeps().createIssueSession({
+      issueNumber: issue.number ?? 0,
+      issueTitle: issue.title ?? "Issue",
+      cwd: root,
+    });
+    return;
+  }
+  // 別の git 操作が進行中なら何も変えずに戻す（押し直せる）
+  if (isActionBusy()) return;
+  const newBranch = branch.value.trim();
+  const worktreeDirectory = directory.value.trim();
+  if (!base.value || !newBranch || !worktreeDirectory) {
+    message.classList.add("is-error");
+    message.textContent = t("issue.runFailed", {
+      error: "base branch, new branch, and worktree directory are required",
+    });
+    return;
+  }
+  // Worktree モーダルと同じ見え方にする: 作成中はフォーム全体（ラジオも）を無効化し、
+  // 変更ストリップには runGitAction の「実行中…」を出して他の git 操作とも排他にする
+  const setBusy = (busy: boolean) => {
+    button.disabled = busy;
+    button.textContent = t(busy ? "issue.preparing" : "issue.runSession");
+    for (const field of fields) field.disabled = busy;
+    if (!busy) useWorktree.disabled = issueBranches.length === 0;
+  };
+  setBusy(true);
   message.classList.remove("is-error");
-  message.textContent = t("issue.preparing");
-  try {
-    let cwd = root;
-    if (useWorktree.checked) {
-      const newBranch = branch.value.trim();
-      const worktreeDirectory = directory.value.trim();
-      if (!base.value || !newBranch || !worktreeDirectory) {
-        throw new Error("base branch, new branch, and worktree directory are required");
-      }
+  message.textContent = "";
+  const outcome: { cwd: string | null } = { cwd: null };
+  // Worktree モーダルと同じローディングをパネルの上に重ねる（環境ファイルのコピー進捗込み）
+  issueWorktreeProgress.start(root);
+  const ok = await runGitAction(
+    async () => {
       const location = locationOf();
+      const inherit = inheritOf();
       const result = await invoke<WorktreeResult>("git_worktree_create", {
         root,
         baseRef: base.value,
         branch: newBranch,
         directory: worktreeDirectory,
         location,
-        // 環境ファイルの引き継ぎは Worktree モーダル / 設定で選んだ既定に従う
-        inherit: getWorktreePrefs().inherit,
+        inherit,
       });
       updateWorktreePrefs(
         location === "outside"
-          ? { location, outsideDir: worktreeDirectory }
-          : { location, insideDir: worktreeDirectory },
+          ? { location, outsideDir: worktreeDirectory, inherit }
+          : { location, insideDir: worktreeDirectory, inherit },
       );
-      cwd = result.path;
-    }
-    getDeps().createIssueSession({
-      issueNumber: issue.number ?? 0,
-      issueTitle: issue.title ?? "Issue",
-      cwd,
-    });
-    message.textContent = "";
-  } catch (e) {
-    message.classList.add("is-error");
-    message.textContent = t("issue.runFailed", { error: String(e) });
-  } finally {
-    button.disabled = false;
-  }
+      outcome.cwd = result.path;
+      return worktreeResultMessage(result);
+    },
+    (error) => {
+      message.classList.add("is-error");
+      message.textContent = t("issue.runFailed", { error });
+    },
+  );
+  issueWorktreeProgress.stop();
+  setBusy(false);
+  if (!ok || !outcome.cwd) return;
+  getDeps().createIssueSession({
+    issueNumber: issue.number ?? 0,
+    issueTitle: issue.title ?? "Issue",
+    cwd: outcome.cwd,
+  });
 }
 
 issueOpenGhBtn.onclick = () => {

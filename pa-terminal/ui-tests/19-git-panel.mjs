@@ -120,6 +120,7 @@ await pageLog.addInitScript(() => {
       { name: "feat/x", reference: "refs/heads/feat/x", current: true },
       { name: "origin/main", reference: "refs/remotes/origin/main", current: false },
     ],
+    defaultRef: "refs/remotes/origin/main",
   };
   window.__mockWorktreeResult = { path: "/repo/.worktree/issue-42-custom", branch: "issue/42-custom" };
   window.__mockWorktreeList = {
@@ -295,10 +296,24 @@ if (logShown) {
   const issueActionButtons = pageLog.locator(".issue-session-actions button");
   check("Issue action offers one regular new-session button",
     await issueActionButtons.count() === 1 && (await issueActionButtons.first().textContent())?.trim() === "新規セッション");
-  check("Issue action defaults to worktree mode with the current branch",
+  check("Issue action defaults to worktree mode with the repository default branch",
     await pageLog.locator(".issue-worktree-toggle input").isChecked() &&
       await pageLog.locator(".issue-worktree-fields").isVisible() &&
-      await pageLog.locator(".issue-worktree-fields select").inputValue() === "refs/heads/feat/x");
+      await pageLog.locator(".issue-worktree-fields select").inputValue() === "refs/remotes/origin/main");
+  const issueLocRadios = pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-loc]");
+  const issueRadioBoxes = await issueLocRadios.evaluateAll((radios) =>
+    radios.map((radio) => {
+      const box = radio.getBoundingClientRect();
+      return { w: Math.round(box.width), h: Math.round(box.height) };
+    }));
+  check("Issue location radios keep their native size instead of the text-input styling",
+    issueRadioBoxes.length === 2 && issueRadioBoxes.every((box) => box.w > 0 && box.w <= 24 && box.h <= 24),
+    `boxes=${JSON.stringify(issueRadioBoxes)}`);
+  // 環境ファイル（gitignore 対象）の引き継ぎも Worktree モーダルと同じラジオで選べ、既定は「引き継ぐ」
+  check("Issue form offers the inherit-ignored-files choice and defaults to inheriting",
+    await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit]").count() === 2 &&
+      await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=yes]").isChecked() &&
+      await pageLog.locator("#issue-worktree-progress").isHidden());
   // チェックを外せば従来どおりリポジトリルートの通常セッションも作れる
   await pageLog.locator(".issue-worktree-toggle input").uncheck();
   const spawnBeforeIssue = await pageLog.evaluate(() => window.__ptySpawns.length);
@@ -313,7 +328,7 @@ if (logShown) {
     issueSessionName === "#42 Fix quoted startup", `name=${issueSessionName}`);
   // worktree モード: 選択したベースブランチから作成し、その cwd で通常セッションを開始
   await pageLog.locator(".issue-worktree-toggle input").check();
-  await pageLog.locator(".issue-worktree-fields select").selectOption("refs/remotes/origin/main");
+  await pageLog.locator(".issue-worktree-fields select").selectOption("refs/heads/feat/x");
   await pageLog.locator(".issue-worktree-branch").fill("issue/42-custom");
   check("worktree location defaults outside the repository",
     await pageLog.locator(".issue-worktree-directory").inputValue() === "~/worktrees" &&
@@ -323,14 +338,30 @@ if (logShown) {
   check("switching the issue form to inside restores .worktree",
     await pageLog.locator(".issue-worktree-directory").inputValue() === ".worktree");
   const spawnBeforeWorktree = await pageLog.evaluate(() => window.__ptySpawns.length);
+  await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=no]").check();
+  await pageLog.evaluate(() => { window.__mockWorktreeCreateDelay = 150; });
   await pageLog.locator(".issue-session-actions button").click();
+  // 作成中は Worktree モーダルと同じく、ボタンが「準備中」になり入力とラジオが止まり、
+  // パネルの上にローディングが重なる
+  check("Issue worktree creation shows progress and disables the form while it runs",
+    ((await pageLog.locator(".issue-session-actions button").textContent()) ?? "").includes("準備中") &&
+      await pageLog.locator(".issue-session-actions button").isDisabled() &&
+      await pageLog.locator(".issue-worktree-fields select").isDisabled() &&
+      await pageLog.locator(".issue-worktree-fields .wt-loc input[value=inside]").isDisabled() &&
+      await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=yes]").isDisabled() &&
+      await pageLog.locator("#issue-worktree-progress").isVisible() &&
+      ((await pageLog.locator("#issue-worktree-progress-title").textContent()) ?? "").includes("作成中") &&
+      ((await pageLog.locator("#git-msg").textContent()) ?? "").includes("実行中"));
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeWorktree);
+  await pageLog.evaluate(() => { window.__mockWorktreeCreateDelay = 0; });
+  check("Issue worktree progress overlay disappears once the session is created",
+    await pageLog.locator("#issue-worktree-progress").isHidden());
   const worktreeCall = await pageLog.evaluate(() => (window.__worktreeCreateCalls ?? []).at(-1));
   const worktreeSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
-  check("worktree action uses selected base and new branch",
-    worktreeCall?.root === "/repo" && worktreeCall?.baseRef === "refs/remotes/origin/main" &&
+  check("worktree action uses selected base, new branch, and inherit choice",
+    worktreeCall?.root === "/repo" && worktreeCall?.baseRef === "refs/heads/feat/x" &&
       worktreeCall?.branch === "issue/42-custom" && worktreeCall?.directory === ".worktree" &&
-      worktreeCall?.location === "inside" && worktreeCall?.inherit === true,
+      worktreeCall?.location === "inside" && worktreeCall?.inherit === false,
     `call=${JSON.stringify(worktreeCall)}`);
   check("regular issue session starts inside created worktree",
     worktreeSpawn?.shell === null &&
@@ -349,8 +380,9 @@ if (logShown) {
       savedIssueSession?.root?.resumeShell === undefined,
     `saved=${JSON.stringify(savedIssueSession)}`);
   const savedWorktreePrefs = await pageLog.evaluate(() => JSON.parse(window.__savedSession).settings?.worktree);
-  check("Issue action persists the selected base branch",
-    savedWorktreePrefs?.issueBaseRef === "refs/remotes/origin/main",
+  check("Issue action persists the location and inherit choice but not the base branch (it always starts at the default branch)",
+    savedWorktreePrefs?.location === "inside" && savedWorktreePrefs?.insideDir === ".worktree" &&
+      savedWorktreePrefs?.inherit === false && savedWorktreePrefs?.issueBaseRef === undefined,
     `worktree=${JSON.stringify(savedWorktreePrefs)}`);
   check("Issue body is not injected into or persisted with the new session",
     savedIssueSession?.root?.args === undefined &&
@@ -360,7 +392,7 @@ if (logShown) {
     await pageLog.locator("#exp-git-issues .issue-row").count() === 2);
   await pageLog.locator("#exp-git-issues .issue-row").first().click();
   await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-worktree-fields:not([hidden])", { timeout: 3000 });
-  check("reopening an Issue keeps worktree mode and the selected base branch",
+  check("reopening an Issue keeps worktree mode and starts again from the default branch",
     await pageLog.locator(".issue-worktree-toggle input").isChecked() &&
       await pageLog.locator(".issue-worktree-fields select").inputValue() === "refs/remotes/origin/main");
   await pageLog.locator("#issue-close").click();
@@ -424,50 +456,64 @@ if (logShown) {
       prBranchTitle === "fix/very-long-branch-name-for-the-list → main",
     `texts=${JSON.stringify(prBranchTexts)} title=${prBranchTitle}`);
 
-  // 一覧のボタンは詳細を開かず、保存済みの worktree 格納先で通常セッションを直接作る。
-  // 直前の Issue 操作で inside / .worktree を保存してあるため、その値が渡ることも確認する。
+  // 一覧のボタンは詳細を開かず、変更ストリップと同じ Worktree モーダルを PR モードで開く。
+  // 置き場所ラジオ・読み込み中の無効化・既存 worktree 一覧が同じ画面で出ること、gh を
+  // 呼び直さず一覧の PR がそのまま選べることを確認する。
   await pageLog.evaluate(() => {
     window.__mockWorktreeFromPrResult = {
       path: "/repo/.worktree/feat-x",
       branch: "feat/x",
       reused: false,
     };
-    window.__mockWorktreeFromPrDelay = 120;
+    window.__mockWorktreeFromPrDelay = 600;
   });
   await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
   const prDetailCallsBeforeListSession = await pageLog.evaluate(() => (window.__prDetailCalls ?? []).length);
+  const prListCallsBeforeListSession = await pageLog.evaluate(() => (window.__prListCalls ?? []).length);
   const prWorktreeCallsBeforeListSession = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
   const spawnsBeforeListSession = await pageLog.evaluate(() => window.__ptySpawns.length);
-  const listSessionButton = pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session");
-  // 同じ要素への連続 click も共通 busy 状態で1回に抑える。
-  await listSessionButton.evaluate((button) => {
-    button.click();
-    button.click();
-  });
-  check("PR list session action shows progress and suppresses duplicate creation",
-    await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").isDisabled() &&
-      ((await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").textContent()) ?? "").includes("準備中"));
+  await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").click();
+  await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
+  await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
+  const prDialogOptions = await pageLog.locator("#worktree-pr option").allTextContents();
+  check("PR list action opens the shared worktree modal in PR mode with that PR selected",
+    await pageLog.locator("#worktree-source input[value=pr]").isChecked() &&
+      await pageLog.locator("#worktree-pr").inputValue() === "12" &&
+      prDialogOptions.length === 2 && prDialogOptions[0] === "#12 Add thing" &&
+      await pageLog.locator("#worktree-base-field").isHidden() &&
+      await pageLog.locator("#worktree-loc input[type=radio]").count() === 2 &&
+      await pageLog.locator("#worktree-loc input[value=inside]").isChecked() &&
+      await pageLog.locator("#worktree-directory").inputValue() === ".worktree" &&
+      await pageLog.locator("#worktree-list .wt-row").count() >= 1 &&
+      await pageLog.evaluate((before) => (window.__prListCalls ?? []).length === before, prListCallsBeforeListSession) &&
+      await pageLog.evaluate((before) => (window.__prDetailCalls ?? []).length === before, prDetailCallsBeforeListSession),
+    `options=${JSON.stringify(prDialogOptions)} pr=${await pageLog.locator("#worktree-pr").inputValue()}`);
+  await pageLog.locator("#worktree-submit").click();
+  check("PR worktree creation shows progress in the modal and blocks a second submit",
+    await pageLog.locator("#worktree-submit").isDisabled() &&
+      await pageLog.locator("#worktree-pr").isDisabled() &&
+      await pageLog.locator("#worktree-loc input[value=outside]").isDisabled() &&
+      ((await pageLog.locator("#git-msg").textContent()) ?? "").includes("実行中"));
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforeListSession);
   const listPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));
   const listPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
   const listPrSessionName = ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim();
-  check("PR list action passes the PR and saved worktree destination without opening detail",
-    await pageLog.evaluate((before) => (window.__prDetailCalls ?? []).length === before,
-      prDetailCallsBeforeListSession) &&
-      await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
-        prWorktreeCallsBeforeListSession) &&
+  check("PR modal passes the PR and the chosen worktree destination",
+    await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
+      prWorktreeCallsBeforeListSession) &&
       listPrWorktreeCall?.root === "/repo" && listPrWorktreeCall?.number === 12 &&
       listPrWorktreeCall?.branch === "feat/x" && listPrWorktreeCall?.directory === ".worktree" &&
-      listPrWorktreeCall?.location === "inside" && listPrWorktreeCall?.inherit === true,
+      listPrWorktreeCall?.location === "inside" && listPrWorktreeCall?.inherit === false,
     `call=${JSON.stringify(listPrWorktreeCall)}`);
-  check("successful PR list action closes the expanded list and focuses a named default-shell session",
-    !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+  check("successful PR creation closes the modal and the expanded list and focuses a named default-shell session",
+    await pageLog.locator("#worktree-overlay").isHidden() &&
+      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
       listPrSpawn?.shell === null && listPrSpawn?.cwd === "/repo/.worktree/feat-x" &&
       listPrSpawn?.args === null && listPrSessionName === "#12 Add thing" &&
       await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),
     `spawn=${JSON.stringify(listPrSpawn)} name=${listPrSessionName}`);
 
-  // 詳細側は失敗時に画面と理由を残し、同じボタンから再実行できる。
+  // 詳細側は失敗時にモーダルと理由を残し、同じ画面から再実行できる。
   await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
   await pageLog.locator("#git-panel-modal-body .pr-list-row").first().click();
   await pageLog.waitForSelector("#pr-overlay:not([hidden]) #pr-files .commit-file-nav-item", { timeout: 3000 });
@@ -477,34 +523,46 @@ if (logShown) {
   });
   const spawnsBeforePrFailure = await pageLog.evaluate(() => window.__ptySpawns.length);
   await pageLog.locator("#pr-new-session").click();
-  await pageLog.waitForSelector("#pr-session-error:not([hidden])", { timeout: 3000 });
-  const prSessionFailure = (await pageLog.locator("#pr-session-error").textContent()) ?? "";
-  check("failed PR session creation keeps detail open, shows the reason, and allows retry",
+  await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
+  await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
+  check("PR detail action opens the same modal above the detail with that PR selected",
     await pageLog.locator("#pr-overlay").isVisible() &&
+      await pageLog.locator("#worktree-source input[value=pr]").isChecked() &&
+      await pageLog.locator("#worktree-pr").inputValue() === "12");
+  await pageLog.locator("#worktree-submit").click();
+  await pageLog.waitForSelector("#worktree-error:not([hidden])", { timeout: 3000 });
+  const prSessionFailure = (await pageLog.locator("#worktree-error").textContent()) ?? "";
+  check("failed PR worktree creation keeps modal and detail open, shows the reason, and allows retry",
+    await pageLog.locator("#worktree-overlay").isVisible() &&
+      await pageLog.locator("#pr-overlay").isVisible() &&
       await pageLog.locator("#git-panel-overlay").isVisible() &&
       prSessionFailure.includes("fetch failed for pull/12/head") &&
-      await pageLog.locator("#pr-new-session").isEnabled() &&
+      await pageLog.locator("#worktree-submit").isEnabled() &&
       await pageLog.evaluate((before) => window.__ptySpawns.length === before, spawnsBeforePrFailure),
     `error=${JSON.stringify(prSessionFailure)}`);
+  // Escape はモーダルだけを閉じ、その下の PR 詳細は残る
+  await pageLog.keyboard.press("Escape");
+  check("Escape closes only the worktree modal and leaves the PR detail open",
+    await pageLog.locator("#worktree-overlay").isHidden() && await pageLog.locator("#pr-overlay").isVisible());
   await pageLog.evaluate(() => {
     window.__mockWorktreeFromPrResult = {
       path: "/existing/feat-x",
       branch: "feat/x",
       reused: true,
     };
-    window.__mockWorktreeFromPrDelay = 120;
   });
   const prWorktreeCallsBeforeRetry = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
   const spawnsBeforePrRetry = await pageLog.evaluate(() => window.__ptySpawns.length);
   await pageLog.locator("#pr-new-session").click();
-  check("the same PR is disabled in both list and detail while its worktree is prepared",
-    await pageLog.locator("#pr-new-session").isDisabled() &&
-      await pageLog.locator("#exp-git-prs .pr-list-row").first().locator(".pr-list-session").isDisabled());
+  await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
+  await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
+  await pageLog.locator("#worktree-submit").click();
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforePrRetry);
   const reusedPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
   check("PR detail retry reuses the returned worktree and closes into a fresh regular session",
     await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
       prWorktreeCallsBeforeRetry) &&
+      await pageLog.locator("#worktree-overlay").isHidden() &&
       !(await pageLog.locator("#pr-overlay").isVisible()) &&
       !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
       reusedPrSpawn?.shell === null && reusedPrSpawn?.cwd === "/existing/feat-x" &&
@@ -895,13 +953,22 @@ if (logShown) {
     await pageLog.waitForSelector("#pr-overlay:not([hidden])", { timeout: 3000 });
     check("current-branch PR detail enables its session action from PrInfo headRefName",
       await pageLog.locator("#pr-new-session").isEnabled());
+    // バッジから開いた詳細も同じ Worktree モーダルを経由する（PR 一覧を開いていなくても
+    // 詳細の PR が選択肢に入る）
     await pageLog.locator("#pr-new-session").click();
+    await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
+    await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
+    check("current-branch PR detail opens the worktree modal with the detail PR selected",
+      await pageLog.locator("#worktree-source input[value=pr]").isChecked() &&
+        await pageLog.locator("#worktree-pr").inputValue() === "12");
+    await pageLog.locator("#worktree-submit").click();
     await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, currentPrSpawnsBefore);
     const currentPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));
     check("current-branch PR badge creates and focuses a session for the head branch",
       await pageLog.evaluate((before) => (window.__worktreeFromPrCalls ?? []).length === before + 1,
         currentPrWorktreeCallsBefore) &&
         currentPrWorktreeCall?.number === 12 && currentPrWorktreeCall?.branch === "feat/x" &&
+        await pageLog.locator("#worktree-overlay").isHidden() &&
         !(await pageLog.locator("#pr-overlay").isVisible()) &&
         ((await pageLog.evaluate(() => window.__ptySpawns.at(-1)))?.cwd === "/existing/current-pr") &&
         await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),

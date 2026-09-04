@@ -60,14 +60,6 @@
 #pr-new-session:hover:enabled,
 #pr-open-gh:hover { color: var(--accent); border-color: var(--accent); }
 #pr-new-session:disabled { color: var(--dim); cursor: progress; }
-#pr-session-error {
-  flex: none;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--pane-bg);
-  overflow-wrap: anywhere;
-}
-#pr-session-error[hidden] { display: none; }
 #pr-close {
   flex: none;
   font: inherit;

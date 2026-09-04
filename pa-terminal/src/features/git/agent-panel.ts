@@ -36,10 +36,9 @@ import { isLocked } from "../license/license";
 import { closePullDialog, getPullDialogRoot, isPullDialogOpen } from "./pull-dialog";
 import { setQuickPhraseRepo } from "../quick-phrases/quick-phrases";
 import {
-  closeWorktreeDialog,
-  getWorktreeDialogRoot,
   isWorktreeDialogOpen,
   renderWorktreeDialogTexts,
+  syncWorktreeDialogWithStrip,
 } from "./worktree-dialog";
 import { trackSelectionDrag } from "../../shared/selection-drag";
 
@@ -278,7 +277,7 @@ function renderGitChanges(res: GitChanges | null): void {
   renderCollapsedSummary();
   if (isCommitDialogOpen() && gitCwd !== getCommitDialogCwd()) closeCommitDialog();
   if (isPullDialogOpen() && nextRoot !== getPullDialogRoot()) closePullDialog();
-  if (isWorktreeDialogOpen() && nextRoot !== getWorktreeDialogRoot()) closeWorktreeDialog();
+  syncWorktreeDialogWithStrip(nextRoot);
   const sig = JSON.stringify(files);
   if (sig === gitSig) {
     if (visibilityChanged) deps.layout();

@@ -293,9 +293,6 @@ initGitPanel({
     const name = `#${issueNumber} ${issueTitle}`;
     createWorkspaceBesideActive(name, "default", { cwd });
   },
-  createPrSession: ({ prNumber, prTitle, cwd }) => {
-    createWorkspaceBesideActive(`#${prNumber} ${prTitle}`, "default", { cwd });
-  },
 });
 
 // ---- サイドバーのセッション git バッジ（全セッションを直列ポーリング） ----
