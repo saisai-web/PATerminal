@@ -4,7 +4,7 @@ const { browser, check, MOD, BASE_URL } = ctx;
 // ============================================================
 // 新規セッションの場所フライアウト（Issue #192）
 // メニューの「セッションを作成」はホバー、検索欄横の + と詳細フォームの場所欄はクリックで
-// ホーム / フォルダ選択 / 最近使った場所 / お気に入り から作成先を選べる。
+// ホーム / フォルダ選択 / お気に入り / 最近使った場所 から作成先を選べる。
 // 検索欄横の + には、従来のクリック動作も「表示中ペインと同じ場所」として含める。
 // ============================================================
 
@@ -52,9 +52,10 @@ check("+ flyout includes the old default action and every location entry",
   (await flyoutRow("recent1").count()) === 1 &&
   (await flyoutRow("recent2").count()) === 1 &&
   (await flyoutRow("fav1").count()) === 1);
-check("flyout shows the section heads",
-  (await flyout.locator(".loc-head", { hasText: "最近使った場所" }).count()) === 1 &&
-  (await flyout.locator(".loc-head", { hasText: "お気に入り" }).count()) === 1);
+const sectionHeads = await flyout.locator(".loc-head").allTextContents();
+check("flyout shows favorites above recent locations",
+  JSON.stringify(sectionHeads) === JSON.stringify(["お気に入り", "最近使った場所"]),
+  JSON.stringify(sectionHeads));
 
 // --- 先頭行は従来の + と同じく、表示中ペインの場所で即時作成する ---
 await flyoutRow("表示中ペインと同じ場所").click();

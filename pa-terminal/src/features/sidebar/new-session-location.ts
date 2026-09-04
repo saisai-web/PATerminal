@@ -1,5 +1,5 @@
 // ============================================================
-// 新規セッションの場所フライアウト（ホーム / フォルダ選択 / 最近使った場所 / お気に入り）
+// 新規セッションの場所フライアウト（ホーム / フォルダ選択 / お気に入り / 最近使った場所）
 // 作成ボタン・メニュー項目のホバーまたはクリックで出るフライアウトから、
 // 作成先ディレクトリだけを選べるようにする（Issue #192）。
 //
@@ -129,16 +129,16 @@ function buildFlyout(onPick: LocationPick, opts: FlyoutOpts): HTMLDivElement {
     }),
   );
 
-  const recents = getRecentDirs();
-  if (recents.length) {
-    el.append(buildSectionHead(t("loc.recent")));
-    for (const p of recents) el.append(buildRow(pathBasename(p), p, () => pick(p)));
-  }
-
   const favorites = getExplorerFavorites();
   if (favorites.length) {
     el.append(buildSectionHead(t("loc.favorites")));
     for (const p of favorites) el.append(buildRow(pathBasename(p), p, () => pick(p)));
+  }
+
+  const recents = getRecentDirs();
+  if (recents.length) {
+    el.append(buildSectionHead(t("loc.recent")));
+    for (const p of recents) el.append(buildRow(pathBasename(p), p, () => pick(p)));
   }
   return el;
 }
