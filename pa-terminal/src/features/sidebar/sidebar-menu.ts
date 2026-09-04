@@ -26,6 +26,7 @@ import {
 } from "./sidebar-selection";
 import { renderSidebar } from "./sidebar";
 import { attachLocationFlyout } from "./new-session-location";
+import { isArchiveSessionStatusFilterActive } from "./session-status-filter";
 import { collapsedGroups, groups, workspaces } from "../../workspace/state";
 import {
   WORKSPACE_BACKGROUND_COLORS,
@@ -258,11 +259,15 @@ export function openGroupMenu(
     新規セッションはそのグループへ、新規グループは子階層へ、いずれも見出し直下の行へ
     クイック作成する。表示中セッションや選択中セッションは挿入位置に使わない。
     「解散」= 直下のセッションと子グループを親へ移す（セッションは閉じない）。
-    「グループごと全セッションを閉じる」= 子階層のセッションも全部閉じる（× と同じ・確認なし） */
+    「グループごと全セッションを閉じる」= 子階層のセッションも全部閉じる（× と同じ・確認なし）。
+    ただしアーカイブ表示では、その枝のアーカイブ済みセッションだけを閉じる。 */
 export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   closeGroupMenu();
   const menu = document.createElement("div");
   menu.id = "ctx-menu";
+  // アーカイブ画面の見出しは、アーカイブ済みセッションを持つ枝だけを表している。
+  // メニューを開いた時点の表示範囲を一括クローズにも引き継ぐ。
+  const archiveOnly = isArchiveSessionStatusFilterActive();
 
   const session = document.createElement("button");
   session.textContent = t("ctx.createSession");
@@ -334,12 +339,18 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   closeAll.onclick = () => {
     closeGroupMenu();
     const ids = groupDescendantIds(group.id);
-    for (const id of ids) collapsedGroups.delete(id);
-    for (let i = groups.length - 1; i >= 0; i--) {
-      if (ids.has(groups[i].id)) groups.splice(i, 1);
+    // 通常表示の従来動作ではグループごと閉じる。アーカイブ表示では、同じ枝にある
+    // 非表示の通常セッションと、その所属先になるグループ階層を必ず残す。
+    if (!archiveOnly) {
+      for (const id of ids) collapsedGroups.delete(id);
+      for (let i = groups.length - 1; i >= 0; i--) {
+        if (ids.has(groups[i].id)) groups.splice(i, 1);
+      }
     }
     // closeWorkspace は workspaces を書き換えるので、先に対象を確定してから順に閉じる
-    const members = workspaces.filter((w) => w.group && ids.has(w.group));
+    const members = workspaces.filter(
+      (w) => w.group && ids.has(w.group) && (!archiveOnly || w.archived === true),
+    );
     void (async () => {
       for (const w of members) await closeWorkspace(w);
       renderSidebar();
