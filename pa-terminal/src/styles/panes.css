@@ -131,20 +131,32 @@
 }
 /* xterm の標準スクロールバーは WebView の overlay 設定により、ペインの端で
    半分だけ見えることがある。ペイン内にトラックとつまみを確保して表示する。
+   レール（トラック）はペイン背景と別の色にして、スクロール量が少なくても
+   「ここにスクロールバーがある」と分かるよう常時見せる（Issue #24）。
    注意: 標準の scrollbar-width / scrollbar-color を指定すると、新しい WebKit /
    Chromium は ::-webkit-scrollbar 系のカスタム描画を丸ごと無視して細い標準バーに
    退化する（= つまみが潰れて掴めない実バグの原因）。ここでは指定しないこと。 */
+.pane-body {
+  /* --chrome は dracula / nord でペイン背景と同色になるため、全テーマで
+     ペイン背景と区別できる --line を混ぜてレール色を作る */
+  --scrollbar-track: color-mix(in srgb, var(--line) 70%, var(--pane-bg));
+}
 .pane-body .xterm .xterm-viewport {
   /* xterm 標準の left: 0; right: 0 で幅を決める。width を重ねると、WebKit では
      右端のスクロールバー用領域が過剰拘束になり、canvas と競合し得る。 */
   overflow-y: scroll;
 }
+/* 幅 14px は FitAddon の列数計算と 31-resize の検証が前提にしている。変えない。 */
 .pane-body .xterm .xterm-viewport::-webkit-scrollbar { width: 14px; }
-.pane-body .xterm .xterm-viewport::-webkit-scrollbar-track { background: var(--pane-bg); }
+.pane-body .xterm .xterm-viewport::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-left: 1px solid var(--line);
+}
 .pane-body .xterm .xterm-viewport::-webkit-scrollbar-thumb {
   background: var(--dim);
-  border: 3px solid var(--pane-bg);
-  border-radius: 7px;
+  border: 2px solid var(--scrollbar-track); /* つまみ幅 10px。レール色で縁取る */
+  border-radius: 6px;
   min-height: 24px; /* 長大なスクロールバックでもつまみを掴める大きさに保つ */
 }
 .pane-body .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover { background: var(--text); }
+.pane-body .xterm .xterm-viewport::-webkit-scrollbar-thumb:active { background: var(--accent); }
