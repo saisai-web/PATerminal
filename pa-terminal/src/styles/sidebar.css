@@ -457,7 +457,7 @@
 .ws-item[data-ws-color="purple"],
 #ctx-menu .ctx-color-option[data-ws-color="purple"] { --ws-color-value: var(--ws-color-purple); }
 
-/* --- 新規セッションの場所フライアウト（ホーム / フォルダ選択 / 最近 / お気に入り） ---
+/* --- 新規セッションの場所フライアウト（ホーム / フォルダ選択 / お気に入り / 最近） ---
    ctx-menu の「セッションを作成」・作成ボタンへカーソルを当てると横に出る。
    ctx-menu 内では JS が position:absolute、単独ボタンでは fixed に切り替える */
 #loc-flyout {
