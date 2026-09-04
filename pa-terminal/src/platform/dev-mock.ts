@@ -635,6 +635,7 @@ if (!w.__TAURI_INTERNALS__) {
           return (
             (w.__mockWorktreeBranches as object) ?? {
               branches: [{ name: "main", reference: "refs/heads/main", current: true }],
+              defaultRef: "refs/heads/main",
             }
           );
         case "git_worktree_create": {

@@ -9,13 +9,14 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import type { PrList, PrSummary } from "./git-panel-types";
 import { getGitRoot } from "./agent-panel";
 import { isActionBusy, runGitAction } from "./git-actions";
 import { t } from "../../i18n";
 import { isPullDialogOpen } from "./pull-dialog";
+import { createWorktreeProgress, worktreeResultMessage } from "./worktree-progress";
 import {
+  defaultBaseRef,
   getWorktreePrefs,
   renderWorktreeList,
   renderWorktreeListTexts,
@@ -67,73 +68,43 @@ const worktreeBranchField = document.querySelector<HTMLLabelElement>("#worktree-
 const worktreePrField = document.querySelector<HTMLLabelElement>("#worktree-pr-field")!;
 const worktreePrSel = document.querySelector<HTMLSelectElement>("#worktree-pr")!;
 const worktreePrHintEl = document.querySelector<HTMLParagraphElement>("#worktree-pr-hint")!;
-const worktreeProgressEl = document.querySelector<HTMLDivElement>("#worktree-progress")!;
-const worktreeProgressTitleEl = document.querySelector<HTMLSpanElement>("#worktree-progress-title")!;
-const worktreeProgressDetailEl = document.querySelector<HTMLSpanElement>("#worktree-progress-detail")!;
-const worktreeProgressBarEl = worktreeProgressEl.querySelector<HTMLDivElement>(".wt-progress-bar")!;
-const worktreeProgressFillEl = document.querySelector<HTMLDivElement>("#worktree-progress-fill")!;
-const worktreeProgressCountEl = document.querySelector<HTMLSpanElement>("#worktree-progress-count")!;
+// 作成中のローディング。worktree add → 環境ファイルのコピー（進捗は worktree:inherit イベント）
+const worktreeProgress = createWorktreeProgress(worktreePanel, "worktree");
 
 type WorktreeSource = "branch" | "pr";
 
 let worktreeDialogRoot: string | null = null;
+/** 変更ストリップの Worktree ボタンから開いたか（PR 側から開いたときは false） */
+let worktreeFollowsStrip = false;
+let worktreeBeforeOpenSession: (() => void) | null = null;
 let worktreeLoading = false;
 let worktreeLoadToken = 0;
 /** PR モードで選べる open な PR。null は「まだ取っていない」 */
 let worktreePrs: PrSummary[] | null = null;
 let worktreePrLoading = false;
 let worktreePrToken = 0;
-/** 作成中（worktree add → 環境ファイルのコピー）。ローディングを出している間だけ true */
-let worktreeWorking = false;
-
-type WorktreeInheritProgress = {
-  root: string;
-  target: string;
-  done: number;
-  total: number;
-  entry: string;
-};
-
-/** ローディングの表示。`progress` が無い間は件数不明の流れる帯にする。 */
-function showWorktreeProgress(progress: WorktreeInheritProgress | null): void {
-  worktreeProgressEl.hidden = false;
-  if (!progress) {
-    worktreeProgressTitleEl.textContent = t("agent.worktreeProgressCreating");
-    worktreeProgressDetailEl.textContent = "";
-    worktreeProgressCountEl.textContent = "";
-    worktreeProgressBarEl.classList.add("is-indeterminate");
-    worktreeProgressFillEl.style.width = "0";
-    return;
-  }
-  const finished = progress.total > 0 && progress.done >= progress.total;
-  worktreeProgressTitleEl.textContent = t(
-    finished ? "agent.worktreeProgressFinishing" : "agent.worktreeProgressCopying",
-  );
-  worktreeProgressDetailEl.textContent = progress.entry;
-  worktreeProgressCountEl.textContent = progress.total > 0 ? `${progress.done} / ${progress.total}` : "";
-  worktreeProgressBarEl.classList.remove("is-indeterminate");
-  const ratio = progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0;
-  worktreeProgressFillEl.style.width = `${Math.round(ratio * 100)}%`;
-}
-
-function hideWorktreeProgress(): void {
-  worktreeProgressEl.hidden = true;
-  worktreeProgressBarEl.classList.add("is-indeterminate");
-  worktreeProgressFillEl.style.width = "0";
-}
-
-// Rust からの引き継ぎ進捗。root が一致する（= このダイアログが頼んだ）ものだけ表示に反映する
-void listen<WorktreeInheritProgress>("worktree:inherit", (e) => {
-  if (!worktreeWorking || e.payload.root !== worktreeDialogRoot) return;
-  showWorktreeProgress(e.payload);
-});
-
 export function isWorktreeDialogOpen(): boolean {
   return !worktreeOverlay.hidden;
 }
 
 export function getWorktreeDialogRoot(): string | null {
   return worktreeDialogRoot;
+}
+
+/**
+ * 変更ストリップが見るリポジトリが変わったら、ストリップから開いたモーダルは閉じる
+ * （別リポジトリに対して作らせない）。PR 画面から開いたモーダルは Git パネル側の
+ * リポジトリに紐づくので、ストリップの root（別ペインの cwd や未検出の null）では閉じない。
+ */
+export function syncWorktreeDialogWithStrip(stripRoot: string | null): void {
+  if (!isWorktreeDialogOpen() || !worktreeFollowsStrip) return;
+  if (stripRoot !== worktreeDialogRoot) closeWorktreeDialog();
+}
+
+/** PR 画面から root を指定して開いたモーダルを、その root の画面が閉じるときに一緒に閉じる */
+export function closeWorktreeDialogForRoot(root: string | null): void {
+  if (!isWorktreeDialogOpen() || worktreeFollowsStrip) return;
+  if (root !== null && root === worktreeDialogRoot) closeWorktreeDialog();
 }
 
 function worktreeLocationMode(): WorktreeLocation {
@@ -286,19 +257,43 @@ export function updateWorktreeDialog(): void {
   updateWorktreePreview();
 }
 
-async function openWorktreeDialog(): Promise<void> {
-  const root = getGitRoot();
+type WorktreeDialogOptions = {
+  /** 対象リポジトリ。省略時は変更ストリップが見ているリポジトリ */
+  root?: string;
+  /**
+   * PR モードで開く。一覧は呼び出し側が持っている open な PR をそのまま使い
+   * （gh を呼び直さない）、number の PR を選択した状態にする。
+   */
+  pr?: { prs: PrSummary[]; number: number };
+  /** 作成に成功してセッションを開く直前に呼ぶ（呼び出し元の画面を閉じるため） */
+  beforeOpenSession?: () => void;
+};
+
+/**
+ * Worktree モーダルを開く。変更ストリップの Worktree ボタン、PR 一覧・詳細の
+ * 「新規セッション」が共有する。どこから開いてもベースブランチは既定ブランチ、
+ * 置き場所ラジオと読み込み中の無効化は同じ画面で出る。
+ */
+export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): Promise<void> {
+  const root = options.root ?? getGitRoot();
   if (!root || isActionBusy()) return;
   worktreeDialogRoot = root;
+  worktreeFollowsStrip = options.root === undefined;
+  worktreeBeforeOpenSession = options.beforeOpenSession ?? null;
   worktreeRootEl.textContent = root;
   worktreeBaseSel.innerHTML = "";
   worktreeBranchEl.value = "";
-  // PR 一覧はリポジトリごとに取り直す（開くたびに gh は呼ばず、PR モードに入った時だけ）
-  worktreePrs = null;
-  worktreePrLoading = false;
+  // PR 一覧はリポジトリごとに取り直す（開くたびに gh は呼ばず、PR モードに入った時だけ）。
+  // PR 側から開いたときはその一覧を種にして gh を呼ばない
   ++worktreePrToken;
-  for (const radio of worktreeSourceRadios) radio.checked = radio.value === "branch";
+  worktreePrLoading = false;
+  worktreePrs = options.pr
+    ? options.pr.prs.filter((pr) => (pr.state ?? "").toUpperCase() === "OPEN")
+    : null;
+  const source: WorktreeSource = options.pr ? "pr" : "branch";
+  for (const radio of worktreeSourceRadios) radio.checked = radio.value === source;
   renderWorktreePrOptions();
+  if (options.pr) worktreePrSel.value = String(options.pr.number);
   applyWorktreeSourceMode();
   // 前回使った置き場所を復元する（settings.worktree に保存してある）
   const prefs = getWorktreePrefs();
@@ -320,8 +315,9 @@ async function openWorktreeDialog(): Promise<void> {
       opt.value = branch.reference;
       opt.textContent = branch.name;
       worktreeBaseSel.append(opt);
-      if (branch.current) worktreeBaseSel.value = branch.reference;
     }
+    // 作業中のブランチではなく、リポジトリの既定ブランチを起点にする
+    worktreeBaseSel.value = defaultBaseRef(result);
     if (result.branches.length === 0) {
       worktreeErrorEl.textContent = t("agent.worktreeNoBranches");
       worktreeErrorEl.hidden = false;
@@ -334,7 +330,9 @@ async function openWorktreeDialog(): Promise<void> {
     if (token === worktreeLoadToken && worktreeDialogRoot === root && !worktreeOverlay.hidden) {
       worktreeLoading = false;
       updateWorktreeDialog();
-      requestAnimationFrame(() => worktreeBranchEl.focus());
+      requestAnimationFrame(() => {
+        (worktreeSourceMode() === "pr" ? worktreePrSel : worktreeBranchEl).focus();
+      });
     }
   }
 }
@@ -347,7 +345,9 @@ export function closeWorktreeDialog(): void {
   worktreePrLoading = false;
   worktreeOverlay.hidden = true;
   worktreeDialogRoot = null;
-  worktreeBtn.focus();
+  worktreeBeforeOpenSession = null;
+  // PR 画面など別の場所から開いたときは、そちらの focus を奪わない
+  if (worktreeBtn.offsetParent !== null && !worktreeBtn.disabled) worktreeBtn.focus();
 }
 
 worktreeBtn.onclick = () => void openWorktreeDialog();
@@ -384,19 +384,6 @@ for (const radio of worktreeLocRadios) {
     updateWorktreeDialog();
   });
 }
-/** 作成結果の文言。引き継いだ件数を添え、一部失敗があれば警告を続ける。 */
-function worktreeResultMessage(result: WorktreeResult): string {
-  const path = result.path;
-  let message = result.reused
-    ? t("agent.worktreeReused", { path })
-    : result.inherited > 0
-      ? t("agent.worktreeCreatedInherited", { path, count: String(result.inherited) })
-      : t("agent.worktreeCreated", { path });
-  const warning = result.inheritWarning?.trim();
-  if (warning) message += `\n${t("agent.worktreeInheritWarning", { error: warning })}`;
-  return message;
-}
-
 worktreeSubmitBtn.onclick = () => {
   const root = worktreeDialogRoot;
   const directory = worktreeDirectoryEl.value.trim();
@@ -413,8 +400,7 @@ worktreeSubmitBtn.onclick = () => {
     // runGitAction のコールバックから成功結果も受け取る。可変オブジェクトに入れるのは、
     // TypeScript がネストしたコールバック内のローカル変数代入を到達可能と判定しないため。
     const outcome: { created: WorktreeResult | null } = { created: null };
-    worktreeWorking = true;
-    showWorktreeProgress(null);
+    worktreeProgress.start(root);
     const ok = await runGitAction(
       async () => {
         // PR は「そのブランチを用意する」ので既存ブランチも受け付ける専用コマンド。
@@ -449,12 +435,13 @@ worktreeSubmitBtn.onclick = () => {
         worktreeErrorEl.hidden = false;
       },
     );
-    worktreeWorking = false;
-    hideWorktreeProgress();
+    worktreeProgress.stop();
     if (ok && outcome.created) {
       // 先にモーダルを閉じてから作る。closeWorktreeDialog のボタン focus より後に
       // 新しいターミナルを focus させ、そのまま入力できる状態にするため。
+      const beforeOpenSession = worktreeBeforeOpenSession;
       closeWorktreeDialog();
+      beforeOpenSession?.();
       deps.openSession({
         // PR 由来のセッションは Issue 実行と同じく「#番号 タイトル」で見分けられるようにする
         name: pr ? `#${pr.number} ${pr.title}` : outcome.created.branch,
@@ -471,7 +458,9 @@ window.addEventListener(
   (e) => {
     if (e.key !== "Escape" || isPullDialogOpen()) return;
     if (!worktreeOverlay.hidden) {
-      e.stopPropagation();
+      // PR 詳細や拡大 Git モーダルの上に重ねて開くので、後ろの Escape 処理まで届かせない
+      e.stopImmediatePropagation();
+      e.preventDefault();
       closeWorktreeDialog();
     }
   },

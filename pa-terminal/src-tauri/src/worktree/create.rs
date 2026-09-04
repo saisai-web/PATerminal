@@ -26,6 +26,40 @@ struct WorktreeBranch {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WorktreeBranches {
     branches: Vec<WorktreeBranch>,
+    /// ベースブランチの初期値にする既定ブランチの参照。origin/HEAD が指す名前の
+    /// ローカルブランチを優先し、無ければそのリモート追跡ブランチ、それも無ければ
+    /// main / master の順で探す。見つからなければ None。
+    default_ref: Option<String>,
+}
+
+/// 既定ブランチの参照を候補の中から選ぶ。
+fn default_branch_ref(root: &str, branches: &[WorktreeBranch]) -> Option<String> {
+    let has = |reference: &str| branches.iter().any(|b| b.reference == reference);
+    let mut names: Vec<String> = Vec::new();
+    if let Ok(o) = run_git(&["-C", root, "symbolic-ref", "-q", "refs/remotes/origin/HEAD"]) {
+        if o.status.success() {
+            // "refs/remotes/origin/main" -> "main"
+            let target = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if let Some(name) = target.strip_prefix("refs/remotes/origin/") {
+                if !name.is_empty() {
+                    names.push(name.to_string());
+                }
+            }
+        }
+    }
+    names.push("main".into());
+    names.push("master".into());
+    for name in names {
+        let local = format!("refs/heads/{name}");
+        if has(&local) {
+            return Some(local);
+        }
+        let remote = format!("refs/remotes/origin/{name}");
+        if has(&remote) {
+            return Some(remote);
+        }
+    }
+    None
 }
 
 /// worktree のベース候補。ローカルブランチを先、リモートブランチを後に返す。
@@ -71,7 +105,11 @@ pub(crate) async fn git_worktree_branches(root: String) -> Result<WorktreeBranch
             b.name.clone(),
         )
     });
-    Ok(WorktreeBranches { branches })
+    let default_ref = default_branch_ref(&root, &branches);
+    Ok(WorktreeBranches {
+        branches,
+        default_ref,
+    })
 }
 
 #[derive(Serialize)]
@@ -441,7 +479,7 @@ fn tracking_remote_for(root: &str, branch: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_worktree, worktree_from_pr};
+    use super::{create_worktree, git_worktree_branches, worktree_from_pr};
     use crate::testutil::{test_git, TempRepo};
     use crate::worktree::list::{git_worktree_list, git_worktree_remove};
     use std::fs;
@@ -467,6 +505,33 @@ mod tests {
         test_git(&remote, &["symbolic-ref", "HEAD", "refs/heads/main"]);
         test_git(repo, &["clone", "--quiet", &remote_text, "local"]);
         (seed, local)
+    }
+
+    #[tokio::test]
+    async fn base_branch_candidates_name_the_default_branch_not_the_current_one() {
+        let repo = TempRepo::new();
+        let (_seed, local) = repo_with_remote(&repo.0);
+        // 作業中は feature ブランチ。origin/HEAD は main を指す
+        test_git(&local, &["switch", "--quiet", "-c", "feature/current"]);
+        let root = local.to_string_lossy().into_owned();
+
+        let result = git_worktree_branches(root.clone()).await.unwrap();
+        let current: Vec<&str> = result
+            .branches
+            .iter()
+            .filter(|b| b.current)
+            .map(|b| b.reference.as_str())
+            .collect();
+        assert_eq!(current, vec!["refs/heads/feature/current"]);
+        assert_eq!(result.default_ref.as_deref(), Some("refs/heads/main"));
+
+        // ローカルの main を消すと、リモート追跡ブランチの main に落ちる
+        test_git(&local, &["branch", "-D", "main"]);
+        let result = git_worktree_branches(root).await.unwrap();
+        assert_eq!(
+            result.default_ref.as_deref(),
+            Some("refs/remotes/origin/main")
+        );
     }
 
     #[tokio::test]

@@ -160,7 +160,6 @@ export type SessionV3 = {
       location?: "inside" | "outside";
       insideDir?: string;
       outsideDir?: string;
-      issueBaseRef?: string;
       /** 作成元の gitignore 対象を新しい worktree へコピーするか（既定 true） */
       inherit?: boolean;
     };

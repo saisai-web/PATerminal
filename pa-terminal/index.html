@@ -374,17 +374,6 @@
           <button id="worktree-cancel" data-i18n="agent.commitCancel">キャンセル</button>
           <button id="worktree-submit" class="is-primary" data-i18n="agent.worktreeCreate">作成</button>
         </div>
-        <!-- 作成中のローディング。worktree add → 環境ファイルのコピー（進捗は worktree:inherit イベント） -->
-        <div id="worktree-progress" class="wt-progress" role="status" aria-live="polite" hidden>
-          <div class="wt-progress-card">
-            <div class="wt-progress-spinner" aria-hidden="true"></div>
-            <div class="wt-progress-text">
-              <span id="worktree-progress-title" class="wt-progress-title"></span>
-              <span id="worktree-progress-detail" class="wt-progress-detail"></span>
-            </div>
-            <div class="wt-progress-bar is-indeterminate"><div id="worktree-progress-fill" class="wt-progress-fill"></div></div>
-            <span id="worktree-progress-count" class="wt-progress-count"></span>
-          </div>
         </div>
       </div>
     </div>
@@ -409,7 +398,6 @@
           <button id="pr-open-gh" data-i18n="git.openOnGitHub" data-i18n-title="git.openOnGitHubTitle" title="このPRをGitHubで開く">GitHub で開く</button>
           <button id="pr-close" data-i18n-title="git.prClose" title="PR表示を閉じる">×</button>
         </div>
-        <div id="pr-session-error" class="pr-session-error" hidden></div>
         <div id="pr-overview"></div>
         <div id="pr-tabs" role="tablist">
           <button id="pr-files-tab" role="tab" aria-selected="true"></button>
