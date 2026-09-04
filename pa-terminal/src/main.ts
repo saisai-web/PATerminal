@@ -39,6 +39,7 @@ import {
   createWorkspaceBesideActive,
   newSessionCwd,
   onActiveWorkspaceChange,
+  scheduleArchivedWorkspaceCleanup,
   setActive,
   workspaceCwd,
 } from "./workspace/workspace";
@@ -355,6 +356,7 @@ window.addEventListener("resize", () => scheduleLayout());
 async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
+  scheduleArchivedWorkspaceCleanup();
   setExplorerOpen(false, { save: false });
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・
   // 自ビルドの新バージョン通知はその後に起動する

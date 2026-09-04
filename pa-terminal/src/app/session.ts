@@ -56,8 +56,16 @@ import { normalizeWorkspaceBackgroundColor } from "../workspace/types";
 import { getRecentDirs, setRecentDirs } from "../features/sidebar/recent-dirs";
 import { getWorktreePrefs, setWorktreePrefs } from "../features/git/worktree";
 import { getPairDefaultCmds, setPairDefaultCmds } from "../features/pair/pair";
-import { createEmptyWorkspace, setActive } from "../workspace/workspace";
+import {
+  createEmptyWorkspace,
+  scheduleArchivedWorkspaceCleanup,
+  setActive,
+} from "../workspace/workspace";
 import { normalizeWorkspaceNote } from "../workspace/note";
+import {
+  isArchivedWorkspaceExpired,
+  normalizeArchivedAt,
+} from "../workspace/archive-retention";
 import {
   addDeletedWorkspace,
   getDeletedWorkspaces,
@@ -113,6 +121,7 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     note: ws.note,
     pinned: ws.pinned || undefined,
     archived: ws.archived || undefined,
+    archivedAt: ws.archived ? ws.archivedAt : undefined,
     lastOpAt: ws.lastOpAt,
     backgroundColor: ws.backgroundColor,
     group: ws.group,
@@ -233,6 +242,9 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
     ws.note = normalizeWorkspaceNote(saved.note);
     ws.pinned = saved.pinned === true || undefined;
     ws.archived = saved.archived === true || undefined;
+    // アーカイブ中に削除されたセッションを復元した場合は、再確認できるよう
+    // 復元時点から新しい60日間を与える。
+    ws.archivedAt = ws.archived ? Date.now() : undefined;
     ws.backgroundColor = normalizeWorkspaceBackgroundColor(saved.backgroundColor);
     ws.group = groupById(saved.group) ? saved.group : undefined;
     ws.sidebarOrder = Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined;
@@ -249,6 +261,7 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
       workspaces.splice(to, 0, ws);
     }
     setActive(ws);
+    scheduleArchivedWorkspaceCleanup();
     scheduleSave();
     return true;
   } catch {
@@ -315,9 +328,9 @@ export async function boot() {
       const parsed = parsedRaw as any;
       if (parsed.version === 5 || parsed.version === 4) {
         const v4 = parsed as SessionV4;
-        setDeletedWorkspaces(
-          parsed.version === 5 ? (parsed as SessionV5).deletedWorkspaces : [],
-        );
+        const now = Date.now();
+        const expiredArchived: DeletedWorkspace[] = [];
+        let archiveMigrationNeeded = false;
         // 不正なID・重複・循環した親参照はルートへ退避し、保存データ全体を巻き込ませない
         for (const saved of v4.groups ?? []) {
           if (
@@ -349,17 +362,36 @@ export async function boot() {
           }
           if (parent) group.parentId = undefined;
         }
-        for (const s of v4.workspaces) {
+        for (const [originalIndex, s] of v4.workspaces.entries()) {
+          const archived = s.archived === true;
+          const archivedAt = archived ? normalizeArchivedAt(s.archivedAt, now) : undefined;
+          if (archived && archivedAt !== s.archivedAt) archiveMigrationNeeded = true;
+          // 期限切れを復元してから閉じると、保存済みの run / resumeRun が一瞬起動して
+          // しまう。保存済みスナップショットを直接「最近削除したセッション」へ移す。
+          if (archived && isArchivedWorkspaceExpired(archivedAt!, now)) {
+            expiredArchived.push({ ...s, archived: true, archivedAt, deletedAt: now, originalIndex });
+            continue;
+          }
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast, s.autoEnter === true);
           ws.note = normalizeWorkspaceNote(s.note);
           ws.pinned = s.pinned === true || undefined;
-          ws.archived = s.archived === true || undefined;
+          ws.archived = archived || undefined;
+          ws.archivedAt = archivedAt;
           ws.lastOpAt = Number.isFinite(s.lastOpAt) ? s.lastOpAt : undefined;
           ws.backgroundColor = normalizeWorkspaceBackgroundColor(s.backgroundColor);
           ws.group = validIds.has(s.group ?? "") ? s.group : undefined;
           ws.sidebarOrder = Number.isFinite(s.sidebarOrder) ? s.sidebarOrder : undefined;
           ws.root = restoreTree(ws, s.root);
         }
+        const persistedDeleted =
+          parsed.version === 5 && Array.isArray((parsed as SessionV5).deletedWorkspaces)
+            ? (parsed as SessionV5).deletedWorkspaces
+            : [];
+        const expiredIds = new Set(expiredArchived.map((saved) => saved.id));
+        setDeletedWorkspaces([
+          ...expiredArchived,
+          ...persistedDeleted.filter((saved) => !expiredIds.has(saved?.id)),
+        ]);
         for (const id of v4.collapsedGroups ?? []) {
           if (validIds.has(id)) collapsedGroups.add(id);
         }
@@ -375,7 +407,9 @@ export async function boot() {
           workspaces[0];
         if (target) {
           setActive(target);
-          if (parsed.version === 4) scheduleSave(); // 次回から v5 で保存する
+          if (parsed.version === 4 || archiveMigrationNeeded || expiredArchived.length) {
+            scheduleSave(); // v5移行・日時補完・期限切れの除外を次回へ残す
+          }
           return;
         }
       } else if (parsed.version === 3 || parsed.version === 2) {

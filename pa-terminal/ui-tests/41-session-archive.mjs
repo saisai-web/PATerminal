@@ -105,7 +105,9 @@ await page.waitForFunction(() => {
   const saved = JSON.parse(window.__savedSession);
   const byId = Object.fromEntries(saved.workspaces.map((workspace) => [workspace.id, workspace]));
   return saved.activeId === "archive-c" && byId["archive-b"]?.archived === true &&
-    byId["archive-c"]?.archived === true && !("archived" in byId["archive-d"]);
+    Number.isFinite(byId["archive-b"]?.archivedAt) &&
+    byId["archive-c"]?.archived === true && Number.isFinite(byId["archive-c"]?.archivedAt) &&
+    !("archived" in byId["archive-d"]) && !("archivedAt" in byId["archive-d"]);
 }, null, { timeout: 6000 });
 const savedRaw = await page.evaluate(() => window.__savedSession ?? "");
 await page.close();
@@ -126,5 +128,68 @@ check("restarted archive tab restores every archived session",
   JSON.stringify(await reload.locator(".ws-item:visible .ws-name").allTextContents()) ===
     JSON.stringify(["Beta", "Gamma"]));
 await reload.close();
+
+// 期限切れは復元コマンドやPTYを起動せず削除履歴へ移し、旧データには初回起動時刻を補う。
+// 起動中に60日へ達した項目も同じ削除経路を通る。
+const retentionPage = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+retentionPage.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+const retentionNow = Date.UTC(2026, 8, 5, 12, 0, 0);
+const dayMs = 24 * 60 * 60 * 1000;
+await retentionPage.clock.install({ time: retentionNow });
+await retentionPage.addInitScript(({ now, day }) => {
+  window.__mockSessionLoad = JSON.stringify({
+    version: 5,
+    activeId: "retention-current",
+    settings: { language: "ja" },
+    collapsedGroups: [],
+    groups: [],
+    workspaces: [
+      { id: "retention-current", name: "Current", shellKind: "default", broadcast: false,
+        root: { kind: "leaf", title: "current" } },
+      { id: "retention-fresh", name: "Fresh archive", archived: true,
+        archivedAt: now - 59 * day, shellKind: "default", broadcast: false,
+        root: { kind: "leaf", title: "fresh" } },
+      { id: "retention-expired", name: "Expired archive", archived: true,
+        archivedAt: now - 60 * day, shellKind: "default", broadcast: false,
+        root: { kind: "leaf", title: "expired", resumeRun: "must-not-run" } },
+      { id: "retention-legacy", name: "Legacy archive", archived: true,
+        shellKind: "default", broadcast: false, root: { kind: "leaf", title: "legacy" } },
+    ],
+    deletedWorkspaces: [],
+  });
+}, { now: retentionNow, day: dayMs });
+await retentionPage.goto(BASE_URL);
+await retentionPage.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
+await retentionPage.locator('[data-status-filter="archived"]').click();
+check("expired archives are removed before their PTY or resume command starts",
+  await retentionPage.locator('.ws-item[data-ws-id="retention-expired"]').count() === 0 &&
+    await retentionPage.evaluate(() => window.__ptySpawns.length) === 3 &&
+    JSON.stringify(await retentionPage.locator(".ws-item:visible .ws-name").allTextContents()) ===
+      JSON.stringify(["Fresh archive", "Legacy archive"]));
+await retentionPage.click("#session-trash-open");
+check("startup cleanup keeps an expired archive recoverable in recently deleted",
+  await retentionPage.locator(".session-trash-row", { hasText: "Expired archive" }).count() === 1);
+await retentionPage.clock.runFor(1000);
+const migratedRetention = await retentionPage.evaluate(() =>
+  JSON.parse(window.__savedSession ?? "null"));
+const legacyArchivedAt = migratedRetention?.workspaces
+  ?.find((w) => w.id === "retention-legacy")?.archivedAt;
+check("legacy archives start their 60-day period when the timestamp is first migrated",
+  Number.isFinite(legacyArchivedAt) && legacyArchivedAt >= retentionNow &&
+    legacyArchivedAt < retentionNow + 10_000 &&
+    !migratedRetention?.workspaces?.some((w) => w.id === "retention-expired"),
+  `archivedAt=${legacyArchivedAt}`);
+await retentionPage.click("#history-close");
+
+// Fresh archive は開始時点で59日経過しているため、さらに1日で自動削除される。
+await retentionPage.clock.fastForward(dayMs + 1);
+await retentionPage.clock.runFor(1000);
+await retentionPage.waitForFunction(() =>
+  !document.querySelector('.ws-item[data-ws-id="retention-fresh"]'));
+await retentionPage.click("#session-trash-open");
+check("an archive is automatically deleted when it reaches 60 days while the app is open",
+  await retentionPage.locator(".session-trash-row", { hasText: "Fresh archive" }).count() === 1 &&
+    await retentionPage.locator('.ws-item[data-ws-id="retention-legacy"]').count() === 1);
+await retentionPage.close();
 
 }

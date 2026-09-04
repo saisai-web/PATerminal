@@ -78,6 +78,8 @@ export type Workspace = {
   pinned?: boolean;
   /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
   archived?: boolean;
+  /** アーカイブへ移した時刻（ms）。60日後の自動削除判定に使う */
+  archivedAt?: number;
   /** 最後にアクティブ化した時刻（ms）。「最近操作した順」の並べ替えに使う */
   lastOpAt?: number;
   /** サイドバー項目のテーマ対応背景色 */
@@ -113,6 +115,8 @@ export type SerializedWorkspace = {
   pinned?: boolean;
   /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
   archived?: boolean;
+  /** アーカイブへ移した時刻（ms）。60日後の自動削除判定に使う */
+  archivedAt?: number;
   /** 最後にアクティブ化した時刻（ms）。再起動後も「最近操作した順」を保つ */
   lastOpAt?: number;
   backgroundColor?: WorkspaceBackgroundColor;

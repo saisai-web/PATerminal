@@ -30,6 +30,11 @@ import {
 import { firstLeaf } from "../terminal/tree";
 import { normalizeWorkspaceNote } from "./note";
 import type { PaneSpec, ShellKind, Workspace, WorkspaceBackgroundColor } from "./types";
+import {
+  ARCHIVED_WORKSPACE_RETENTION_MS,
+  isArchivedWorkspaceExpired,
+  normalizeArchivedAt,
+} from "./archive-retention";
 
 const grid = document.querySelector<HTMLDivElement>("#grid")!;
 const broadcastBtn = document.querySelector<HTMLButtonElement>("#broadcast")!;
@@ -143,6 +148,8 @@ export function toggleWorkspaceArchived(w: Workspace) {
   if (!workspaces.includes(w)) return;
   const archived = w.archived !== true;
   w.archived = archived ? true : undefined;
+  w.archivedAt = archived ? Date.now() : undefined;
+  scheduleArchivedWorkspaceCleanup();
 
   if (archived && getActiveWs() === w) {
     const index = workspaces.indexOf(w);
@@ -432,6 +439,58 @@ export function onActiveWorkspaceChange(cb: () => void): void {
 }
 
 const closingWorkspaces = new WeakSet<Workspace>();
+
+// WebView の setTimeout は符号付き32bit整数を超える待ち時間を扱えないため、
+// 60日を安全な区間に分けて次の期限まで監視する。
+const MAX_ARCHIVE_TIMER_DELAY_MS = 2_147_000_000;
+let archiveCleanupTimer: number | undefined;
+let archiveCleanupRunning = false;
+
+/** 次に期限を迎えるアーカイブを監視する。起動完了・アーカイブ切替・復元から呼ぶ。 */
+export function scheduleArchivedWorkspaceCleanup() {
+  window.clearTimeout(archiveCleanupTimer);
+  archiveCleanupTimer = undefined;
+
+  const now = Date.now();
+  let nextExpiry: number | undefined;
+  let repaired = false;
+  for (const workspace of workspaces) {
+    if (!workspace.archived) continue;
+    const archivedAt = normalizeArchivedAt(workspace.archivedAt, now);
+    if (workspace.archivedAt !== archivedAt) {
+      workspace.archivedAt = archivedAt;
+      repaired = true;
+    }
+    const expiry = archivedAt + ARCHIVED_WORKSPACE_RETENTION_MS;
+    nextExpiry = nextExpiry === undefined ? expiry : Math.min(nextExpiry, expiry);
+  }
+  if (repaired) scheduleSave();
+  if (nextExpiry === undefined) return;
+
+  const delay = Math.min(MAX_ARCHIVE_TIMER_DELAY_MS, Math.max(0, nextExpiry - now));
+  archiveCleanupTimer = window.setTimeout(() => void deleteExpiredArchivedWorkspaces(), delay);
+}
+
+async function deleteExpiredArchivedWorkspaces() {
+  archiveCleanupTimer = undefined;
+  if (archiveCleanupRunning) return;
+  archiveCleanupRunning = true;
+  try {
+    const now = Date.now();
+    // closeWorkspace はスナップショットを1ペインずつ採取する。複数期限切れも
+    // 並列化せず、既存の安全な削除・PTY破棄順をそのまま使う。
+    const expired = workspaces.filter(
+      (workspace) =>
+        workspace.archived === true &&
+        typeof workspace.archivedAt === "number" &&
+        isArchivedWorkspaceExpired(workspace.archivedAt, now),
+    );
+    for (const workspace of expired) await closeWorkspace(workspace);
+  } finally {
+    archiveCleanupRunning = false;
+    scheduleArchivedWorkspaceCleanup();
+  }
+}
 
 export async function closeWorkspace(ws: Workspace) {
   const idx = workspaces.indexOf(ws);
