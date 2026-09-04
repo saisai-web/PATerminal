@@ -1,5 +1,5 @@
 export default async function (ctx) {
-const { browser, check, BASE_URL } = ctx;
+const { browser, check, BASE_URL, MOD } = ctx;
 
 // ============================================================
 // PTY サイズの同期
@@ -218,6 +218,137 @@ check("closing a pane never leaves the remaining terminal viewport at the top",
     paneCloseAfter.top >= paneCloseAfter.height - paneCloseAfter.client - 1,
   JSON.stringify(paneCloseAfter));
 await pagePaneFocus.close();
+
+// --- 0d. ペイン内クリックは履歴を遡って読んでいる位置を動かさない ---
+// ペイン内の mousedown は setFocused → Pane.focus() を通る。focus() が末尾へ固定すると
+// 履歴を読んでいる最中にクリックしただけで末尾へ飛ばされる。WebKit が term.focus() 中に
+// viewport を先頭へ動かしても、末尾ではなく focus 前の位置へ戻ること。
+// あわせて、その位置で Cmd/Ctrl+クリックした URL が open_terminal_url へ届くこと
+// （mousedown で buffer が動くと mouseup 時にリンクから外れて発火しない）。
+const CLICK_URL = "https://example.com/docs/click-target";
+const CLICK_URL_LINE = 40;
+const pageClick = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+await pageClick.addInitScript(({ url, urlLine }) => {
+  const lines = Array.from(
+    { length: 100 },
+    (_, index) => `click-history-${String(index).padStart(3, "0")}`,
+  );
+  lines[urlLine] = `see ${url} for details`;
+  window.__mockSessionLoad = JSON.stringify({
+    version: 5,
+    activeId: "click",
+    workspaces: [{
+      id: "click",
+      name: "Click",
+      shellKind: "default",
+      broadcast: false,
+      root: { kind: "leaf", title: "click", scrollback: lines.join("\r\n") + "\r\n" },
+    }],
+  });
+}, { url: CLICK_URL, urlLine: CLICK_URL_LINE });
+await pageClick.goto(BASE_URL);
+await pageClick.waitForSelector(".pane", { timeout: 10000 });
+await pageClick.waitForTimeout(400);
+// URL 行が viewport の 3 行目に来るまで遡る（末尾ではない位置）
+const clickScrolled = await pageClick.locator(".pane").first().evaluate(async (pane, urlLine) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) return null;
+  const { panes } = await import("/src/workspace/state.ts");
+  const target = [...panes.values()].find((candidate) => candidate.el === pane);
+  if (!target) return null;
+  const targetLine = urlLine - 2;
+  target.term.scrollToLine(targetLine);
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const screen = pane.querySelector(".xterm-screen");
+  const rect = screen.getBoundingClientRect();
+  return {
+    line: target.term.buffer.active.viewportY,
+    baseY: target.term.buffer.active.baseY,
+    top: viewport.scrollTop,
+    height: viewport.scrollHeight,
+    client: viewport.clientHeight,
+    cellW: rect.width / target.term.cols,
+    cellH: rect.height / target.term.rows,
+    left: rect.left,
+    screenTop: rect.top,
+  };
+}, CLICK_URL_LINE);
+check("the pane-click regression starts away from the bottom",
+  !!clickScrolled && clickScrolled.top > 0 && clickScrolled.line < clickScrolled.baseY &&
+    clickScrolled.line === CLICK_URL_LINE - 2,
+  JSON.stringify(clickScrolled));
+// 1) 素のクリック（履歴の空き行）: 位置が変わらない
+await pageClick.mouse.click(
+  clickScrolled.left + clickScrolled.cellW * 30,
+  clickScrolled.screenTop + clickScrolled.cellH * 10.5,
+);
+await pageClick.waitForTimeout(100);
+const readClickState = (pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  return import("/src/workspace/state.ts").then(({ panes }) => {
+    const target = [...panes.values()].find((candidate) => candidate.el === pane);
+    return {
+      line: target.term.buffer.active.viewportY,
+      top: viewport.scrollTop,
+      forced: pane.dataset.forcedClickScroll === "true",
+      focused: document.activeElement === target.term.textarea,
+      opened: Array.isArray(window.__openedUrls) ? [...window.__openedUrls] : [],
+    };
+  });
+};
+const afterPlainClick = await pageClick.locator(".pane").first().evaluate(readClickState);
+check("clicking inside a scrolled-up pane keeps the scroll position",
+  !!afterPlainClick && afterPlainClick.focused &&
+    afterPlainClick.line === clickScrolled.line &&
+    Math.abs(afterPlainClick.top - clickScrolled.top) <= 1,
+  JSON.stringify(afterPlainClick));
+check("a plain click on the terminal does not open a URL",
+  !!afterPlainClick && afterPlainClick.opened.length === 0,
+  JSON.stringify(afterPlainClick?.opened));
+// 2) WebKit が term.focus() 中に viewport を先頭へ戻しても、末尾ではなく元の位置へ戻す
+await pageClick.locator(".pane").first().evaluate(async (pane) => {
+  const viewport = pane.querySelector(".xterm-viewport");
+  const { panes } = await import("/src/workspace/state.ts");
+  const target = [...panes.values()].find((candidate) => candidate.el === pane);
+  const xtermFocus = target.term.focus;
+  target.term.focus = () => {
+    xtermFocus.call(target.term);
+    viewport.scrollTop = 0;
+    viewport.dispatchEvent(new Event("scroll"));
+    pane.dataset.forcedClickScroll = "true";
+    target.term.focus = xtermFocus;
+  };
+});
+await pageClick.mouse.click(
+  clickScrolled.left + clickScrolled.cellW * 30,
+  clickScrolled.screenTop + clickScrolled.cellH * 10.5,
+);
+await pageClick.waitForTimeout(100);
+const afterForcedClick = await pageClick.locator(".pane").first().evaluate(readClickState);
+check("a click survives WebKit forcing the viewport to the top without jumping to the bottom",
+  !!afterForcedClick && afterForcedClick.forced &&
+    afterForcedClick.line === clickScrolled.line &&
+    Math.abs(afterForcedClick.top - clickScrolled.top) <= 1,
+  JSON.stringify(afterForcedClick));
+// 3) Cmd/Ctrl+クリックで URL を開く（"see " の直後、viewport 3 行目）
+const urlX = clickScrolled.left + clickScrolled.cellW * (4 + 10);
+const urlY = clickScrolled.screenTop + clickScrolled.cellH * 2.5;
+await pageClick.mouse.move(urlX - 3, urlY);
+await pageClick.mouse.move(urlX, urlY);
+await pageClick.waitForTimeout(150);
+await pageClick.keyboard.down(MOD);
+await pageClick.mouse.down();
+await pageClick.mouse.up();
+await pageClick.keyboard.up(MOD);
+await pageClick.waitForTimeout(150);
+const afterLinkClick = await pageClick.locator(".pane").first().evaluate(readClickState);
+check(`${MOD}+click on a terminal URL opens it in the browser`,
+  !!afterLinkClick && afterLinkClick.opened.length === 1 && afterLinkClick.opened[0] === CLICK_URL,
+  JSON.stringify(afterLinkClick));
+check("opening a URL keeps the scroll position",
+  !!afterLinkClick && afterLinkClick.line === clickScrolled.line,
+  JSON.stringify(afterLinkClick));
+await pageClick.close();
 
 const resizesOf = (id) => page.evaluate(
   (paneId) => window.__ptyResizes.filter((r) => r.id === paneId), id);
