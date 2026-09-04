@@ -758,24 +758,49 @@ export class Pane {
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }
 
-  /** レイアウト直後と WebKit の遅延リフロー後の両方で末尾へ合わせる。 */
-  scrollToBottom() {
+  /** xterm の buffer と DOM viewport を、focus 前に見ていた位置へ戻す。
+      DOM scrollTop は行高から再計算せず記録値をそのまま使う（focus 前後で行高は変わらない）。 */
+  private applyScrollPosition(line: number, top: number) {
+    this.term.scrollToLine(line);
+    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
+    if (viewport) viewport.scrollTop = top;
+  }
+
+  /** 同期と次フレームの両方で同じスクロール補正を当てる（WebKit の遅延リフロー対策）。
+      後から要求された補正が勝つ。 */
+  private applyScrollTwice(apply: () => void) {
     if (this.destroyed) return;
-    this.applyBottomScroll();
-    if (this.scrollBottomRaf) return;
+    apply();
+    if (this.scrollBottomRaf) cancelAnimationFrame(this.scrollBottomRaf);
     this.scrollBottomRaf = requestAnimationFrame(() => {
       this.scrollBottomRaf = 0;
-      if (!this.destroyed) this.applyBottomScroll();
+      if (!this.destroyed) apply();
     });
   }
 
+  /** レイアウト直後と WebKit の遅延リフロー後の両方で末尾へ合わせる。 */
+  scrollToBottom() {
+    this.applyScrollTwice(() => this.applyBottomScroll());
+  }
+
   focus() {
-    this.term.focus();
     // xterm は textarea.focus({ preventScroll: true }) を使うが、WKWebView は
     // ペイン間のフォーカス移動時にそれを無視し、viewport の DOM scrollTop を
     // 先頭へ戻すことがある。scroll イベントで buffer.ydisp まで先頭へ変わる前と
-    // 次フレームの両方を scrollToBottom() が補正するので、常に focus の後に呼ぶ。
-    this.scrollToBottom();
+    // 次フレームの両方で補正する。
+    // **末尾へ飛ばすのではなく focus 前の位置へ戻す。** ペイン内クリックも
+    // mousedown → setFocused → focus() を通るので、末尾固定にすると履歴を遡って
+    // 読んでいる最中のクリックや、Cmd/Ctrl+クリックで URL を開く操作
+    // （mousedown で buffer が動くと mouseup 時にリンクから外れて発火しない）が壊れる。
+    // 末尾を見ていたときだけ従来どおり scrollToBottom() で末尾追従を保つ。
+    const buffer = this.term.buffer.active;
+    const atBottom = buffer.viewportY >= buffer.baseY;
+    const line = buffer.viewportY;
+    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
+    const top = viewport?.scrollTop ?? 0;
+    this.term.focus();
+    if (atBottom) this.scrollToBottom();
+    else this.applyScrollTwice(() => this.applyScrollPosition(line, top));
   }
 
   /** メモ本文と表示先を同期する。全文は省略時も title から確認できる。 */
