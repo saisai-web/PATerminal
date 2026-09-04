@@ -17,6 +17,7 @@ mod bell;
 mod cwd;
 mod paste;
 mod prompt;
+mod scrollback;
 mod shell;
 mod stream;
 
@@ -120,6 +121,7 @@ pub(crate) async fn pty_spawn(
 
     let program = shell.unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&program);
+    scrollback::configure(&mut cmd, &program, args.as_ref());
     // Windows の PowerShell は Set-Location でプロセスの CWD を変えないため、
     // pid_cwd（PEB 読み取り）だけでは cd に追従できない。起動時に OSC 7 を吐く
     // プロンプトを仕込んで macOS / Linux と同じ追従を確保する。

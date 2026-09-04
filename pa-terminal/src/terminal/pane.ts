@@ -15,6 +15,8 @@ import { MIN_FIT_COLS, MIN_FIT_ROWS, SNAPSHOT_LINES } from "../shared/constants"
 import { diag, diagPush } from "./diag";
 import { isLocked } from "../features/license/license";
 import { markSpawned, registerPane, requestResize, unregisterPane } from "./resize";
+import { PaneScrollbar } from "./scrollbar";
+import { withTerminalScrollback } from "./agent-launch";
 import { explorerFollow, renderExplorerFavs } from "../features/explorer/explorer";
 import { broadcastWrite, setFocused } from "./focus";
 import { t } from "../i18n";
@@ -155,6 +157,7 @@ export class Pane {
 
   private readonly fit = new FitAddon();
   private readonly serializer = new SerializeAddon();
+  private readonly scrollbar: PaneScrollbar;
   /** 復元時に流し込む前回のスクロールバック */
   private readonly restoreText?: string;
   /** true ならセッション復元起動（run ではなく resumeRun を使う） */
@@ -306,6 +309,8 @@ export class Pane {
     });
 
     this.term.open(body);
+    this.scrollbar = new PaneScrollbar(this.term);
+    this.disposables.push(this.scrollbar);
     registerPane(this.id);
     // body（= FitAddon が測る親要素）のサイズ変化で確実に再フィットする。
     // layout() 側の refit はそのまま残し、これは取りこぼし用の保険
@@ -486,7 +491,7 @@ export class Pane {
       // ペアモードの writeAndWait で activity を開始する。
       setTimeout(() => {
         this.startupRunSent = true;
-        this.write(`${cmd}\r`, false);
+        this.write(`${withTerminalScrollback(cmd)}\r`, false);
       }, 400);
     }
   }
@@ -718,6 +723,7 @@ export class Pane {
       if (dims.cols < MIN_FIT_COLS || dims.rows < MIN_FIT_ROWS) return;
       if (this.el.clientWidth <= 0 || this.el.clientHeight <= 0) return;
       this.fit.fit();
+      this.scrollbar.schedule();
       // Files / サイドバーの開閉やセッション再表示で横幅が変わると、WebKit は
       // xterm の resize 後に viewport の scrollTop を先頭へ戻すことがある。
       // ターミナルは通常最新出力を見る UI なので、レイアウト変更後は末尾へ固定する。

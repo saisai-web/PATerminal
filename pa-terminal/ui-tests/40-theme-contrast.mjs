@@ -82,13 +82,13 @@ export default async function themeContrastSuite({ page, check }) {
   // ターミナルのスクロールバーは、どのテーマでもレール（トラック）がペイン背景と
   // 区別でき、つまみがレールから浮いて見えること。トラックがペイン背景と同色だと
   // 末尾表示中は右下のつまみ 1 本しか見えず「スクロールバーがない」ように見える
-  // （Issue #24）。::-webkit-scrollbar 系の計算値は Chrome / WebKit とも
-  // getComputedStyle(el, pseudo) で読める。
+  // （Issue #24）。実際に操作する固定サイズのレールとつまみの配色を見る。
   const scrollbar = await page.evaluate(async () => {
     const { THEMES, applyThemeCss } = await import("/src/features/settings/themes.ts");
     const { getTheme } = await import("/src/features/settings/settings-panel.ts");
-    const viewport = document.querySelector(".pane-body .xterm .xterm-viewport");
-    if (!viewport) return null;
+    const rail = document.querySelector(".pane-scrollbar");
+    const handle = rail?.querySelector(".pane-scroll-thumb");
+    if (!rail || !handle) return null;
 
     // Chrome は color-mix() の計算値を color(srgb r g b)（0〜1）で返し、固定色は
     // rgb(r, g, b)（0〜255）で返す。テーマ定義の #rrggbb も含めて 0〜1 に正規化する。
@@ -121,13 +121,12 @@ export default async function themeContrastSuite({ page, check }) {
         // viewport の背景は xterm がテーマ option から塗るため CSS 変数の切替に追随しない。
         // 実機ではテーマの pane-bg と一致するので、そちらと比較する。
         const paneBg = theme.ui["pane-bg"];
-        const track = getComputedStyle(viewport, "::-webkit-scrollbar-track");
-        const thumb = getComputedStyle(viewport, "::-webkit-scrollbar-thumb");
-        const bar = getComputedStyle(viewport, "::-webkit-scrollbar");
+        const track = getComputedStyle(rail);
+        const thumb = getComputedStyle(handle);
         const railRatio = contrast(track.backgroundColor, paneBg);
         const thumbRatio = contrast(thumb.backgroundColor, track.backgroundColor);
-        measured.push(`${theme.id}: rail=${railRatio.toFixed(2)} thumb=${thumbRatio.toFixed(2)} width=${bar.width}`);
-        if (bar.width !== "14px") failures.push(`${theme.id}: scrollbar width=${bar.width}`);
+        measured.push(`${theme.id}: rail=${railRatio.toFixed(2)} thumb=${thumbRatio.toFixed(2)} width=${track.width}`);
+        if (track.width !== "14px") failures.push(`${theme.id}: scrollbar width=${track.width}`);
         if (railRatio < 1.1) failures.push(`${theme.id}: rail/pane-bg=${railRatio.toFixed(2)}`);
         if (thumbRatio < 3) failures.push(`${theme.id}: thumb/rail=${thumbRatio.toFixed(2)}`);
         if (track.borderLeftWidth === "0px") failures.push(`${theme.id}: rail has no edge line`);
@@ -140,5 +139,5 @@ export default async function themeContrastSuite({ page, check }) {
 
   check("the terminal scrollbar rail and thumb stay visible in every theme",
     !!scrollbar && scrollbar.failures.length === 0,
-    scrollbar ? (scrollbar.failures.join("; ") || scrollbar.measured.join("; ")) : "xterm viewport missing");
+    scrollbar ? (scrollbar.failures.join("; ") || scrollbar.measured.join("; ")) : "pane scrollbar missing");
 }

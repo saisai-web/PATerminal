@@ -450,7 +450,7 @@ await page.waitForTimeout(600);
   check("reviewer launches codex with the notify injection",
     (await writesTo(newReview)).some((d) =>
       d.includes("env PATERM_PAIR_SIGNAL='/mock/pair-signals/") &&
-      d.includes(`codex -c 'notify=["/mock/pair-signals/notify.sh"]'`)));
+      d.includes(`codex --no-alt-screen -c 'notify=["/mock/pair-signals/notify.sh"]'`)));
   check("input focus lands on the implementer pane, not the reviewer",
     (await page.evaluate(() =>
       document.activeElement?.closest(".pane")?.querySelector(".pane-title")?.textContent)) === "impl");
@@ -465,7 +465,7 @@ await page.waitForTimeout(600);
     (await page.locator("#pair-strip-status").textContent()).includes("実装役"));
 
   // 新規セッションでも実装役の静止では送らず、ボタンで送る
-  // （newReview は起動時に "codex\r" 済みなので、レビュー依頼特有の内容で判定する）
+  // （newReview は起動時に Codex のコマンド送信済みなので、レビュー依頼特有の内容で判定する）
   await busyIdle(newImpl);
   await page.waitForTimeout(300);
   check("new pair implementer idle sends nothing",
@@ -527,7 +527,7 @@ await page.waitForTimeout(600);
   check("replace implementer launches claude",
     (await writesTo(repImpl)).some((d) => d.includes("claude --settings")));
   check("replace reviewer launches codex",
-    (await writesTo(repReview)).some((d) => d.includes("codex -c")));
+    (await writesTo(repReview)).some((d) => d.includes("codex --no-alt-screen -c")));
   check("old pane is closed and two new panes remain",
     (await page.locator('.workspace-layer:not([hidden]) .pane').count()) === 2);
   check("replace input focus lands on the implementer pane, not the reviewer",

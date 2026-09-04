@@ -12,6 +12,8 @@
     "test:release-helpers": "node --test scripts/release-helpers.test.mjs",
     "test:ui": "node ui-test.mjs",
     "test:ui:smoke": "node ui-test.mjs --smoke",
+    "test:ui:scrollbar": "node ui-tests/42-scrollbar.mjs",
+    "test:agent-launch": "node --test scripts/agent-launch.test.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "tauri": "node scripts/tauri-cli.mjs",

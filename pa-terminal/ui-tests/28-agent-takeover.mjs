@@ -127,7 +127,7 @@ const resumeWrites = await page.evaluate(
   spawn.id,
 );
 check("the resume command is typed into the new session",
-  resumeWrites.includes("codex resume bbbbbbbb-2222-7222-8222-222222222222\r"));
+  resumeWrites.includes("codex --no-alt-screen resume bbbbbbbb-2222-7222-8222-222222222222\r"));
 
 // パスを手で編集して開く（claude の行）
 await page.locator("#takeover-open").click();
