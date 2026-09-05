@@ -21,22 +21,21 @@ await page.waitForTimeout(300);
 // FitAddon は xterm 自身の padding だけを列数計算から引く。親の padding を
 // 使うと canvas が scrollbar 領域まで伸び、WebKit ではつまみの半分が隠れる。
 const scrollbarGeometry = await page.evaluate(() => {
-  const viewport = document.querySelector(".pane-body .xterm .xterm-viewport");
+  const rail = document.querySelector(".pane-scrollbar");
   const screen = document.querySelector(".pane-body .xterm .xterm-screen");
-  if (!viewport || !screen) return null;
-  const viewportRect = viewport.getBoundingClientRect();
+  if (!rail || !screen) return null;
+  const railRect = rail.getBoundingClientRect();
   const screenRect = screen.getBoundingClientRect();
-  const contentRight = viewportRect.left + viewport.clientWidth;
   return {
-    scrollbarWidth: viewport.offsetWidth - viewport.clientWidth,
-    overlap: Math.max(0, screenRect.right - contentRight),
+    scrollbarWidth: railRect.width,
+    overlap: Math.max(0, screenRect.right - railRect.left),
   };
 });
 check("terminal canvas stays clear of the scrollbar track",
-  !!scrollbarGeometry && scrollbarGeometry.overlap <= 1,
+  !!scrollbarGeometry && scrollbarGeometry.scrollbarWidth === 14 && scrollbarGeometry.overlap <= 1,
   scrollbarGeometry
     ? `scrollbar=${scrollbarGeometry.scrollbarWidth}px overlap=${scrollbarGeometry.overlap.toFixed(1)}px`
-    : "xterm viewport or screen missing");
+    : "pane scrollbar or xterm screen missing");
 
 // --- 0b. Files パネル開閉後も最新出力を表示する ---
 // WebKit は横幅変更後の遅延リフローで xterm viewport を先頭へ戻すことがある。

@@ -44,7 +44,7 @@ await pageRestore.waitForTimeout(1000); // 再開コマンドは spawn の 400ms
   check("restore resumes claude with the saved session id",
     writesFor(idClaude).includes("claude --resume df816fd0-359e-4780-9a50-5807eb61af4d\r"));
   check("restore resumes codex with the saved session id",
-    writesFor(idCodex).includes("codex resume 019ff6a1-a25d-7272-b4c9-a17095fbd278\r"));
+    writesFor(idCodex).includes("codex --no-alt-screen resume 019ff6a1-a25d-7272-b4c9-a17095fbd278\r"));
   check("restore without a session id falls back to --continue",
     writesFor(idNoId).includes("claude --continue\r"));
   check("restore rejects a malformed session id and falls back to --continue",
