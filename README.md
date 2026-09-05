@@ -21,16 +21,7 @@ with Git, session resume, and agent pair-programming built in.
 [Pricing](https://paralellterminal.com/pricing) ·
 [FAQ](https://paralellterminal.com/faq)
 
-## Download
-
-Every feature is unlocked for **30 days from first launch** — no account, no license key,
-no credit card.
-
-| Platform | Requirements | Download |
-|---|---|---|
-| **macOS** — universal (Apple Silicon & Intel) | macOS 11+ | [**Download DMG**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) — signed & Apple-notarized |
-| **Windows** — x64 | Windows 10+ (WebView2 installs automatically) | [**Download installer**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe) — NSIS setup |
-| **Linux** | — | No official binary; source builds are supported on a best-effort basis |
+[![Download for macOS](https://img.shields.io/badge/macOS-Download_DMG-1c1c1e?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) [![Download for Windows](https://img.shields.io/badge/Windows-Download_Installer-0078D4?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTMgNS41IDExIDQuNHY3LjFIM3pNMTIgNC4yIDIxIDN2OC41aC05ek0zIDEyLjVoOHY3LjFMMyAxOC41ek0xMiAxMi41aDlWMjFsLTktMS4yeiIvPjwvc3ZnPg==)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe)
 
 <a href="https://paralellterminal.com">
   <img src="docs/assets/hero.gif" alt="PATerminal demo: picking a quick phrase, launching Codex in a pane, and watching session activity update live" width="1024">
