@@ -136,8 +136,8 @@ no credit card.
 
 | Platform | Requirements | Download |
 |---|---|---|
-| **macOS** — universal (Apple Silicon & Intel) | macOS 11+ | [Latest release](https://github.com/saisai-web/PATerminal/releases/latest) — signed & Apple-notarized DMG |
-| **Windows** — x64 | Windows 10+ (WebView2 installs automatically) | [Latest release](https://github.com/saisai-web/PATerminal/releases/latest) — installer |
+| **macOS** — universal (Apple Silicon & Intel) | macOS 11+ | [**Download DMG**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) — signed & Apple-notarized |
+| **Windows** — x64 | Windows 10+ (WebView2 installs automatically) | [**Download installer**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe) — NSIS setup |
 | **Linux** | — | No official binary; source builds are supported on a best-effort basis |
 
 > [!NOTE]
@@ -147,9 +147,10 @@ no credit card.
 
 > [!TIP]
 > **Updates:** from v0.2.2, official builds download and signature-verify updates inside
-> the app. v0.2.1 has no updater and must be upgraded manually. The
-> [Releases page](https://github.com/saisai-web/PATerminal/releases) always works as a
-> manual fallback.
+> the app. v0.2.1 has no updater and must be upgraded manually. The links above always
+> fetch the latest release; the
+> [Releases page](https://github.com/saisai-web/PATerminal/releases) lists every version,
+> along with SHA-256 checksums and older installers.
 
 ## 🧪 Free trial & licensing
 
