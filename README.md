@@ -18,9 +18,10 @@ with Git, session resume, and agent pair-programming built in.
 [![License](https://img.shields.io/badge/license-source--available-0062ff?style=flat-square)](LICENSE.md)
 
 [Website](https://paralellterminal.com) ·
-[Download](https://github.com/saisai-web/PATerminal/releases/latest) ·
 [Pricing](https://paralellterminal.com/pricing) ·
 [FAQ](https://paralellterminal.com/faq)
+
+[![Download for macOS](https://img.shields.io/badge/macOS-Download_DMG-1c1c1e?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) [![Download for Windows](https://img.shields.io/badge/Windows-Download_Installer-0078D4?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTMgNS41IDExIDQuNHY3LjFIM3pNMTIgNC4yIDIxIDN2OC41aC05ek0zIDEyLjVoOHY3LjFMMyAxOC41ek0xMiAxMi41aDlWMjFsLTktMS4yeiIvPjwvc3ZnPg==)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe)
 
 <a href="https://paralellterminal.com">
   <img src="docs/assets/hero.gif" alt="PATerminal demo: picking a quick phrase, launching Codex in a pane, and watching session activity update live" width="1024">
@@ -128,25 +129,6 @@ tracking. See the [privacy policy](https://paralellterminal.com/privacy).
 <p align="center">
   <img src="docs/assets/languages.png" alt="Language picker showing all 17 supported languages" width="340">
 </p>
-
-## ⬇️ Download
-
-Every feature is unlocked for **30 days from first launch** — no account, no license key,
-no credit card.
-
-[![Download for macOS](https://img.shields.io/badge/macOS-Download_DMG-1c1c1e?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) [![Download for Windows](https://img.shields.io/badge/Windows-Download_Installer-0078D4?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTMgNS41IDExIDQuNHY3LjFIM3pNMTIgNC4yIDIxIDN2OC41aC05ek0zIDEyLjVoOHY3LjFMMyAxOC41ek0xMiAxMi41aDlWMjFsLTktMS4yeiIvPjwvc3ZnPg==)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe)
-
-> [!NOTE]
-> **Windows first launch:** SmartScreen may show "Windows protected your PC" while the
-> installer is unsigned. Click *More info* → *Run anyway* — it appears because the app is
-> new, not because anything is wrong with it.
-
-> [!TIP]
-> **Updates:** from v0.2.2, official builds download and signature-verify updates inside
-> the app. v0.2.1 has no updater and must be upgraded manually. The links above always
-> fetch the latest release; the
-> [Releases page](https://github.com/saisai-web/PATerminal/releases) lists every version,
-> along with SHA-256 checksums and older installers.
 
 ## 🧪 Free trial & licensing
 
