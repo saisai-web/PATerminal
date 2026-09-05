@@ -283,6 +283,32 @@ jobs:
           dmg_path="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
           gh release upload "$RELEASE_TAG" "$dmg_path" --clobber
 
+      # README は /releases/latest/download/<固定名> でワンクリックダウンロードさせる。
+      # 成果物名にはバージョンが入るため、内容が同一のバージョン無し別名を追加で置く。
+      # bundle 外へコピーしてから upload し、チェックサム対象には含めない。
+      - name: upload version-less download aliases
+        if: needs.prepare-release.outputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+        run: |
+          alias_dir="$RUNNER_TEMP/download-aliases"
+          mkdir -p "$alias_dir"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            src="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/dmg/*.dmg' -print -quit)"
+            dest="$alias_dir/PATerminal-macOS-universal.dmg"
+          else
+            src="$(find pa-terminal/src-tauri/target -type f -path '*/bundle/nsis/*-setup.exe' -print -quit)"
+            dest="$alias_dir/PATerminal-Windows-x64-setup.exe"
+          fi
+          if [[ -z "$src" ]]; then
+            echo "::error::No installer found to alias for $RUNNER_OS"
+            exit 1
+          fi
+          cp "$src" "$dest"
+          gh release upload "$RELEASE_TAG" "$dest" --clobber
+
       - name: write release checksums
         shell: bash
         env:
