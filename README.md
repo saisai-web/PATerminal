@@ -18,9 +18,19 @@ with Git, session resume, and agent pair-programming built in.
 [![License](https://img.shields.io/badge/license-source--available-0062ff?style=flat-square)](LICENSE.md)
 
 [Website](https://paralellterminal.com) ·
-[Download](https://github.com/saisai-web/PATerminal/releases/latest) ·
 [Pricing](https://paralellterminal.com/pricing) ·
 [FAQ](https://paralellterminal.com/faq)
+
+## Download
+
+Every feature is unlocked for **30 days from first launch** — no account, no license key,
+no credit card.
+
+| Platform | Requirements | Download |
+|---|---|---|
+| **macOS** — universal (Apple Silicon & Intel) | macOS 11+ | [**Download DMG**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) — signed & Apple-notarized |
+| **Windows** — x64 | Windows 10+ (WebView2 installs automatically) | [**Download installer**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe) — NSIS setup |
+| **Linux** | — | No official binary; source builds are supported on a best-effort basis |
 
 <a href="https://paralellterminal.com">
   <img src="docs/assets/hero.gif" alt="PATerminal demo: picking a quick phrase, launching Codex in a pane, and watching session activity update live" width="1024">
@@ -128,29 +138,6 @@ tracking. See the [privacy policy](https://paralellterminal.com/privacy).
 <p align="center">
   <img src="docs/assets/languages.png" alt="Language picker showing all 17 supported languages" width="340">
 </p>
-
-## ⬇️ Download
-
-Every feature is unlocked for **30 days from first launch** — no account, no license key,
-no credit card.
-
-| Platform | Requirements | Download |
-|---|---|---|
-| **macOS** — universal (Apple Silicon & Intel) | macOS 11+ | [**Download DMG**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) — signed & Apple-notarized |
-| **Windows** — x64 | Windows 10+ (WebView2 installs automatically) | [**Download installer**](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe) — NSIS setup |
-| **Linux** | — | No official binary; source builds are supported on a best-effort basis |
-
-> [!NOTE]
-> **Windows first launch:** SmartScreen may show "Windows protected your PC" while the
-> installer is unsigned. Click *More info* → *Run anyway* — it appears because the app is
-> new, not because anything is wrong with it.
-
-> [!TIP]
-> **Updates:** from v0.2.2, official builds download and signature-verify updates inside
-> the app. v0.2.1 has no updater and must be upgraded manually. The links above always
-> fetch the latest release; the
-> [Releases page](https://github.com/saisai-web/PATerminal/releases) lists every version,
-> along with SHA-256 checksums and older installers.
 
 ## 🧪 Free trial & licensing
 
