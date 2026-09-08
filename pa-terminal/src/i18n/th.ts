@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const th: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "ค้นหาเซสชัน...",
   "sidebar.newSession": "เซสชันใหม่ (Cmd/Ctrl+T)",
   "sidebar.collapse": "ย่อรายการเซสชัน (Cmd/Ctrl+B)",

@@ -58,6 +58,10 @@ const settingsPairSwapBtn = document.querySelector<HTMLButtonElement>("#settings
 const settingsWorktreeLocRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#settings-worktree-loc input[type=radio]"),
 );
+const settingsWorktreeAutoBranchEl = document.querySelector<HTMLInputElement>("#settings-worktree-auto-branch")!;
+settingsWorktreeAutoBranchEl.onchange = () => {
+  updateWorktreePrefs({ autoBranchName: settingsWorktreeAutoBranchEl.checked });
+};
 const settingsWorktreeDirEl = document.querySelector<HTMLInputElement>("#settings-worktree-dir")!;
 const settingsWorktreeInheritRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#settings-worktree-inherit input[type=radio]"),
@@ -407,6 +411,7 @@ export function renderSettingsPanel() {
   if (document.activeElement !== settingsWorktreeDirEl) {
     settingsWorktreeDirEl.value = worktreeDirFor(wtPrefs.location);
   }
+  settingsWorktreeAutoBranchEl.checked = wtPrefs.autoBranchName;
   for (const r of settingsWorktreeInheritRadios) r.checked = (r.value === "yes") === wtPrefs.inherit;
 }
 

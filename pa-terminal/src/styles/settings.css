@@ -221,10 +221,12 @@
 }
 
 #settings-update-row { display: flex; align-items: center; gap: 8px; }
+.settings-checkbox-row,
 #settings-notif-row {
   display: flex; align-items: center; gap: 8px;
   color: var(--text); font-size: 12px; cursor: pointer;
 }
+.settings-checkbox-row input,
 #settings-notif-row input { accent-color: var(--accent); }
 #settings-version { color: var(--dim); flex: 1; }
 .settings-legal-actions {

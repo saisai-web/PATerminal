@@ -97,6 +97,7 @@ export type WorktreePrefs = {
   outsideDir: string;
   /** 作成元の gitignore 対象（.env / node_modules など）を新しい worktree へコピーするか */
   inherit: boolean;
+  autoBranchName: boolean;
 };
 
 const DEFAULT_PREFS: WorktreePrefs = {
@@ -104,6 +105,7 @@ const DEFAULT_PREFS: WorktreePrefs = {
   insideDir: ".worktree",
   outsideDir: "~/worktrees",
   inherit: true,
+  autoBranchName: false,
 };
 
 let prefs: WorktreePrefs = { ...DEFAULT_PREFS };
@@ -129,17 +131,19 @@ export function setWorktreePrefs(value: unknown): void {
     outsideDir: dir(saved.outsideDir, DEFAULT_PREFS.outsideDir),
     // 明示的に false を保存してある場合だけ引き継がない。未設定・壊れた値は既定の「引き継ぐ」
     inherit: saved.inherit !== false,
+    autoBranchName: saved.autoBranchName === true,
   };
 }
 
-/** 作成に成功したときの記憶。変更があったときだけ保存を走らせる。 */
+/** 設定変更・作成成功時の記憶。変更があったときだけ保存を走らせる。 */
 export function updateWorktreePrefs(patch: Partial<WorktreePrefs>): void {
   const next = { ...prefs, ...patch };
   if (
     next.location === prefs.location &&
     next.insideDir === prefs.insideDir &&
     next.outsideDir === prefs.outsideDir &&
-    next.inherit === prefs.inherit
+    next.inherit === prefs.inherit &&
+    next.autoBranchName === prefs.autoBranchName
   ) {
     return;
   }

@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const ko: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "세션 검색...",
   "sidebar.newSession": "새 세션 (Cmd/Ctrl+T)",
   "sidebar.collapse": "세션 목록 접기 (Cmd/Ctrl+B)",

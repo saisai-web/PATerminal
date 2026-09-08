@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const ar: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "ابحث في الجلسات...",
   "sidebar.newSession": "جلسة جديدة (Cmd/Ctrl+T)",
   "sidebar.collapse": "طيّ قائمة الجلسات (Cmd/Ctrl+B)",

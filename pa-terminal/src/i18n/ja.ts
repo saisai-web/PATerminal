@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const ja: Dict = {
+  "ws.creationNote": "セッションメモ（任意）",
+  "settings.worktreeAutoBranch": "ブランチ名を自動入力する",
   "sidebar.searchPlaceholder": "セッションを検索...",
   "sidebar.newSession": "新規セッション (Cmd/Ctrl+T)",
   "sidebar.collapse": "セッション一覧をたたむ (Cmd/Ctrl+B)",

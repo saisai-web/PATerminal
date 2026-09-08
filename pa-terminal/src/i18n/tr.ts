@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const tr: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Oturumlarda ara...",
   "sidebar.newSession": "Yeni oturum (Cmd/Ctrl+T)",
   "sidebar.collapse": "Oturum listesini daralt (Cmd/Ctrl+B)",

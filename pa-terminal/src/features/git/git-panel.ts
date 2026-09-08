@@ -44,6 +44,7 @@ type GitPanelDeps = {
   createIssueSession: (args: {
     issueNumber: number;
     issueTitle: string;
+    note?: string;
     cwd: string;
   }) => void;
 };

@@ -162,6 +162,7 @@ export type SessionV3 = {
       outsideDir?: string;
       /** 作成元の gitignore 対象を新しい worktree へコピーするか（既定 true） */
       inherit?: boolean;
+      autoBranchName?: boolean;
     };
     /** ペアモードの実装役・レビュー役の既定起動コマンド（設定パネルで変更・入れ替え可能） */
     pair?: { implCmd?: string; reviewCmd?: string };

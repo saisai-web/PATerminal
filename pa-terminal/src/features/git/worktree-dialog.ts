@@ -8,6 +8,7 @@
 // どちらも作成 / 再利用できた worktree をそのままセッションとして開く。
 // ============================================================
 
+import { generateWorktreeBranchName } from "./worktree-branch-name";
 import { invoke } from "@tauri-apps/api/core";
 import type { PrList, PrSummary } from "./git-panel-types";
 import { getGitRoot } from "./agent-panel";
@@ -28,7 +29,7 @@ import type { WorktreeBranches, WorktreeLocation, WorktreeResult } from "./workt
 
 type WorktreeDialogDeps = {
   /** 作成・再利用した worktree を通常シェルの新規セッションで開く */
-  openSession: (args: { name: string; cwd: string }) => void;
+  openSession: (args: { name: string; cwd: string; note?: string }) => void;
 };
 
 let deps: WorktreeDialogDeps = { openSession: () => {} };
@@ -44,6 +45,7 @@ const worktreeCloseBtn = document.querySelector<HTMLButtonElement>("#worktree-cl
 const worktreeRootEl = document.querySelector<HTMLOutputElement>("#worktree-root")!;
 const worktreeBaseSel = document.querySelector<HTMLSelectElement>("#worktree-base")!;
 const worktreeBranchEl = document.querySelector<HTMLInputElement>("#worktree-branch")!;
+const worktreeNoteEl = document.querySelector<HTMLTextAreaElement>("#worktree-note")!;
 const worktreeDirectoryEl = document.querySelector<HTMLInputElement>("#worktree-directory")!;
 const worktreeDirLabelEl = document.querySelector<HTMLSpanElement>("#worktree-directory-label")!;
 const worktreeLocRadios = Array.from(
@@ -240,6 +242,7 @@ export function updateWorktreeDialog(): void {
   const disabled = isActionBusy() || worktreeLoading;
   worktreeBaseSel.disabled = disabled;
   worktreeBranchEl.disabled = disabled;
+  worktreeNoteEl.disabled = disabled;
   worktreePrSel.disabled = disabled || worktreePrLoading;
   worktreeDirectoryEl.disabled = disabled;
   for (const radio of [...worktreeLocRadios, ...worktreeSourceRadios, ...worktreeInheritRadios]) {
@@ -282,7 +285,9 @@ export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): P
   worktreeBeforeOpenSession = options.beforeOpenSession ?? null;
   worktreeRootEl.textContent = root;
   worktreeBaseSel.innerHTML = "";
-  worktreeBranchEl.value = "";
+  worktreeBranchEl.value = getWorktreePrefs().autoBranchName && !options.pr
+    ? generateWorktreeBranchName() : "";
+  worktreeNoteEl.value = "";
   // PR 一覧はリポジトリごとに取り直す（開くたびに gh は呼ばず、PR モードに入った時だけ）。
   // PR 側から開いたときはその一覧を種にして gh を呼ばない
   ++worktreePrToken;
@@ -384,7 +389,11 @@ for (const radio of worktreeLocRadios) {
     updateWorktreeDialog();
   });
 }
+for (const radio of worktreeInheritRadios) {
+  radio.addEventListener("change", () => updateWorktreePrefs({ inherit: worktreeInheritMode() }));
+}
 worktreeSubmitBtn.onclick = () => {
+  const note = worktreeNoteEl.value;
   const root = worktreeDialogRoot;
   const directory = worktreeDirectoryEl.value.trim();
   const location = worktreeLocationMode();
@@ -424,8 +433,8 @@ worktreeSubmitBtn.onclick = () => {
             });
         updateWorktreePrefs(
           location === "outside"
-            ? { location, outsideDir: directory, inherit }
-            : { location, insideDir: directory, inherit },
+            ? { location, outsideDir: directory }
+            : { location, insideDir: directory },
         );
         outcome.created = result;
         return worktreeResultMessage(result);
@@ -446,6 +455,7 @@ worktreeSubmitBtn.onclick = () => {
         // PR 由来のセッションは Issue 実行と同じく「#番号 タイトル」で見分けられるようにする
         name: pr ? `#${pr.number} ${pr.title}` : outcome.created.branch,
         cwd: outcome.created.path,
+        note,
       });
     }
   })();
