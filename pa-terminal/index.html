@@ -364,6 +364,10 @@
           <p id="worktree-pr-hint" hidden data-i18n="agent.worktreePrHint">PRのブランチでworktreeを作り、そのセッションを開きます。同じブランチのworktreeが既にあれば作らずに再利用します。</p>
           <p id="worktree-ignore-hint" hidden data-i18n="agent.worktreeIgnoreHint">格納先がignore対象でなければ、ルートの.gitignoreへ自動で追記します。</p>
           <p id="worktree-external-hint" data-i18n="agent.worktreeExternalHint">リポジトリ外なので.gitignoreは変更しません。</p>
+          <label class="git-action-field" for="worktree-note">
+            <span data-i18n="ws.creationNote">セッションメモ（任意）</span>
+            <textarea id="worktree-note" rows="3" maxlength="120"></textarea>
+          </label>
           <div id="worktree-error" class="git-action-error" role="alert" hidden></div>
           <div class="git-action-field wt-list-field">
             <span data-i18n="agent.worktreeExisting">既存のworktree</span>
@@ -731,6 +735,10 @@
             </section>
             <section data-section="worktree" hidden>
               <h3 data-i18n="settings.worktreeSection">Worktreeの既定の置き場所</h3>
+              <label class="settings-checkbox-row" for="settings-worktree-auto-branch">
+                <input id="settings-worktree-auto-branch" type="checkbox" />
+                <span data-i18n="settings.worktreeAutoBranch">ブランチ名を自動入力する</span>
+              </label>
               <p class="settings-hint" data-i18n="settings.worktreeHint">
                 Worktreeボタン・Issue実行・ペアモードから新しくworktreeを作るときに使われます。
               </p>

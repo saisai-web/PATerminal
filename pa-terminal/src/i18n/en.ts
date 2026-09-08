@@ -6,6 +6,8 @@
 
 export const en = {
   // サイドバー
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Search sessions...",
   "sidebar.newSession": "New session (Cmd/Ctrl+T)",
   "sidebar.collapse": "Collapse the session list (Cmd/Ctrl+B)",

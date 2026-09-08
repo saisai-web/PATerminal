@@ -45,6 +45,8 @@ import recentSort from "./ui-tests/39-recent-sort.mjs";
 import themeContrast from "./ui-tests/40-theme-contrast.mjs";
 import sessionArchive from "./ui-tests/41-session-archive.mjs";
 
+import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
+
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
 if (unknownArgs.length) {
@@ -63,6 +65,7 @@ const sharedSuites = [
   ["theme-contrast", themeContrast],
 ];
 const independentSuites = [
+  ["worktree-preferences", worktreePreferences],
   ["restore-v4", restoreV4],
   ["migrate-v2", migrateV2],
   ["restore-v3-favorites", restoreV3Favorites],

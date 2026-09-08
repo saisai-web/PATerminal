@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const vi: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Tìm phiên...",
   "sidebar.newSession": "Phiên mới (Cmd/Ctrl+T)",
   "sidebar.collapse": "Thu gọn danh sách phiên (Cmd/Ctrl+B)",

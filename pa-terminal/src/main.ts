@@ -7,7 +7,7 @@ import { initTakeover } from "./features/agents/takeover";
 import { initAgentPanel } from "./features/git/agent-panel";
 import { initGitPanel } from "./features/git/git-panel";
 import { initWsGit } from "./features/sidebar/ws-git";
-import { initSidebarRecentSort, initSidebarStatusFilter } from "./features/sidebar/sidebar";
+import { initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
 import { initPathAttachments } from "./features/attachments/path-attachments";
 import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
@@ -41,6 +41,7 @@ import {
   onActiveWorkspaceChange,
   setActive,
   workspaceCwd,
+  updateWorkspaceNote,
 } from "./workspace/workspace";
 import { setFocused } from "./terminal/focus";
 import { groupById, groupPath } from "./workspace/groups";
@@ -138,8 +139,10 @@ initQuickPhrases({
   },
 });
 initWorktreePrefs({ onChange: scheduleSave });
-const openWorktreeSession = ({ name, cwd }: { name: string; cwd: string }) => {
-  createWorkspaceBesideActive(name, "default", { cwd });
+const openWorktreeSession = ({ name, cwd, note }: { name: string; cwd: string; note?: string }) => {
+  const ws = createWorkspaceBesideActive(name, "default", { cwd });
+  updateWorkspaceNote(ws, note);
+  if (ws.note) renderSidebar();
 };
 initWorktreeList({ openSession: openWorktreeSession });
 initWorktreeDialog({
@@ -289,9 +292,9 @@ initExplorer({ createWorkspace: createWorkspaceBesideActive });
 initAgentPanel({ layout: () => layout(), resolveWatchCwd, onCollapseChange: scheduleSave });
 initGitPanel({
   isExplorerOpen,
-  createIssueSession: ({ issueNumber, issueTitle, cwd }) => {
+  createIssueSession: ({ issueNumber, issueTitle, cwd, note }) => {
     const name = `#${issueNumber} ${issueTitle}`;
-    createWorkspaceBesideActive(name, "default", { cwd });
+    openWorktreeSession({ name, cwd, note });
   },
 });
 

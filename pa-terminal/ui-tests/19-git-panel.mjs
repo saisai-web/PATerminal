@@ -316,9 +316,12 @@ if (logShown) {
       await pageLog.locator("#issue-worktree-progress").isHidden());
   // チェックを外せば従来どおりリポジトリルートの通常セッションも作れる
   await pageLog.locator(".issue-worktree-toggle input").uncheck();
+  await pageLog.locator(".issue-session-note").fill("課題メモ\n次の作業");
   const spawnBeforeIssue = await pageLog.evaluate(() => window.__ptySpawns.length);
   await issueActionButtons.click();
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeIssue);
+  check("Issue without worktree passes the multiline note",
+    await pageLog.locator(".ws-item.is-active .ws-note-display").textContent() === "課題メモ\n次の作業");
   const issueSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
   check("Issue action creates a default-shell session at repository root",
     issueSpawn?.shell === null && issueSpawn?.cwd === "/repo" && issueSpawn?.args === null,
@@ -339,6 +342,15 @@ if (logShown) {
     await pageLog.locator(".issue-worktree-directory").inputValue() === ".worktree");
   const spawnBeforeWorktree = await pageLog.evaluate(() => window.__ptySpawns.length);
   await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=no]").check();
+  const issueSuccessResult = await pageLog.evaluate(() => window.__mockWorktreeResult);
+  await pageLog.evaluate(() => { window.__mockWorktreeResult = { error: "issue worktree failed" }; });
+  await pageLog.locator(".issue-session-actions button").click();
+  await pageLog.waitForSelector(".issue-run-message.is-error");
+  check("Issue failure preserves editable note and saves inherit choice",
+    await pageLog.locator(".issue-session-note").inputValue() === "課題メモ\n次の作業" &&
+    await pageLog.locator(".issue-session-note").isEnabled() &&
+    await pageLog.evaluate(async () => (await import("/src/features/git/worktree.ts")).getWorktreePrefs().inherit === false));
+  await pageLog.evaluate(result => { window.__mockWorktreeResult = result; }, issueSuccessResult);
   await pageLog.evaluate(() => { window.__mockWorktreeCreateDelay = 150; });
   await pageLog.locator(".issue-session-actions button").click();
   // 作成中は Worktree モーダルと同じく、ボタンが「準備中」になり入力とラジオが止まり、
@@ -346,6 +358,7 @@ if (logShown) {
   check("Issue worktree creation shows progress and disables the form while it runs",
     ((await pageLog.locator(".issue-session-actions button").textContent()) ?? "").includes("準備中") &&
       await pageLog.locator(".issue-session-actions button").isDisabled() &&
+      await pageLog.locator(".issue-session-note").isDisabled() &&
       await pageLog.locator(".issue-worktree-fields select").isDisabled() &&
       await pageLog.locator(".issue-worktree-fields .wt-loc input[value=inside]").isDisabled() &&
       await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=yes]").isDisabled() &&
@@ -356,6 +369,8 @@ if (logShown) {
   await pageLog.evaluate(() => { window.__mockWorktreeCreateDelay = 0; });
   check("Issue worktree progress overlay disappears once the session is created",
     await pageLog.locator("#issue-worktree-progress").isHidden());
+  check("Issue worktree passes the note",
+    await pageLog.locator(".ws-item.is-active .ws-note-display").textContent() === "課題メモ\n次の作業");
   const worktreeCall = await pageLog.evaluate(() => (window.__worktreeCreateCalls ?? []).at(-1));
   const worktreeSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
   check("worktree action uses selected base, new branch, and inherit choice",
@@ -488,6 +503,7 @@ if (logShown) {
       await pageLog.evaluate((before) => (window.__prListCalls ?? []).length === before, prListCallsBeforeListSession) &&
       await pageLog.evaluate((before) => (window.__prDetailCalls ?? []).length === before, prDetailCallsBeforeListSession),
     `options=${JSON.stringify(prDialogOptions)} pr=${await pageLog.locator("#worktree-pr").inputValue()}`);
+  await pageLog.locator("#worktree-note").fill("PRメモ\n確認する");
   await pageLog.locator("#worktree-submit").click();
   check("PR worktree creation shows progress in the modal and blocks a second submit",
     await pageLog.locator("#worktree-submit").isDisabled() &&
@@ -495,6 +511,8 @@ if (logShown) {
       await pageLog.locator("#worktree-loc input[value=outside]").isDisabled() &&
       ((await pageLog.locator("#git-msg").textContent()) ?? "").includes("実行中"));
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforeListSession);
+  check("PR session displays the multiline note",
+    await pageLog.locator(".ws-item.is-active .ws-note-display").textContent() === "PRメモ\n確認する");
   const listPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));
   const listPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
   const listPrSessionName = ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim();
@@ -529,8 +547,12 @@ if (logShown) {
     await pageLog.locator("#pr-overlay").isVisible() &&
       await pageLog.locator("#worktree-source input[value=pr]").isChecked() &&
       await pageLog.locator("#worktree-pr").inputValue() === "12");
+  await pageLog.locator("#worktree-note").fill("PRメモ\n確認する");
   await pageLog.locator("#worktree-submit").click();
   await pageLog.waitForSelector("#worktree-error:not([hidden])", { timeout: 3000 });
+  check("PR failure retains the editable note",
+    await pageLog.locator("#worktree-note").inputValue() === "PRメモ\n確認する" &&
+    await pageLog.locator("#worktree-note").isEnabled());
   const prSessionFailure = (await pageLog.locator("#worktree-error").textContent()) ?? "";
   check("failed PR worktree creation keeps modal and detail open, shows the reason, and allows retry",
     await pageLog.locator("#worktree-overlay").isVisible() &&
@@ -556,6 +578,7 @@ if (logShown) {
   await pageLog.locator("#pr-new-session").click();
   await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
   await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
+  await pageLog.locator("#worktree-note").fill("PRメモ\n確認する");
   await pageLog.locator("#worktree-submit").click();
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforePrRetry);
   const reusedPrSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
@@ -961,6 +984,7 @@ if (logShown) {
     check("current-branch PR detail opens the worktree modal with the detail PR selected",
       await pageLog.locator("#worktree-source input[value=pr]").isChecked() &&
         await pageLog.locator("#worktree-pr").inputValue() === "12");
+    await pageLog.locator("#worktree-note").fill("PRメモ\n確認する");
     await pageLog.locator("#worktree-submit").click();
     await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, currentPrSpawnsBefore);
     const currentPrWorktreeCall = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).at(-1));

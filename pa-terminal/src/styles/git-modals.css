@@ -64,6 +64,7 @@
 /* display を指定した要素には UA の [hidden] が効かない（作成元の出し分けで使う） */
 .git-action-field[hidden] { display: none; }
 .git-action-field > span { color: var(--dim); font-size: 11px; }
+.git-action-field textarea,
 .git-action-field input,
 .git-action-field select,
 .git-action-field output {
@@ -81,6 +82,8 @@
   overflow-wrap: anywhere;
   user-select: text;
 }
+.git-action-field textarea { resize: vertical; }
+.git-action-field textarea:focus,
 .git-action-field input:focus,
 .git-action-field select:focus { border-color: var(--accent); }
 .git-action-body > p {

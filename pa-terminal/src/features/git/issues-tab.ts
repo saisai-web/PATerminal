@@ -5,6 +5,7 @@
 // 監視中のリポジトリ（issueRoot）はこのモジュールが所有し、PR タブ / PR オーバーレイは
 // getIssueRoot() で読む。
 
+import { WORKSPACE_NOTE_MAX_LENGTH } from "../../workspace/note";
 import { invoke } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import { getDeps, getActiveTab, renderWorktreesTab } from "./git-panel";
@@ -511,6 +512,7 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
     radio.name = `issue-worktree-inherit-${issue.number ?? "x"}`;
     radio.value = value;
     radio.checked = (value === "yes") === prefs.inherit;
+    radio.onchange = () => updateWorktreePrefs({ inherit: value === "yes" });
     const text = document.createElement("span");
     text.textContent = t(value === "yes" ? "agent.worktreeInheritYes" : "agent.worktreeInheritNo");
     item.append(radio, text);
@@ -529,6 +531,16 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
     fields.hidden = !checkbox.checked;
   };
 
+  const noteLabel = document.createElement("label");
+  noteLabel.className = "git-action-field";
+  const noteTitle = document.createElement("span");
+  noteTitle.textContent = t("ws.creationNote");
+  const note = document.createElement("textarea");
+  note.className = "issue-session-note";
+  note.maxLength = WORKSPACE_NOTE_MAX_LENGTH;
+  note.rows = 3;
+  noteLabel.append(noteTitle, note);
+
   const actions = document.createElement("div");
   actions.className = "issue-session-actions";
   const create = document.createElement("button");
@@ -546,13 +558,14 @@ function buildIssueRunControls(root: string, issue: IssueInfo): HTMLDivElement {
       directory,
       locationOf,
       inheritOf,
+      note,
       create,
       message,
       // 作成中は Worktree モーダルと同じく入力を全部止める（ラジオも含む）
-      [checkbox, base, branch, directory, ...locRadios, ...inheritRadios],
+      [checkbox, base, branch, directory, note, ...locRadios, ...inheritRadios],
     );
   actions.append(create);
-  run.append(runTitle, toggle, fields, actions, message);
+  run.append(runTitle, toggle, fields, noteLabel, actions, message);
   return run;
 }
 
@@ -565,9 +578,10 @@ async function createIssueSession(
   directory: HTMLInputElement,
   locationOf: () => WorktreeLocation,
   inheritOf: () => boolean,
+  note: HTMLTextAreaElement,
   button: HTMLButtonElement,
   message: HTMLDivElement,
-  fields: (HTMLInputElement | HTMLSelectElement)[],
+  fields: (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[],
 ): Promise<void> {
   // worktree を使わないときは git 操作が無いので、そのままリポジトリルートで開く
   if (!useWorktree.checked) {
@@ -577,6 +591,7 @@ async function createIssueSession(
       issueNumber: issue.number ?? 0,
       issueTitle: issue.title ?? "Issue",
       cwd: root,
+      note: note.value,
     });
     return;
   }
@@ -619,8 +634,8 @@ async function createIssueSession(
       });
       updateWorktreePrefs(
         location === "outside"
-          ? { location, outsideDir: worktreeDirectory, inherit }
-          : { location, insideDir: worktreeDirectory, inherit },
+          ? { location, outsideDir: worktreeDirectory }
+          : { location, insideDir: worktreeDirectory },
       );
       outcome.cwd = result.path;
       return worktreeResultMessage(result);
@@ -637,6 +652,7 @@ async function createIssueSession(
     issueNumber: issue.number ?? 0,
     issueTitle: issue.title ?? "Issue",
     cwd: outcome.cwd,
+    note: note.value,
   });
 }
 

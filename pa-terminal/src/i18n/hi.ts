@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const hi: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "सत्र खोजें...",
   "sidebar.newSession": "नया सत्र (Cmd/Ctrl+T)",
   "sidebar.collapse": "सत्र सूची समेटें (Cmd/Ctrl+B)",

@@ -1,6 +1,8 @@
 import type { Dict } from "./en";
 
 export const zhHans: Dict = {
+  "ws.creationNote": "Session note (optional)",
+  "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "搜索会话...",
   "sidebar.newSession": "新建会话 (Cmd/Ctrl+T)",
   "sidebar.collapse": "折叠会话列表 (Cmd/Ctrl+B)",
