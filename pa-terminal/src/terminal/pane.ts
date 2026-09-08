@@ -170,8 +170,16 @@ export class Pane {
       サイズを合わせ直す。ポーリングではなくイベント駆動 */
   private ro?: ResizeObserver;
   private refitRaf = 0;
-  /** WebKit の遅延リフロー後にも末尾へ合わせ直すための rAF。 */
-  private scrollBottomRaf = 0;
+  /**
+   * ユーザーが見ていたい位置。"bottom" は最新出力への追従、数値は履歴のその行
+   * （buffer.viewportY）。xterm 側の意図した移動（出力・打鍵・キー・スクロールバー・
+   * 選択の自動スクロール）は term.onScroll で必ず取り込む。DOM の scroll だけで起きた
+   * 移動は、ホイール / タッチ由来でなければ WebKit / xterm 由来の phantom として戻す。
+   */
+  private scrollAnchor: "bottom" | number = "bottom";
+  /** ホイール / タッチの処理で xterm が置いた DOM の scrollTop。次の scroll イベントが
+      この値なら、それはユーザーのスクロールとして採用する（時間窓ではなく値で照合する） */
+  private userScrollTop?: number;
   /** destroy でまとめて外す xterm のイベント購読 */
   private readonly disposables: { dispose(): void }[] = [];
   /** 直近のスクロールバックスナップショット。出力が来るたび dirty になる */
@@ -311,6 +319,8 @@ export class Pane {
     this.term.open(body);
     this.scrollbar = new PaneScrollbar(this.term);
     this.disposables.push(this.scrollbar);
+    this.disposables.push(this.term.onScroll(() => this.adoptScrollAnchor()));
+    this.bindScrollGuard();
     registerPane(this.id);
     // body（= FitAddon が測る親要素）のサイズ変化で確実に再フィットする。
     // layout() 側の refit はそのまま残し、これは取りこぼし用の保険
@@ -724,11 +734,16 @@ export class Pane {
       if (this.el.clientWidth <= 0 || this.el.clientHeight <= 0) return;
       this.fit.fit();
       this.scrollbar.schedule();
-      // Files / サイドバーの開閉やセッション再表示で横幅が変わると、WebKit は
-      // xterm の resize 後に viewport の scrollTop を先頭へ戻すことがある。
-      // ターミナルは通常最新出力を見る UI なので、レイアウト変更後は末尾へ固定する。
-      // 同期呼び出しだけでは後続のブラウザリフローに負けるため、次フレームでも再適用する。
-      this.scrollToBottom();
+      // 追従中なら末尾へ、遡り中なら xterm がリサイズ（折り返し）後に決めた行を
+      // そのまま採用する。末尾固定にすると、履歴を読んでいる最中の Files / サイドバーの
+      // 開閉やウィンドウリサイズで位置を失う。
+      if (this.scrollAnchor === "bottom") this.term.scrollToBottom();
+      else this.adoptScrollAnchor();
+      // 非表示中に届いた出力で xterm が高さ 0 の viewport から scroll area を
+      // 計算していると、再表示後の DOM は末尾より 1 画面上で止まったままになる
+      // （syncViewport のコメント参照）。サイズが変わらなければ xterm は測り直さないので
+      // ここで必ず今のレイアウトに合わせる。
+      this.syncViewport();
       // ペイン生成直後は要素が 0x0（レイアウト前）。その状態で WebGL を
       // 初期化すると描画が壊れたまま復帰しないことがあるため、
       // サイズが確定した最初の refit で遅延ロードする。
@@ -755,58 +770,114 @@ export class Pane {
     }
   }
 
-  /** xterm の buffer と DOM viewport を同じタイミングで末尾へ合わせる。
-      buffer が既に末尾だと term.scrollToBottom() は何もしないため、WebKit だけが
-      DOM scrollTop を先頭へ動かした直後は viewport も明示的に戻す必要がある。 */
-  private applyBottomScroll() {
-    this.term.scrollToBottom();
-    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
-    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  /**
+   * xterm の Viewport に、今のレイアウトで scroll area の高さと scrollTop を測り直させる。
+   *
+   * xterm 5.x の Viewport は DOM の scrollTop でバッファを動かす（ホイールも DOM 経由）。
+   * その scroll area の高さは「バッファが伸びた / サイズが変わった」ときにしか再計算されず、
+   * しかも viewport 要素の offsetHeight から求める。display:none のセッションに出力が
+   * 届く（切替直後の in-flight データや、切替と同じフレームに予約されていた再計算）と
+   * 高さ 0 で計算されて scroll area が約 1 画面分短くなり、再表示後も DOM の scrollTop は
+   * 末尾より 1 画面上で止まる。この状態で DOM に scroll イベントが 1 つ届くだけで
+   * （ホイールの 1px、レイアウト変更のクランプ）、xterm はそれをユーザーの意思として
+   * バッファを 1 画面分遡らせ、isUserScrolling が立って以後の出力に追従しなくなる。
+   * 次の出力が来るまで xterm 自身は測り直さないので、表示側から明示的に頼む。
+   *
+   * private API 依存（xterm 更新時は Viewport.syncScrollArea を要確認。6.0 で Viewport は
+   * 刷新されている）。無ければ何もしない: バッファ側の scrollToBottom / scrollToLine は
+   * onScroll 経由で xterm 自身の再同期を次フレームに予約する。
+   */
+  private syncViewport() {
+    if (this.destroyed || this.ws.layer.hidden || !this.el.isConnected || this.el.clientHeight <= 0) {
+      return; // 非表示 / 0px で測ると、直したい壊れ方をこちらで作ってしまう
+    }
+    try {
+      const core = (this.term as unknown as {
+        _core?: { viewport?: { syncScrollArea?: (immediate: boolean) => void } };
+      })._core;
+      core?.viewport?.syncScrollArea?.(true);
+    } catch {
+      /* xterm 側で例外が出ても表示は続けられる */
+    }
   }
 
-  /** xterm の buffer と DOM viewport を、focus 前に見ていた位置へ戻す。
-      DOM scrollTop は行高から再計算せず記録値をそのまま使う（focus 前後で行高は変わらない）。 */
-  private applyScrollPosition(line: number, top: number) {
-    this.term.scrollToLine(line);
-    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
-    if (viewport) viewport.scrollTop = top;
+  /** xterm 側が意図して動かした位置（出力追従・打鍵・キー・スクロールバー等）を取り込む。 */
+  private adoptScrollAnchor() {
+    const buffer = this.term.buffer.active;
+    this.scrollAnchor = buffer.viewportY >= buffer.baseY ? "bottom" : buffer.viewportY;
   }
 
-  /** 同期と次フレームの両方で同じスクロール補正を当てる（WebKit の遅延リフロー対策）。
-      後から要求された補正が勝つ。 */
-  private applyScrollTwice(apply: () => void) {
-    if (this.destroyed) return;
-    apply();
-    if (this.scrollBottomRaf) cancelAnimationFrame(this.scrollBottomRaf);
-    this.scrollBottomRaf = requestAnimationFrame(() => {
-      this.scrollBottomRaf = 0;
-      if (!this.destroyed) apply();
+  private scrollAnchorIntact(): boolean {
+    const buffer = this.term.buffer.active;
+    return this.scrollAnchor === "bottom"
+      ? buffer.viewportY >= buffer.baseY
+      : buffer.viewportY === this.scrollAnchor;
+  }
+
+  /** バッファを見ていたい位置へ戻し、DOM の viewport もそこへ合わせる。 */
+  private restoreScrollAnchor() {
+    if (!this.scrollAnchorIntact()) {
+      if (this.scrollAnchor === "bottom") this.term.scrollToBottom();
+      else this.term.scrollToLine(this.scrollAnchor);
+    }
+    this.syncViewport();
+  }
+
+  /**
+   * DOM の scroll でバッファが動いたとき、それがユーザーのホイール / タッチなら新しい位置を
+   * 採用し、そうでなければ phantom（WebKit のクランプやフォーカス移動、上記の高さ不整合）
+   * として元の位置へ戻す。
+   *
+   * xterm 5.x はホイール / タッチのハンドラ（.xterm 要素、open() で登録）で DOM の scrollTop を
+   * 動かし、後から届く scroll イベントでバッファを動かす。同じ要素へ後から登録した
+   * リスナーは xterm の後に走るので、そこで xterm が置いた scrollTop を控えておき、
+   * 次の scroll イベントの scrollTop がその値ならユーザー操作と判定する。時間窓に
+   * しないのは、直前にホイールがあっただけで phantom を取り込まないため。
+   * scroll イベントはバブルしないので viewport 要素そのものに付ける。こちらも xterm の
+   * リスナーより後に登録するため、xterm が処理した後のバッファ位置が見える。
+   */
+  private bindScrollGuard() {
+    const surface = this.term.element;
+    const viewport = surface?.querySelector<HTMLElement>(".xterm-viewport");
+    if (!surface || !viewport) return;
+    const onViewportScroll = () => {
+      if (this.destroyed || this.ws.layer.hidden) return;
+      const fromUser =
+        this.userScrollTop !== undefined && Math.abs(viewport.scrollTop - this.userScrollTop) <= 1;
+      this.userScrollTop = undefined;
+      if (fromUser) this.adoptScrollAnchor();
+      else if (!this.scrollAnchorIntact()) this.restoreScrollAnchor();
+    };
+    const afterGesture = () => {
+      this.userScrollTop = viewport.scrollTop;
+    };
+    const gestures = ["wheel", "touchmove"] as const;
+    viewport.addEventListener("scroll", onViewportScroll);
+    for (const type of gestures) surface.addEventListener(type, afterGesture, { passive: true });
+    this.disposables.push({
+      dispose: () => {
+        viewport.removeEventListener("scroll", onViewportScroll);
+        for (const type of gestures) surface.removeEventListener(type, afterGesture);
+      },
     });
   }
 
-  /** レイアウト直後と WebKit の遅延リフロー後の両方で末尾へ合わせる。 */
+  /** 最新出力への追従に切り替えて末尾を表示する（セッションを開き直したとき用）。 */
   scrollToBottom() {
-    this.applyScrollTwice(() => this.applyBottomScroll());
+    this.scrollAnchor = "bottom";
+    this.term.scrollToBottom();
+    this.syncViewport();
   }
 
   focus() {
-    // xterm は textarea.focus({ preventScroll: true }) を使うが、WKWebView は
-    // ペイン間のフォーカス移動時にそれを無視し、viewport の DOM scrollTop を
-    // 先頭へ戻すことがある。scroll イベントで buffer.ydisp まで先頭へ変わる前と
-    // 次フレームの両方で補正する。
-    // **末尾へ飛ばすのではなく focus 前の位置へ戻す。** ペイン内クリックも
-    // mousedown → setFocused → focus() を通るので、末尾固定にすると履歴を遡って
-    // 読んでいる最中のクリックや、Cmd/Ctrl+クリックで URL を開く操作
-    // （mousedown で buffer が動くと mouseup 時にリンクから外れて発火しない）が壊れる。
-    // 末尾を見ていたときだけ従来どおり scrollToBottom() で末尾追従を保つ。
-    const buffer = this.term.buffer.active;
-    const atBottom = buffer.viewportY >= buffer.baseY;
-    const line = buffer.viewportY;
-    const viewport = this.term.element?.querySelector<HTMLElement>(".xterm-viewport");
-    const top = viewport?.scrollTop ?? 0;
+    // xterm は textarea.focus({ preventScroll: true }) を使うが、WKWebView はペイン間の
+    // フォーカス移動で viewport の DOM scrollTop を動かすことがある。末尾へ飛ばすのでは
+    // なく focus 前の位置（追従中なら末尾、遡り中ならその行）へ戻す。ペイン内クリックも
+    // mousedown → setFocused → focus() を通るので、末尾固定にすると履歴を読んでいる
+    // 最中のクリックや Cmd/Ctrl+クリックで URL を開く操作が壊れる。遅れて届く
+    // scroll イベントは bindScrollGuard が同じ位置へ戻す。
     this.term.focus();
-    if (atBottom) this.scrollToBottom();
-    else this.applyScrollTwice(() => this.applyScrollPosition(line, top));
+    this.restoreScrollAnchor();
   }
 
   /** メモ本文と表示先を同期する。全文は省略時も title から確認できる。 */
@@ -825,7 +896,6 @@ export class Pane {
     unregisterPane(this.id);
     this.ro?.disconnect();
     if (this.refitRaf) cancelAnimationFrame(this.refitRaf);
-    if (this.scrollBottomRaf) cancelAnimationFrame(this.scrollBottomRaf);
     for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;
     // spawn / 自動復旧との競合時も必ず回収する（未登録 id は Rust 側で no-op）。
