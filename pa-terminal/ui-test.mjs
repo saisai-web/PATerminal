@@ -44,6 +44,7 @@ import newSessionLocation from "./ui-tests/38-new-session-location.mjs";
 import recentSort from "./ui-tests/39-recent-sort.mjs";
 import themeContrast from "./ui-tests/40-theme-contrast.mjs";
 import sessionArchive from "./ui-tests/41-session-archive.mjs";
+import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -98,6 +99,7 @@ const independentSuites = [
   ["new-session-location", newSessionLocation],
   ["recent-sort", recentSort],
   ["session-archive", sessionArchive],
+  ["scroll-anchor", scrollAnchor],
 ];
 
 // Push / PR では、基盤・保存形式・Git 監視・通知・主要エージェント機能を
@@ -122,6 +124,7 @@ const smokeIndependent = new Set([
   "eula", // 同意前にトライアル/sessionを作らない起動ゲートは毎 push で見る
   "session-status-filter", // 稼働状態と未確認の一覧絞り込みは activity 遷移込みで毎 push で見る
   "session-archive", // PTYを閉じない一覧整理と再起動後の復元を毎 push で見る
+  "scroll-anchor", // 切替後にスクロールが勝手に遡る不具合は xterm の DOM 同期に依存するので毎 push で見る
 ]);
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });

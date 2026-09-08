@@ -66,12 +66,41 @@ Ctrl+Shift+C/V. Also verify changes on actual machines.
 - Do not fit degenerate sizes. The lower bounds are `MIN_FIT_COLS` / `MIN_FIT_ROWS`.
 - Apply padding to `.pane-body .xterm`, not `.pane-body`.
 - During dragging, call only `place()`, then refit once after the drag is finalized.
-- After fitting, `Pane.refit()` scrolls to the bottom and reapplies the position in the next
-  rAF to handle delayed WebKit reflow. Do not scatter this behavior across individual paths
-  for opening or closing Files/the sidebar or redisplaying sessions.
+- `Pane` owns the scroll position policy (`scrollAnchor`): follow the newest output, or stay
+  on the history line the user chose. Do not scatter scroll fixes across individual paths for
+  opening or closing Files/the sidebar or redisplaying sessions.
 
 Run `ui-tests/31-resize.mjs` after changes, and verify `stty size` and bottom-scroll retention
 on actual machines.
+
+### Scroll Position Jumping Up Incident (Resolved 2026-09-09)
+
+Switching sessions, or merely touching the trackpad while watching output, sometimes scrolled a
+pane up by a full screen and stopped it from following new output. The cause was not focus
+handling but xterm 5.x's Viewport: it drives the buffer from the DOM `scrollTop` (wheel included)
+and recomputes the scroll-area height only when the buffer grows or the size changes, using the
+viewport element's `offsetHeight`. Output that reaches a `display:none` session (in-flight data
+right after switching away, or a refresh queued in the same frame) computes that height as 0, so
+after reopening the DOM sits one screen above the buffer position. The first DOM scroll event
+(a 1px wheel tick, a layout clamp) then makes xterm scroll the buffer up by a screen and set
+`isUserScrolling`, so output no longer follows. `src/terminal/pane.ts` keeps three parts:
+
+- `syncViewport()` asks xterm's private `viewport.syncScrollArea(true)` to re-measure with the
+  live layout from `refit()`, `focus()`, and `scrollToBottom()`. Never call it, or write to
+  xterm, expecting a hidden or 0px pane to measure correctly.
+- `term.onScroll` (output, keystrokes, Shift+PageUp, the scrollbar, selection auto-scroll)
+  always adopts the buffer position as the anchor. A DOM `scroll` event is the user's only
+  when its `scrollTop` is the value xterm's wheel/touch handler just wrote (`userScrollTop`);
+  any other DOM scroll is a phantom and is reverted to the anchor. Do not replace this with
+  a time window.
+- `refit()` keeps the anchor instead of forcing the bottom, so reading history survives
+  layout changes. Reopening a session still goes to the bottom via `Pane.scrollToBottom()`.
+
+When upgrading xterm, re-examine `Viewport.syncScrollArea`, `_innerRefresh`, `_handleScroll`,
+and `BufferService.isUserScrolling` (6.0 rewrote the Viewport). Verify with
+`ui-tests/43-scroll-anchor.mjs` and `ui-tests/31-resize.mjs`, then confirm on a real machine that
+switching to a session that was producing output and nudging the trackpad keeps the newest
+output visible.
 
 ### Restoration and Process Termination
 
