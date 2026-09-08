@@ -364,7 +364,8 @@
   position: fixed;
   inset-inline-end: 20px;
   bottom: 20px;
-  z-index: 300;
+  /* Keep modal controls (z-index >= 200) usable after a failed Git operation. */
+  z-index: 190;
   display: flex;
   align-items: flex-start;
   gap: 12px;
