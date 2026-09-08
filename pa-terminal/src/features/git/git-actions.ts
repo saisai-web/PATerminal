@@ -4,6 +4,7 @@
 // showGitMsg / setActionBusy / runGitAction を持つ。
 // ============================================================
 
+import { showGitToast } from "./git-toast";
 import { invoke } from "@tauri-apps/api/core";
 import {
   getCurrentBranch,
@@ -121,6 +122,7 @@ export function renderBranches(br: GitBranches | null): void {
     原因が読めない。Rust 側の git_headline が1行目に要約を足している）。
     エラーは読んで対処するものなので寿命も長い。全文はホバーの title でも読める */
 export function showGitMsg(text: string, kind: "ok" | "err" | "busy"): void {
+  showGitToast(text, kind);
   window.clearTimeout(msgTimer);
   msgEl.hidden = false;
   msgEl.className = kind;

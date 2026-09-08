@@ -148,6 +148,8 @@ export const id: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Pindah ke branch lokal yang dipilih",
   "agent.switchBranchDone": "Pindah ke {branch}.",
+  "agent.operationDone": "Operasi Git selesai",
+  "agent.operationFailed": "Operasi Git gagal",
   "agent.working": "Sedang berjalan...",
   "agent.worktreeLocationMode": "Tempat pembuatan",
   "agent.worktreeInside": "Di dalam repositori",

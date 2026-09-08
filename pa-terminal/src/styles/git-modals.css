@@ -355,3 +355,52 @@
   #commit-files-section { border-right: 0; border-bottom: 1px solid var(--line); }
   .git-action-field { grid-template-columns: 1fr; gap: 5px; }
 }
+
+/* Non-modal operation results: no terminal reflow or focus changes. */
+#git-toast {
+  position: fixed;
+  inset-inline-end: 20px;
+  bottom: 20px;
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(420px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 16px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px var(--shadow);
+}
+#git-toast[hidden] { display: none; }
+#git-toast[data-kind="err"] { border-inline-start-color: var(--alarm); }
+.git-toast-icon { color: var(--accent); font-size: 20px; font-weight: 700; }
+#git-toast[data-kind="err"] .git-toast-icon { color: var(--alarm); }
+.git-toast-content { flex: 1; min-width: 0; font-size: 13px; }
+.git-toast-detail {
+  margin-top: 6px;
+  max-height: min(240px, 40vh);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--dim);
+  line-height: 1.5;
+  user-select: text;
+}
+#git-toast > button {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+#git-toast > button:hover { background: var(--pane-bg); }

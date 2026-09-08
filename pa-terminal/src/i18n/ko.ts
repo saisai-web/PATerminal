@@ -148,6 +148,8 @@ export const ko: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "선택한 로컬 브랜치로 전환",
   "agent.switchBranchDone": "{branch}로 전환했습니다.",
+  "agent.operationDone": "Git 작업 완료",
+  "agent.operationFailed": "Git 작업 실패",
   "agent.working": "실행 중…",
   "agent.worktreeLocationMode": "저장 위치",
   "agent.worktreeInside": "저장소 안",

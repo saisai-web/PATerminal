@@ -148,6 +148,8 @@ export const ja: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "選択したローカルブランチへ切り替え",
   "agent.switchBranchDone": "{branch} に切り替えました",
+  "agent.operationDone": "Git操作が完了しました",
+  "agent.operationFailed": "Git操作に失敗しました",
   "agent.working": "実行中…",
   "agent.worktreeLocationMode": "置き場所",
   "agent.worktreeInside": "リポジトリ配下",

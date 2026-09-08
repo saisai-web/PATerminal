@@ -159,6 +159,8 @@ export const en = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Check out the selected local branch",
   "agent.switchBranchDone": "Checked out {branch}.",
+  "agent.operationDone": "Git operation completed",
+  "agent.operationFailed": "Git operation failed",
   "agent.working": "Working...",
   "agent.worktreeLocationMode": "Where to put it",
   "agent.worktreeInside": "Under the repository",

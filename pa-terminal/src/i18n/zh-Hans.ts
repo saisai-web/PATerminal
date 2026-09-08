@@ -148,6 +148,8 @@ export const zhHans: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "检出所选的本地分支",
   "agent.switchBranchDone": "已切换到 {branch}。",
+  "agent.operationDone": "Git 操作已完成",
+  "agent.operationFailed": "Git 操作失败",
   "agent.working": "执行中…",
   "agent.worktreeLocationMode": "存放位置",
   "agent.worktreeInside": "仓库内",

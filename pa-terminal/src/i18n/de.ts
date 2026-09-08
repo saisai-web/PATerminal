@@ -148,6 +148,8 @@ export const de: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Zum gewählten lokalen Branch wechseln",
   "agent.switchBranchDone": "Zu {branch} gewechselt.",
+  "agent.operationDone": "Git-Vorgang abgeschlossen",
+  "agent.operationFailed": "Git-Vorgang fehlgeschlagen",
   "agent.working": "Läuft...",
   "agent.worktreeLocationMode": "Ablageort",
   "agent.worktreeInside": "Im Repository",

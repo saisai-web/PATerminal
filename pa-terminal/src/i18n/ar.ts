@@ -148,6 +148,8 @@ export const ar: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "التبديل إلى الفرع المحلي المحدد",
   "agent.switchBranchDone": "تم التبديل إلى {branch}.",
+  "agent.operationDone": "اكتملت عملية Git",
+  "agent.operationFailed": "فشلت عملية Git",
   "agent.working": "جارٍ التنفيذ...",
   "agent.worktreeLocationMode": "مكان الإنشاء",
   "agent.worktreeInside": "داخل المستودع",
