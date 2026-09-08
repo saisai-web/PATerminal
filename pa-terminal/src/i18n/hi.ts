@@ -148,6 +148,8 @@ export const hi: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "चुनी हुई लोकल ब्रांच पर जाएँ",
   "agent.switchBranchDone": "{branch} पर चले गए।",
+  "agent.operationDone": "Git कार्रवाई पूरी हुई",
+  "agent.operationFailed": "Git कार्रवाई विफल हुई",
   "agent.working": "चल रहा है...",
   "agent.worktreeLocationMode": "कहाँ बनाएँ",
   "agent.worktreeInside": "रिपॉज़िटरी के भीतर",

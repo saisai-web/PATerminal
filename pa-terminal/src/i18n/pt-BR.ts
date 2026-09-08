@@ -148,6 +148,8 @@ export const ptBR: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Fazer checkout da branch local selecionada",
   "agent.switchBranchDone": "Mudou para {branch}.",
+  "agent.operationDone": "Operação Git concluída",
+  "agent.operationFailed": "Falha na operação Git",
   "agent.working": "Trabalhando...",
   "agent.worktreeLocationMode": "Onde criar",
   "agent.worktreeInside": "Dentro do repositório",

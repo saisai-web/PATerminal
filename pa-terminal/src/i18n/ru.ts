@@ -148,6 +148,8 @@ export const ru: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Переключиться на выбранную локальную ветку",
   "agent.switchBranchDone": "Переключено на {branch}.",
+  "agent.operationDone": "Операция Git завершена",
+  "agent.operationFailed": "Ошибка операции Git",
   "agent.working": "Выполняется...",
   "agent.worktreeLocationMode": "Где разместить",
   "agent.worktreeInside": "Внутри репозитория",

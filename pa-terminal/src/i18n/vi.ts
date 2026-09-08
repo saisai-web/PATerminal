@@ -148,6 +148,8 @@ export const vi: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Chuyển sang nhánh cục bộ đã chọn",
   "agent.switchBranchDone": "Đã chuyển sang {branch}.",
+  "agent.operationDone": "Thao tác Git đã hoàn tất",
+  "agent.operationFailed": "Thao tác Git thất bại",
   "agent.working": "Đang chạy...",
   "agent.worktreeLocationMode": "Nơi tạo",
   "agent.worktreeInside": "Trong kho",

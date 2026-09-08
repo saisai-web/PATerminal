@@ -148,6 +148,8 @@ export const th: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "สลับไปยังสาขาในเครื่องที่เลือก",
   "agent.switchBranchDone": "สลับไปที่ {branch} แล้ว",
+  "agent.operationDone": "ดำเนินการ Git สำเร็จ",
+  "agent.operationFailed": "ดำเนินการ Git ไม่สำเร็จ",
   "agent.working": "กำลังทำงาน...",
   "agent.worktreeLocationMode": "ที่เก็บ",
   "agent.worktreeInside": "ในรีโพซิทอรี",

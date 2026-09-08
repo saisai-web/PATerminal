@@ -148,6 +148,8 @@ export const zhHant: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "簽出選取的本機分支",
   "agent.switchBranchDone": "已切換到 {branch}。",
+  "agent.operationDone": "Git 操作已完成",
+  "agent.operationFailed": "Git 操作失敗",
   "agent.working": "執行中…",
   "agent.worktreeLocationMode": "存放位置",
   "agent.worktreeInside": "儲存庫內",

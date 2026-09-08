@@ -148,6 +148,8 @@ export const tr: Dict = {
   "agent.switchBranch": "Checkout",
   "agent.switchBranchTitle": "Seçili yerel dala geç",
   "agent.switchBranchDone": "{branch} dalına geçildi.",
+  "agent.operationDone": "Git işlemi tamamlandı",
+  "agent.operationFailed": "Git işlemi başarısız oldu",
   "agent.working": "Çalışıyor...",
   "agent.worktreeLocationMode": "Nereye oluşturulsun",
   "agent.worktreeInside": "Depo içinde",
