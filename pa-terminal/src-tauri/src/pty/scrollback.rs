@@ -14,14 +14,26 @@ pub(super) fn configure(cmd: &mut CommandBuilder, program: &str, args: Option<&V
         .next()
         .unwrap_or(program)
         .to_ascii_lowercase();
-    if ["codex", "codex.exe", "codex.cmd", "codex.bat"].contains(&name.as_str())
-        && !args.is_some_and(|args| {
-            args.iter()
-                .take_while(|arg| arg.as_str() != "--")
-                .any(|arg| arg == "--no-alt-screen")
-        })
-    {
+    if !["codex", "codex.exe", "codex.cmd", "codex.bat"].contains(&name.as_str()) {
+        return;
+    }
+    if !args.is_some_and(|args| {
+        args.iter()
+            .take_while(|arg| arg.as_str() != "--")
+            .any(|arg| arg == "--no-alt-screen")
+    }) {
         cmd.arg("--no-alt-screen");
+    }
+    // Astra's idle composer sparkle prevents output-silence completion detection.
+    // Scope this to the child; keep actual work spinners and the user's config.
+    if !args.is_some_and(|args| {
+        args.windows(2)
+            .take_while(|pair| pair[0] != "--")
+            .any(|pair| {
+                matches!(pair[0].as_str(), "-c" | "--config") && pair[1] == "tui.whimsy=false"
+            })
+    }) {
+        cmd.args(["-c", "tui.whimsy=false"]);
     }
 }
 
@@ -59,14 +71,33 @@ mod tests {
                 .iter()
                 .map(|arg| arg.to_string_lossy())
                 .collect();
-            assert_eq!(actual, vec![program, "--no-alt-screen", "resume", "--last"]);
+            assert_eq!(
+                actual,
+                vec![
+                    program,
+                    "--no-alt-screen",
+                    "-c",
+                    "tui.whimsy=false",
+                    "resume",
+                    "--last"
+                ]
+            );
         }
     }
 
     #[test]
     fn existing_flag_is_not_duplicated_and_other_programs_keep_their_arguments() {
         for (program, args) in [
-            ("codex", vec!["--no-alt-screen", "resume", "--last"]),
+            (
+                "codex",
+                vec![
+                    "--no-alt-screen",
+                    "-c",
+                    "tui.whimsy=false",
+                    "resume",
+                    "--last",
+                ],
+            ),
             ("claude", vec!["--continue"]),
             ("vim", vec!["file.txt"]),
             ("my-codex", vec!["--help"]),
@@ -77,5 +108,33 @@ mod tests {
             cmd.args(&args);
             assert_eq!(cmd.get_argv().len(), 1 + args.len());
         }
+    }
+
+    #[test]
+    fn prompt_text_does_not_disable_the_whimsy_override() {
+        for args in [vec!["tui.whimsy=false"], vec!["--", "tui.whimsy=false"]] {
+            let args: Vec<String> = args.into_iter().map(String::from).collect();
+            let mut cmd = CommandBuilder::new("codex");
+            configure(&mut cmd, "codex", Some(&args));
+            cmd.args(&args);
+            assert_eq!(cmd.get_argv()[2], "-c");
+            assert_eq!(cmd.get_argv()[3], "tui.whimsy=false");
+            assert_eq!(cmd.get_argv().len(), 4 + args.len());
+        }
+    }
+
+    #[test]
+    fn explicit_config_options_keep_their_precedence() {
+        for flag in ["-c", "--config"] {
+            let args = vec![flag.to_owned(), "tui.whimsy=false".to_owned()];
+            let mut cmd = CommandBuilder::new("codex");
+            configure(&mut cmd, "codex", Some(&args));
+            assert_eq!(cmd.get_argv().len(), 2);
+        }
+        let args = vec!["-c".to_owned(), "tui.whimsy=true".to_owned()];
+        let mut cmd = CommandBuilder::new("codex");
+        configure(&mut cmd, "codex", Some(&args));
+        cmd.args(&args);
+        assert_eq!(cmd.get_argv().last().unwrap(), "tui.whimsy=true");
     }
 }

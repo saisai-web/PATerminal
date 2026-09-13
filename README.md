@@ -88,6 +88,12 @@ Resuming Claude Code across unrelated project directories requires v2.1.223 or l
 ([Claude Code session reference](https://code.claude.com/docs/en/sessions)); Codex uses
 an explicit working-directory override ([Codex CLI reference](https://developers.openai.com/codex/cli/reference/)).
 
+Codex 0.154.0 adds animated dots to the Astra input area even while idle, which can
+keep the session status on **Running**. PATerminal disables these decorative effects
+for Codex launches and resumes it manages. If you type `codex` yourself, use
+`codex -c tui.whimsy=false`, or add `whimsy = false` under `[tui]` in
+`~/.codex/config.toml` and restart Codex. Work spinners remain enabled.
+
 ![Resume-from-history picker listing saved Claude Code conversations](docs/assets/resume-history.png)
 
 ## 🌿 Git, without leaving the terminal
