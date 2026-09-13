@@ -115,13 +115,21 @@ export default async function ({ browser, check, BASE_URL }) {
     panes.get(id).term.scrollToLine(20);
   }, paneIds.a[1]);
   const historyLine = () => page.evaluate(async (id) => {
-    const { panes } = await import("/src/workspace/state.ts"); return panes.get(id).term.buffer.active.viewportY;
+    const { panes } = await import("/src/workspace/state.ts");
+    const term = panes.get(id).term;
+    return { viewportY: term.buffer.active.viewportY, rows: term.rows };
   }, paneIds.a[1]);
   const anchor = await historyLine();
   await layer("d").locator(".pane-body").click();
   await page.click("#exp-reopen");
   await page.waitForTimeout(300);
-  check("history survives focus changes and opening Files in another session", await historyLine() === anchor && await sizesMatch());
+  // The pane must neither snap to the bottom nor to the top. When the row count shrinks
+  // (the toolbar wraps once Files opens) and the restored cursor sits on the last row,
+  // xterm scrolls the buffer by the lost rows, so allow exactly that much drift.
+  const after = await historyLine();
+  const drift = Math.abs(after.viewportY - anchor.viewportY);
+  check("history survives focus changes and opening Files in another session",
+    drift <= Math.abs(anchor.rows - after.rows) && await sizesMatch());
   await page.click("#exp-close");
   await page.waitForTimeout(300);
 

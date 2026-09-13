@@ -490,8 +490,9 @@ const favRows = await page.locator(".exp-fav-row:not(.exp-session-row)").count()
 const favContext = await page.locator(".exp-fav-row:not(.exp-session-row) .exp-row-path").textContent();
 const favRowHeight = await page.locator(".exp-fav-row:not(.exp-session-row)").evaluate((row) =>
   row.getBoundingClientRect().height);
+// One line tall: the 28px delete control (--control-button-size - 4) plus 3px padding each side.
 check("star button adds favorite with parent path context",
-  favBtnOn === "★" && favRows === 1 && favContext === "/home" && favRowHeight <= 26,
+  favBtnOn === "★" && favRows === 1 && favContext === "/home" && favRowHeight <= 34,
   `btn="${favBtnOn}" rows=${favRows} context="${favContext}" height=${favRowHeight}`);
 await page.locator(".exp-session-row").click();
 await page.waitForTimeout(300);

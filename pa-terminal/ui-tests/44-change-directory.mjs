@@ -38,7 +38,7 @@ export default async function ({ browser, check, BASE_URL }) {
     await page.evaluate(() => window.__ptyPushAll("\r\ndirectory-switch-history\r\n"));
     await page.locator("#move-directory-submit").click();
     await page.waitForFunction(() => window.__ptySpawns.length === 2);
-    const expected = kind === "codex" ? `codex --no-alt-screen resume ${sessionId} --cd .\r` : `claude --resume ${sessionId}\r`;
+    const expected = kind === "codex" ? `codex --no-alt-screen -c tui.whimsy=false resume ${sessionId} --cd .\r` : `claude --resume ${sessionId}\r`;
     await page.waitForFunction((command) => window.__ptyWrites.some((entry) => entry.data === command), expected);
     const state = await page.evaluate(async () => {
       const { panes } = await import("/src/workspace/state.ts");
