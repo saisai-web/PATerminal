@@ -19,7 +19,7 @@ import { renderQuickPhrasesTexts } from "../quick-phrases/quick-phrases";
 import { getPairDefaultCmds, renderPairTexts, updatePairDefaultCmds } from "../pair/pair";
 import { flushSessionSave, scheduleSave } from "../../app/session";
 import { renderSidebar } from "../sidebar/sidebar";
-import { getActiveWs, panes, workspaces } from "../../workspace/state";
+import { getActiveWs, getHostOs, panes, workspaces } from "../../workspace/state";
 import { renderSessionTrashTexts } from "../sidebar/session-trash";
 import { getWorktreePrefs, updateWorktreePrefs, worktreeDirFor } from "../git/worktree";
 import type { WorktreeLocation } from "../git/worktree";
@@ -67,6 +67,16 @@ const settingsWorktreeInheritRadios = Array.from(
   document.querySelectorAll<HTMLInputElement>("#settings-worktree-inherit input[type=radio]"),
 );
 const settingsWorktreeDirLabelEl = document.querySelector<HTMLSpanElement>("#settings-worktree-dir-label")!;
+// Finder 連携（macOS 専用）。クイックアクションの設置ボタンと結果表示
+const settingsFinderNavEl = document.querySelector<HTMLButtonElement>(
+  '#settings-nav .settings-nav-item[data-section="finder"]',
+)!;
+const settingsFinderSectionEl = document.querySelector<HTMLElement>(
+  '#settings-content section[data-section="finder"]',
+)!;
+const settingsFinderInstallBtn = document.querySelector<HTMLButtonElement>("#settings-finder-install")!;
+const settingsFinderResultEl = document.querySelector<HTMLDivElement>("#settings-finder-result")!;
+let finderQuickActionInstalled = false;
 const settingsNavItems = Array.from(
   document.querySelectorAll<HTMLButtonElement>("#settings-nav .settings-nav-item"),
 );
@@ -413,6 +423,18 @@ export function renderSettingsPanel() {
   }
   settingsWorktreeAutoBranchEl.checked = wtPrefs.autoBranchName;
   for (const r of settingsWorktreeInheritRadios) r.checked = (r.value === "yes") === wtPrefs.inherit;
+  // Finder 連携は macOS だけ。他 OS では nav ごと出さない
+  const finderAvailable = getHostOs() === "macos";
+  settingsFinderNavEl.hidden = !finderAvailable;
+  if (!finderAvailable) settingsFinderSectionEl.hidden = true;
+  settingsFinderInstallBtn.textContent = t(
+    finderQuickActionInstalled ? "settings.finderReinstall" : "settings.finderInstall",
+  );
+}
+
+function showFinderResult(text: string, isError: boolean) {
+  settingsFinderResultEl.textContent = text;
+  settingsFinderResultEl.classList.toggle("is-error", isError);
 }
 
 /** 左ナビで選んだセクションだけを右側に表示する（diff オーバーレイと同じ流儀） */
@@ -430,7 +452,17 @@ export function setSettingsOpen(open: boolean) {
   settingsOverlay.hidden = !open;
   if (open) {
     showSettingsSection("theme"); // 開くたびに先頭セクションへ戻す
+    settingsFinderResultEl.textContent = ""; // 前回の設置結果は持ち越さない
     renderSettingsPanel();
+    if (getHostOs() === "macos") {
+      // 設置済みなら「再インストール」に。未実装の古いバイナリでも無害に続行
+      void invoke<boolean>("finder_quick_action_installed")
+        .then((installed) => {
+          finderQuickActionInstalled = installed === true;
+          if (!settingsOverlay.hidden) renderSettingsPanel();
+        })
+        .catch(() => {});
+    }
     if (appVersion === null) {
       // 現バージョン表示（ネットワーク不要）。未実装の古いバイナリでも無害に続行
       void invoke<string>("app_version")
@@ -454,6 +486,21 @@ for (const b of settingsNavItems) {
 document.querySelector<HTMLButtonElement>("#settings-license-manage")!.onclick = () => {
   setSettingsOpen(false);
   setLicenseManageOpen(true);
+};
+settingsFinderInstallBtn.onclick = () => {
+  settingsFinderInstallBtn.disabled = true;
+  void invoke<string>("install_finder_quick_action")
+    .then((path) => {
+      finderQuickActionInstalled = true;
+      showFinderResult(t("settings.finderInstalled", { path }), false);
+    })
+    .catch((e: unknown) => {
+      showFinderResult(t("settings.finderFailed", { error: String(e) }), true);
+    })
+    .finally(() => {
+      settingsFinderInstallBtn.disabled = false;
+      renderSettingsPanel();
+    });
 };
 document.querySelector<HTMLButtonElement>("#settings-eula-open")!.onclick = openCurrentEula;
 document.querySelector<HTMLButtonElement>("#settings-third-party-open")!.onclick = () => {

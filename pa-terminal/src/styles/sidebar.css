@@ -62,16 +62,20 @@
   padding: 4px 8px;
 }
 
-#ws-new {
+#ws-new, #ws-new-finder {
   font: inherit;
   color: var(--text);
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
   width: 28px;
+  flex: none;
   cursor: pointer;
 }
-#ws-new:hover { border-color: var(--dim); }
+#ws-new:hover, #ws-new-finder:hover { border-color: var(--dim); }
+/* + の隣の「Finderから開く」。アイコンのみ */
+#ws-new-finder { display: grid; place-items: center; padding: 0; }
+#ws-new-finder svg { width: 15px; height: 15px; }
 
 #sidebar-collapse {
   font: inherit;
@@ -295,7 +299,8 @@
   min-width: 0;
 }
 .ws-group-count { margin-left: auto; flex: none; }
-.ws-group-create {
+.ws-group-create,
+.ws-group-finder {
   flex: none;
   width: 22px;
   height: 22px;
@@ -311,11 +316,14 @@
   cursor: pointer;
 }
 .ws-group-create:hover,
-.ws-group-create:focus-visible {
+.ws-group-create:focus-visible,
+.ws-group-finder:hover,
+.ws-group-finder:focus-visible {
   color: var(--text);
   border-color: var(--accent);
   outline: none;
 }
+.ws-group-finder svg { width: 13px; height: 13px; }
 .ws-group-members { margin-left: 14px; }
 
 /* --- インライン編集（セッション名 / ペイン名 / グループ名） --- */

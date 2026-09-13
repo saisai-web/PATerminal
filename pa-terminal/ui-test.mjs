@@ -47,6 +47,7 @@ import sessionArchive from "./ui-tests/41-session-archive.mjs";
 import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
+import finderOpen from "./ui-tests/44-finder-open.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -103,6 +104,7 @@ const independentSuites = [
   ["recent-sort", recentSort],
   ["session-archive", sessionArchive],
   ["scroll-anchor", scrollAnchor],
+  ["finder-open", finderOpen],
 ];
 
 // Push / PR では、基盤・保存形式・Git 監視・通知・主要エージェント機能を

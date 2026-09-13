@@ -4,9 +4,10 @@
 //! `#[tauri::command]` は**定義したモジュールのパス**で登録する。コマンド登録は
 //! 関数だけでなく同名の補助マクロも辿るため、`mod.rs` での再エクスポートは使えない。
 //!
-//! Rust → フロントのイベントは `pty` モジュールが出す3種類だけ:
+//! Rust → フロントのイベントは `pty` モジュールが出す3種類:
 //! `pty:exit`（プロセス終了）/ `pty:act`（busy/idle 遷移 + 静止時の入力待ち判定）/
-//! `pty:bell`（本物の BEL）。
+//! `pty:bell`（本物の BEL）と、`system::finder` が出す `app:open-dirs`
+//! （Finder から渡されたフォルダがある。中身は `take_pending_open_dirs` で取り出す）。
 
 mod agents;
 mod env;
@@ -34,6 +35,7 @@ pub fn run() {
         .manage(pty::Panes::default())
         .manage(license::LicenseState::default())
         .manage(system::update::PendingUpdate::default())
+        .manage(system::finder::PendingOpenDirs::default())
         .invoke_handler(tauri::generate_handler![
             // ターミナル
             crate::pty::pty_spawn,
@@ -115,8 +117,21 @@ pub fn run() {
             crate::system::os::open_url,
             crate::system::os::open_terminal_url,
             crate::system::os::reveal_path,
-            crate::system::os::open_path
+            crate::system::os::open_path,
+            crate::system::finder::take_pending_open_dirs,
+            crate::system::finder::finder_quick_action_installed,
+            crate::system::finder::install_finder_quick_action
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to start app");
+        .build(tauri::generate_context!())
+        .expect("failed to start app")
+        .run(|app, event| {
+            // Finder の「このアプリケーションで開く」/ Dock へのドロップ / クイックアクション。
+            // 起動前に渡された分もここに届くので、溜めてフロントに取り出させる
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &event {
+                system::finder::handle_opened(app, urls);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }

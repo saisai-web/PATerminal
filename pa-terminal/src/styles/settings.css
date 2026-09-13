@@ -221,6 +221,7 @@
 }
 
 #settings-update-row { display: flex; align-items: center; gap: 8px; }
+#settings-finder-row { display: flex; align-items: center; gap: 8px; }
 .settings-checkbox-row,
 #settings-notif-row {
   display: flex; align-items: center; gap: 8px;
@@ -276,6 +277,9 @@
 }
 #settings-update-progress { margin-top: 8px; color: var(--text); }
 #settings-update-result:empty { display: none; }
+#settings-finder-result { margin-top: 8px; color: var(--dim); white-space: pre-line; }
+#settings-finder-result.is-error { color: var(--alarm); }
+#settings-finder-result:empty { display: none; }
 
 .settings-hint { margin: 0 0 8px; color: var(--dim); font-size: 11px; line-height: 1.5; }
 .settings-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }

@@ -950,6 +950,22 @@ if (!w.__TAURI_INTERNALS__) {
           (w.__openedPaths as unknown[]).push(args.path);
           return null;
         }
+        case "take_pending_open_dirs": {
+          // Finder から渡されたフォルダ。テストは window.__mockPendingOpenDirs に積み、
+          // 起動前の分は addInitScript で、起動後の分は window.__emit("app:open-dirs") で流す
+          const dirs = Array.isArray(w.__mockPendingOpenDirs) ? (w.__mockPendingOpenDirs as string[]) : [];
+          w.__mockPendingOpenDirs = [];
+          return dirs;
+        }
+        case "finder_quick_action_installed":
+          return w.__mockQuickActionInstalled === true;
+        case "install_finder_quick_action": {
+          if (!Array.isArray(w.__quickActionInstalls)) w.__quickActionInstalls = [];
+          (w.__quickActionInstalls as unknown[]).push(Date.now());
+          if (w.__mockQuickActionInstallError) throw new Error(String(w.__mockQuickActionInstallError));
+          w.__mockQuickActionInstalled = true;
+          return "/home/user/Library/Services/PATerminalで開く.workflow";
+        }
         default:
           return null;
       }

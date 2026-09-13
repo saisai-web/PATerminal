@@ -8,6 +8,12 @@ export const en = {
   // サイドバー
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
+  "settings.finderSection": "Finder integration",
+  "settings.finderDesc": "Lets you right-click a folder in Finder → Quick Actions → “Open in PATerminal” to open a new session in that folder. “Open With” and dropping a folder on the Dock icon are supported as well.",
+  "settings.finderInstall": "Install Quick Action",
+  "settings.finderReinstall": "Reinstall Quick Action",
+  "settings.finderInstalled": "Installed: {path}\nRight-click a folder in Finder → Quick Actions → “Open in PATerminal”. If it does not appear, enable it under System Settings → General → Login Items & Extensions → Extensions → Finder.",
+  "settings.finderFailed": "Installation failed: {error}",
   "sidebar.searchPlaceholder": "Search sessions...",
   "sidebar.newSession": "New session (Cmd/Ctrl+T)",
   "sidebar.collapse": "Collapse the session list (Cmd/Ctrl+B)",
@@ -23,9 +29,9 @@ export const en = {
   // 新規セッションの場所フライアウト（ホバーで出る作成先の選択）
   "loc.pickTitle": "Choose a location for the new session",
   "loc.home": "Home",
-  "loc.browseMac": "Choose in Finder…",
-  "loc.browseWin": "Choose in Explorer…",
-  "loc.browseOther": "Choose a folder…",
+  "loc.browseMac": "Open from Finder…",
+  "loc.browseWin": "Open from Explorer…",
+  "loc.browseOther": "Open a folder…",
   "loc.recent": "Recent locations",
   "loc.favorites": "Favorites",
 

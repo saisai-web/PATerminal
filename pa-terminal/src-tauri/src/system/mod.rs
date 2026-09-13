@@ -3,7 +3,9 @@
 //! - `session` … session.json の保存 / 読み込みと診断ログ
 //! - `update`  … GitHub Releases でのアップデート確認
 //! - `os`      … 既定ブラウザ / 既定アプリ / ファイルマネージャーへ渡す
+//! - `finder`  … Finder から渡されたフォルダの受け取りとクイックアクションの設置（macOS）
 
+pub(crate) mod finder;
 pub(crate) mod os;
 pub(crate) mod session;
 pub(crate) mod update;

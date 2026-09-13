@@ -69,7 +69,12 @@ import {
   isRecentSortActive,
   sortByRecentOp,
 } from "./session-sort";
-import { attachLocationFlyout } from "./new-session-location";
+import {
+  FOLDER_OPEN_ICON_SVG,
+  attachLocationFlyout,
+  osFolderPickLabel,
+  pickFolderFromOs,
+} from "./new-session-location";
 
 const sidebarEl = document.querySelector<HTMLDivElement>("#sidebar")!;
 const sidebarCollapseBtn = document.querySelector<HTMLButtonElement>("#sidebar-collapse")!;
@@ -78,6 +83,7 @@ const sidebarResizeEl = document.querySelector<HTMLDivElement>("#sidebar-resize"
 const wsList = document.querySelector<HTMLDivElement>("#ws-list")!;
 const wsSearch = document.querySelector<HTMLInputElement>("#ws-search")!;
 const wsNewBtn = document.querySelector<HTMLButtonElement>("#ws-new")!;
+const wsNewFinderBtn = document.querySelector<HTMLButtonElement>("#ws-new-finder")!;
 const wsNewForm = document.querySelector<HTMLDivElement>("#ws-new-form")!;
 const wsNewName = document.querySelector<HTMLInputElement>("#ws-new-name")!;
 const wsNewGroup = document.querySelector<HTMLInputElement>("#ws-new-group")!;
@@ -365,6 +371,24 @@ function buildCreateButton(open: (x: number, y: number) => void): HTMLButtonElem
   return create;
 }
 
+/** 「Finderから開く」アイコンボタン。クリックで OS のフォルダ選択を開き、
+    選んだフォルダを onPick に渡す（見出しの開閉・ドラッグには乗せない） */
+function buildOpenFromOsButton(onPick: (cwd: string) => void): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "ws-group-finder";
+  btn.innerHTML = FOLDER_OPEN_ICON_SVG;
+  btn.title = osFolderPickLabel();
+  btn.setAttribute("aria-label", btn.title);
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    void pickFolderFromOs().then((cwd) => {
+      if (cwd) onPick(cwd);
+    });
+  };
+  return btn;
+}
+
 function buildGroupHeader(
   group: WorkspaceGroup,
   count: number,
@@ -385,7 +409,10 @@ function buildGroupHeader(
   cnt.textContent = String(count);
   // グループ行の開閉・ドラッグとは別の、明示的な作成先ボタンとして扱う。
   const create = buildCreateButton((x, y) => openGroupHeadMenu(group, x, y));
-  head.append(arrow, name, cnt, create);
+  const finder = buildOpenFromOsButton((cwd) => {
+    void quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd });
+  });
+  head.append(arrow, name, cnt, finder, create);
   // 開閉は DOM の表示切替だけで行い再描画しない（再描画するとダブルクリックの
   // リネームが2回目のクリックで別要素になり成立しなくなる）
   head.onclick = () => {
@@ -409,7 +436,7 @@ function buildGroupHeader(
   };
   head.addEventListener("dragstart", (e) => {
     // インライン編集の文字選択を優先する（見出し名のダブルクリック編集と両立させる）。
-    if ((e.target as HTMLElement).closest?.(".inline-edit, .ws-group-create")) {
+    if ((e.target as HTMLElement).closest?.(".inline-edit, .ws-group-create, .ws-group-finder")) {
       e.preventDefault();
       return;
     }
@@ -518,8 +545,11 @@ function buildWholeGroup(q: string): HTMLElement {
   count.className = "ws-group-count";
   count.textContent = String(workspaces.filter(isWorkspaceInSessionFilterScope).length);
   const create = buildCreateButton((x, y) => openListCtxMenu(x, y, 0));
-  // 右側コントロール群（件数・+）の一番左に「最近操作した順」トグルを置く
-  head.append(name, buildRecentSortButton(), count, create);
+  const finder = buildOpenFromOsButton((cwd) => {
+    void quickCreateWorkspace({ after: null, at: 0, cwd });
+  });
+  // 右側コントロール群（件数・Finder・+）の一番左に「最近操作した順」トグルを置く
+  head.append(name, buildRecentSortButton(), count, finder, create);
 
   const members = document.createElement("div");
   members.className = "ws-whole-members";
@@ -644,6 +674,9 @@ export function renderSidebar() {
   wsList.scrollTop = scrollTop;
   renderSessionStatusFilterTexts();
   renderSelectionBar(); // 件数表示と言語切替への追従（項目自体は buildWsItem が反映済み）
+  // OS で文言が変わるので data-i18n-title ではなくここで言語切替に追従させる
+  wsNewFinderBtn.title = osFolderPickLabel();
+  wsNewFinderBtn.setAttribute("aria-label", wsNewFinderBtn.title);
 }
 
 let pendingFilteredRender = false;
@@ -913,6 +946,12 @@ attachLocationFlyout(wsNewBtn, (cwd) => createFromTopPlus(cwd), {
   openOnHover: false,
   defaultAction: () => createFromTopPlus(),
 });
+// + の隣の「Finderから開く」はフライアウトを介さず、直接 OS のフォルダ選択を開く
+wsNewFinderBtn.onclick = () => {
+  void pickFolderFromOs().then((cwd) => {
+    if (cwd) createFromTopPlus(cwd);
+  });
+};
 wsNewName.onkeydown = (e) => {
   if (e.key === "Escape") wsNewForm.hidden = true;
 };

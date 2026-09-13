@@ -48,7 +48,7 @@ check("clicking + alone does not create a session", (await spawnCount()) === bef
 check("+ flyout includes the old default action and every location entry",
   (await flyoutRow("表示中ペインと同じ場所").count()) === 1 &&
   (await flyoutRow("ホーム").count()) === 1 &&
-  (await flyoutRow("Finderから選択…").count()) === 1 &&
+  (await flyoutRow("Finderから開く…").count()) === 1 &&
   (await flyoutRow("recent1").count()) === 1 &&
   (await flyoutRow("recent2").count()) === 1 &&
   (await flyoutRow("fav1").count()) === 1);
@@ -77,7 +77,7 @@ await page.evaluate(() => { window.__mockPickedDirectory = "/picked/dir"; });
 const beforeBrowse = await spawnCount();
 await page.click("#ws-new");
 await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("Finderから選択…").click();
+await flyoutRow("Finderから開く…").click();
 await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeBrowse, { timeout: 3000 });
 check("browse creates a session at the picked directory",
   (await lastSpawn()).cwd === "/picked/dir", JSON.stringify(await lastSpawn()));
@@ -91,6 +91,95 @@ check("picked directory is recorded as the newest recent location",
 await page.keyboard.press("Escape");
 await page.waitForTimeout(100);
 check("Escape closes the flyout", (await flyout.count()) === 0);
+
+// --- 検索欄横の「Finderから開く」ボタンは、フライアウトを介さず OS のフォルダ選択を開く ---
+await page.evaluate(() => { window.__mockPickedDirectory = "/picked/top"; window.__dialogOpenCalls = []; });
+const beforeTopFinder = await spawnCount();
+check("top Finder button carries the unified label",
+  (await page.getAttribute("#ws-new-finder", "title")) === "Finderから開く…");
+await page.click("#ws-new-finder");
+await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeTopFinder, { timeout: 3000 });
+check("top Finder button opens the OS folder dialog",
+  (await page.evaluate(() => window.__dialogOpenCalls.length)) === 1 &&
+  (await page.evaluate(() => window.__dialogOpenCalls[0]?.directory)) === true);
+check("top Finder button creates at the picked directory",
+  (await lastSpawn()).cwd === "/picked/top", JSON.stringify(await lastSpawn()));
+check("top Finder button does not open the location flyout", (await flyout.count()) === 0);
+
+// --- キャンセル（null）では何も作らない ---
+await page.evaluate(() => { window.__mockPickedDirectory = null; });
+const beforeCancel = await spawnCount();
+await page.click("#ws-new-finder");
+await page.waitForTimeout(300);
+check("cancelling the OS dialog creates nothing", (await spawnCount()) === beforeCancel);
+
+// --- グループ見出し / Whole 枠のアイコンボタンと、メニューの直接項目 ---
+// （最近使った場所は 8 件までなので、後続の recent1 / recent2 を押し出さないよう新規パスは 2 つに抑える）
+await page.evaluate(() => { window.__mockPickedDirectory = "/picked/grp"; });
+const groupHead = page.locator('.ws-group[data-group-id="g"]');
+check("group header shows the Finder icon button next to +",
+  (await groupHead.locator(".ws-group-finder").count()) === 1 &&
+  (await groupHead.locator(".ws-group-finder").getAttribute("aria-label")) === "Finderから開く…" &&
+  (await groupHead.locator(".ws-group-finder svg").count()) === 1);
+const beforeGroupBtn = await spawnCount();
+await groupHead.locator(".ws-group-finder").click();
+await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeGroupBtn, { timeout: 3000 });
+check("group header Finder button creates at the picked directory",
+  (await lastSpawn()).cwd === "/picked/grp", JSON.stringify(await lastSpawn()));
+check("group header Finder button creates inside that group",
+  (await page.locator('.ws-group-members .ws-item', { hasText: "grp" }).count()) === 1);
+check("group stays expanded after clicking the Finder button",
+  !(await page.locator('.ws-group[data-group-id="g"] + .ws-group-members').isHidden()));
+
+await page.evaluate(() => { window.__mockPickedDirectory = "/picked/dir"; });
+const wholeFinder = page.locator(".ws-whole-head .ws-group-finder");
+check("Whole header shows the Finder icon button", (await wholeFinder.count()) === 1);
+const beforeWhole = await spawnCount();
+await wholeFinder.click();
+await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeWhole, { timeout: 3000 });
+check("Whole Finder button creates at the picked directory",
+  (await lastSpawn()).cwd === "/picked/dir", JSON.stringify(await lastSpawn()));
+// クイック作成なので名前は自動採番のまま（フライアウトの各行と同じ）。先頭に置かれて表示中になる
+const wholeFirst = page.locator(".ws-whole-members > .ws-item").first();
+check("Whole Finder button creates at the top of the list and shows it",
+  (await wholeFirst.evaluate((el) => el.classList.contains("is-active"))) &&
+  /^Session \d+$/.test((await wholeFirst.locator(".ws-name").textContent()) ?? ""),
+  await wholeFirst.evaluate((el) => `${el.className} / ${el.querySelector(".ws-name")?.textContent}`));
+
+await page.evaluate(() => { window.__mockPickedDirectory = "/picked/grp"; });
+await groupHead.click({ button: "right" });
+await page.waitForSelector("#ctx-menu", { timeout: 3000 });
+const finderItem = page.locator("#ctx-menu > button", { hasText: "Finderから開く…" });
+check("group header menu has a direct Finder item (no submenu arrow)",
+  (await finderItem.count()) === 1 &&
+  !(await finderItem.evaluate((el) => el.classList.contains("ctx-has-sub"))));
+const beforeMenu = await spawnCount();
+await finderItem.click();
+await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeMenu, { timeout: 3000 });
+check("group menu Finder item creates at the picked directory in that group",
+  (await lastSpawn()).cwd === "/picked/grp" &&
+  (await page.locator('.ws-group-members .ws-item', { hasText: "grp" }).count()) === 2,
+  JSON.stringify(await lastSpawn()));
+check("group menu closed after the Finder item", (await page.locator("#ctx-menu").count()) === 0);
+
+await page.evaluate(() => { window.__mockPickedDirectory = "/picked/top"; });
+// 一覧が伸びて余白が無くなっても成立するよう、余白相当の contextmenu を一覧要素に直接送る
+// （Playwright の dispatchEvent は contextmenu を MouseEvent にしないので座標付きで自前生成）
+await page.evaluate(() => {
+  const list = document.querySelector("#ws-list");
+  const r = list.getBoundingClientRect();
+  list.dispatchEvent(new MouseEvent("contextmenu", {
+    bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 40,
+  }));
+});
+await page.waitForSelector("#ctx-menu", { timeout: 3000 });
+const blankFinderItem = page.locator("#ctx-menu > button", { hasText: "Finderから開く…" });
+check("sidebar blank-area menu has a direct Finder item", (await blankFinderItem.count()) === 1);
+const beforeBlank = await spawnCount();
+await blankFinderItem.click();
+await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeBlank, { timeout: 3000 });
+check("blank-area Finder item creates at the picked directory",
+  (await lastSpawn()).cwd === "/picked/top", JSON.stringify(await lastSpawn()));
 
 // --- グループ見出しメニューの「セッションを作成 ▸」から場所を選ぶ ---
 const beforeGroup = await spawnCount();

@@ -7,6 +7,8 @@
 //   （グループ見出し / Whole 枠の + と右クリック、サイドバー余白の右クリック）
 // - 選んだ場所は各入口の既存の配置規則（グループ・挿入位置）のまま cwd だけ差し替える
 // - フォルダ選択は履歴引き継ぎの「参照…」と同じ plugin-dialog の OS ダイアログ
+// - 「Finderから開く…」はフライアウトの行だけでなく、検索欄横 / グループ見出し / Whole の
+//   専用ボタンと各メニューの直接項目からも同じダイアログを開く（pickFolderFromOs）
 // ============================================================
 
 import { homeDir } from "@tauri-apps/api/path";
@@ -58,10 +60,23 @@ function scheduleClose() {
 }
 
 /** OS のフォルダ選択ダイアログの文言（ユーザーの呼び名に合わせて Finder / エクスプローラー） */
-function browseLabel(): string {
+export function osFolderPickLabel(): string {
   if (getHostOs() === "macos") return t("loc.browseMac");
   if (getHostOs() === "windows") return t("loc.browseWin");
   return t("loc.browseOther");
+}
+
+/** 「Finderから開く」ボタンのアイコン（開いたフォルダ。既存のアーカイブボタンと同じ線画スタイル） */
+export const FOLDER_OPEN_ICON_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>';
+
+/** OS のフォルダ選択ダイアログを開き、選んだフォルダを正規化して返す（キャンセルは null）。
+    ダイアログ表示でウィンドウが blur してメニューやフライアウトが閉じても、
+    Promise はそのまま解決するので呼び出し側の作成処理は続行できる */
+export function pickFolderFromOs(): Promise<string | null> {
+  return openFolderDialog({ directory: true }).then((picked) =>
+    typeof picked === "string" && picked ? normPath(picked) : null,
+  );
 }
 
 function buildRow(name: string, fullPath: string | null, onSelect: () => void): HTMLButtonElement {
@@ -120,11 +135,9 @@ function buildFlyout(onPick: LocationPick, opts: FlyoutOpts): HTMLDivElement {
         (e) => console.error("homeDir failed:", e),
       );
     }),
-    buildRow(browseLabel(), null, () => {
-      // ダイアログ表示でウィンドウが blur してメニューごと閉じても、
-      // 選択結果の Promise はそのまま解決するので作成は続行できる
-      void openFolderDialog({ directory: true }).then((picked) => {
-        if (typeof picked === "string" && picked) pick(picked);
+    buildRow(osFolderPickLabel(), null, () => {
+      void pickFolderFromOs().then((picked) => {
+        if (picked) pick(picked);
       });
     }),
   );
