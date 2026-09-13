@@ -16,7 +16,8 @@ import {
 import { t } from "../../i18n";
 import { requireFeature } from "../license/license";
 import { startInlineEdit } from "../../shared/inline-edit";
-import { getRafId, layout, place, setRafId } from "../../terminal/layout";
+import { getRafId, layout, placeVisibleWorkspaces, setRafId } from "../../terminal/layout";
+import { workspaceViewColor } from "../../workspace/view";
 import { scheduleSave } from "../../app/session";
 import { openGroupHeadMenu, openGroupMenu, openListCtxMenu } from "./sidebar-menu";
 import {
@@ -164,16 +165,22 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
   item.className =
     "ws-item" +
     (active ? " is-active" : "") +
+    (!w.layer.hidden ? " is-displayed" : "") +
     (selected ? " is-selected" : "") +
     (isBroadcastTarget(w.id) ? " is-bc-target" : "") +
     (w.pinned ? " is-pinned" : "");
   item.dataset.wsId = w.id; // 複製直後のリネーム等、再描画後に項目を探すためのフック
+  const viewColor = workspaceViewColor(w.id);
+  if (viewColor) {
+    item.style.setProperty("--session-color", viewColor);
+    item.classList.add("has-session-color");
+  }
   if (w.backgroundColor) item.dataset.wsColor = w.backgroundColor;
   item.setAttribute("role", "option");
   item.setAttribute("aria-selected", String(selected));
-  // 最近操作した順の表示中は並びが合成順なので、保存順を壊す DnD 並べ替えを止める。
-  // ドラッグ自体が始まらなければ既存の dragover / drop ハンドラは何もしない
-  item.draggable = !isRecentSortActive();
+  // 最近順でもターミナルへのドラッグ追加は使える。一覧内の並べ替えだけを
+  // 各 drop ハンドラで止め、保存済みの順序・グループを維持する。
+  item.draggable = true;
   item.addEventListener("dragstart", (e) => {
     // インライン編集中はテキスト選択を優先し、項目ドラッグにしない
     if ((e.target as HTMLElement).closest?.(".inline-edit")) {
@@ -198,7 +205,7 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     flushPendingFilteredRender();
   });
   item.addEventListener("dragover", (e) => {
-    if (!draggingWs.length || draggingWs.includes(w)) return;
+    if (isRecentSortActive() || !draggingWs.length || draggingWs.includes(w)) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
@@ -211,7 +218,7 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     item.classList.remove("drop-before", "drop-after");
   });
   item.addEventListener("drop", (e) => {
-    if (!draggingWs.length || draggingWs.includes(w)) return;
+    if (isRecentSortActive() || !draggingWs.length || draggingWs.includes(w)) return;
     e.preventDefault();
     e.stopPropagation();
     const r = item.getBoundingClientRect();
@@ -445,7 +452,7 @@ function buildGroupHeader(
       );
       return;
     }
-    if (!draggingWs.length) return;
+    if (isRecentSortActive() || !draggingWs.length) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
@@ -476,7 +483,7 @@ function buildGroupHeader(
       moveGroup(source, group, position);
       return;
     }
-    if (!draggingWs.length) return;
+    if (isRecentSortActive() || !draggingWs.length) return;
     e.preventDefault();
     e.stopPropagation();
     clearDropMarks();
@@ -731,6 +738,7 @@ wsList.addEventListener("click", (e) => {
 // リストの余白（項目の外）に落とす → 末尾へ移動して未分類にする
 wsList.addEventListener("dragover", (e) => {
   if ((!draggingWs.length && !draggingGroup) || e.target !== wsList) return;
+  if (draggingWs.length && isRecentSortActive()) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
   clearDropMarks();
@@ -741,6 +749,7 @@ wsList.addEventListener("dragleave", (e) => {
 });
 wsList.addEventListener("drop", (e) => {
   if ((!draggingWs.length && !draggingGroup) || e.target !== wsList) return;
+  if (draggingWs.length && isRecentSortActive()) return;
   e.preventDefault();
   clearDropMarks();
   if (draggingGroup) {
@@ -866,10 +875,7 @@ sidebarResizeEl.addEventListener("pointerdown", (down) => {
       setRafId(
         requestAnimationFrame(() => {
           setRafId(0);
-          const ws = getActiveWs();
-          if (!ws?.root) return;
-          const r = ws.layer.getBoundingClientRect();
-          place(ws, ws.root, { x: 0, y: 0, w: r.width, h: r.height });
+          placeVisibleWorkspaces();
         }),
       );
     }

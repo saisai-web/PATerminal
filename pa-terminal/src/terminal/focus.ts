@@ -8,7 +8,7 @@ import { updateGitWatch } from "../features/git/agent-panel";
 import { explorerFollow, focusedCwd, renderExplorerFavs } from "../features/explorer/explorer";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
-import { getActiveWs, setFocusedId, workspaces } from "../workspace/state";
+import { getActiveWs, panes, setFocusedId, workspaces } from "../workspace/state";
 import type { Workspace } from "../workspace/types";
 import { setActive } from "../workspace/workspace";
 
@@ -59,10 +59,16 @@ export function broadcastWrite(ws: Workspace, data: string, marksActivity = true
 }
 
 export function setFocused(id: string) {
+  const target = panes.get(id);
+  if (!target || target.ws.layer.hidden) return;
+  if (target.ws !== getActiveWs()) {
+    setActive(target.ws, id);
+    return;
+  }
   setFocusedId(id);
   const activeWs = getActiveWs();
   if (!activeWs) return;
-  for (const [pid, pane] of activeWs.panes) {
+  for (const [pid, pane] of panes) {
     pane.el.classList.toggle("is-focused", pid === id);
   }
   const focusedPane = activeWs.panes.get(id);

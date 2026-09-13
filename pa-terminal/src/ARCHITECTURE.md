@@ -22,6 +22,7 @@ src/
 │   ├── license/            trial/license status, soft-lock gate, lock marks, purchase modal, banners
 │   ├── pair/               pair mode: implementer/reviewer panes handing work to each other
 │   ├── quick-phrases/      reusable command phrases
+│   ├── session-view/       select existing sessions to display together; view controls
 │   ├── settings/           settings UI and themes
 │   ├── sidebar/            workspace navigation, selection, recently deleted sessions, menus, and Git badges
 │   └── update/             signed official updater bridge, progress, install, and restart flow
@@ -53,6 +54,17 @@ passing a callback from `main.ts` or `app/` over adding a new cycle.
 
 The CSS tree remains separate because `styles.css` defines a deliberate import order. Moving style
 files alongside features would change the cascade unless the aggregator order were preserved.
+
+`workspace/view.ts` owns the optional cross-session view tree (session IDs only). Each workspace
+retains its own pane tree and PTYs. `terminal/workspace-layout.ts` places session layers and their
+boundaries; `terminal/layout.ts` places and refits every displayed pane. The active workspace is the
+input/tooling target, while `Workspace.layer.hidden` controls output visibility and notifications.
+`workspace/workspace.ts` batches visibility changes after layout and resize delivery; stale switches
+must not release output into sessions that have since been hidden. The optional `SessionV5.view`
+field persists the arrangement without changing terminal snapshot capture. Navigation never changes
+its membership: selecting a member restores the split view, while other sessions (including newly
+created ones) display alone. `getWorkspaceView()` returns the saved arrangement for persistence and
+sidebar colors; `getActiveWorkspaceView()` returns it only when a member is active, for rendering.
 
 ## Verification
 

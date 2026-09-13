@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const th: Dict = {
+  "view.toolbar": "แบ่งเซสชัน",
+  "view.title": "แสดงหลายเซสชัน",
+  "view.description": "คงบานหน้าต่างของแต่ละเซสชันไว้ด้วยกัน การเปิดเซสชันอื่นจากแถบด้านข้างจะแทนที่พื้นที่ที่กำลังใช้งาน",
+  "view.grid": "ตาราง",
+  "view.row": "ซ้ายขวา",
+  "view.col": "บนล่าง",
+  "view.show": "แสดงร่วมกัน",
+  "view.solo": "แสดงเฉพาะเซสชันนี้",
+  "view.remove": "นำออกจากมุมมอง (เซสชันยังทำงานต่อ)",
+  "view.resize": "ปรับขนาดเซสชัน",
+  "view.choose": "เลือกอย่างน้อยสองเซสชัน",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "ค้นหาเซสชัน...",

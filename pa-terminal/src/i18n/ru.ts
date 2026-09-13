@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const ru: Dict = {
+  "view.toolbar": "Разделить сеансы",
+  "view.title": "Показать несколько сеансов",
+  "view.description": "Панели каждого сеанса остаются вместе. Открытие другого сеанса на боковой панели заменяет активную область.",
+  "view.grid": "Сетка",
+  "view.row": "Рядом",
+  "view.col": "Друг над другом",
+  "view.show": "Показать вместе",
+  "view.solo": "Показать только этот сеанс",
+  "view.remove": "Убрать из вида (сеанс продолжит работу)",
+  "view.resize": "Изменить размер сеансов",
+  "view.choose": "Выберите не менее двух сеансов.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Поиск сессий...",

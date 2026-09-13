@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const ko: Dict = {
+  "view.toolbar": "세션 분할",
+  "view.title": "여러 세션 표시",
+  "view.description": "각 세션의 창 배치를 유지합니다. 사이드바에서 다른 세션을 열면 현재 작업 중인 영역이 교체됩니다.",
+  "view.grid": "격자",
+  "view.row": "좌우",
+  "view.col": "상하",
+  "view.show": "함께 표시",
+  "view.solo": "이 세션만 표시",
+  "view.remove": "화면에서 제거 (세션은 계속 실행)",
+  "view.resize": "세션 표시 크기 조정",
+  "view.choose": "세션을 두 개 이상 선택하세요.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "세션 검색...",

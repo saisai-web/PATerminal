@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const hi: Dict = {
+  "view.toolbar": "सत्र विभाजन",
+  "view.title": "एक साथ कई सत्र दिखाएँ",
+  "view.description": "हर सत्र के पैन साथ रहते हैं। साइडबार से दूसरा सत्र खोलने पर सक्रिय क्षेत्र बदल जाता है।",
+  "view.grid": "ग्रिड",
+  "view.row": "अगल-बगल",
+  "view.col": "ऊपर-नीचे",
+  "view.show": "साथ दिखाएँ",
+  "view.solo": "केवल यह सत्र दिखाएँ",
+  "view.remove": "दृश्य से हटाएँ (सत्र चलता रहेगा)",
+  "view.resize": "सत्रों का आकार बदलें",
+  "view.choose": "कम से कम दो सत्र चुनें।",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "सत्र खोजें...",

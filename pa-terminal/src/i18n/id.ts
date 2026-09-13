@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const id: Dict = {
+  "view.toolbar": "Bagi sesi",
+  "view.title": "Tampilkan beberapa sesi",
+  "view.description": "Panel setiap sesi tetap bersama. Membuka sesi lain dari bilah samping mengganti area aktif.",
+  "view.grid": "Kisi",
+  "view.row": "Berdampingan",
+  "view.col": "Bertumpuk",
+  "view.show": "Tampilkan bersama",
+  "view.solo": "Tampilkan sesi ini saja",
+  "view.remove": "Hapus dari tampilan (sesi tetap berjalan)",
+  "view.resize": "Ubah ukuran sesi",
+  "view.choose": "Pilih minimal dua sesi.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Cari sesi...",

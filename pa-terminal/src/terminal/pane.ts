@@ -716,6 +716,8 @@ export class Pane {
     if (this.refitRaf) return;
     this.refitRaf = requestAnimationFrame(() => {
       this.refitRaf = 0;
+      // Drag completion calls layout/refit for every displayed session once.
+      if (document.body.classList.contains("dragging")) return;
       this.refit();
     });
   }

@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const tr: Dict = {
+  "view.toolbar": "Oturumları böl",
+  "view.title": "Birden çok oturum göster",
+  "view.description": "Her oturumun bölmeleri birlikte kalır. Kenar çubuğundan başka bir oturum açmak etkin alanı değiştirir.",
+  "view.grid": "Izgara",
+  "view.row": "Yan yana",
+  "view.col": "Alt alta",
+  "view.show": "Birlikte göster",
+  "view.solo": "Yalnızca bu oturumu göster",
+  "view.remove": "Görünümden kaldır (oturum çalışmaya devam eder)",
+  "view.resize": "Oturumları yeniden boyutlandır",
+  "view.choose": "En az iki oturum seçin.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Oturumlarda ara...",

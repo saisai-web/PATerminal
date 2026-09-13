@@ -58,6 +58,7 @@ import { getWorktreePrefs, setWorktreePrefs } from "../features/git/worktree";
 import { getPairDefaultCmds, setPairDefaultCmds } from "../features/pair/pair";
 import { createEmptyWorkspace, setActive } from "../workspace/workspace";
 import { normalizeWorkspaceNote } from "../workspace/note";
+import { getWorkspaceView, restoreWorkspaceView } from "../workspace/view";
 import {
   addDeletedWorkspace,
   getDeletedWorkspaces,
@@ -128,6 +129,7 @@ function serializeAll(): SessionV5 {
   return {
     version: 5,
     activeId: getActiveWs()?.id ?? "",
+    view: getWorkspaceView(),
     collapsedGroups: [...collapsedGroups],
     groups: groups.map((group) => ({ ...group })),
     explorer: { favorites: getExplorerFavorites() },
@@ -374,6 +376,7 @@ export async function boot() {
           savedTarget ??
           workspaces[0];
         if (target) {
+          restoreWorkspaceView(parsed.view);
           setActive(target);
           if (parsed.version === 4) scheduleSave(); // 次回から v5 で保存する
           return;

@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const it: Dict = {
+  "view.toolbar": "Dividi sessioni",
+  "view.title": "Mostra più sessioni",
+  "view.description": "Mantiene i pannelli di ogni sessione. Aprire un’altra sessione nella barra laterale sostituisce l’area attiva.",
+  "view.grid": "Griglia",
+  "view.row": "Affiancate",
+  "view.col": "Impilate",
+  "view.show": "Mostra insieme",
+  "view.solo": "Mostra solo questa sessione",
+  "view.remove": "Rimuovi dalla vista (la sessione continua)",
+  "view.resize": "Ridimensiona sessioni",
+  "view.choose": "Seleziona almeno due sessioni.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "Cerca sessioni...",

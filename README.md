@@ -35,6 +35,7 @@ Built for people who run more than one agent — everything you need to keep mul
 CLI agents working at once, without losing track of any of them.
 
 - 🧵 **Parallel sessions** — each session is an independent pane tree. Group, pin, color-code, and annotate sessions; restart the app and everything comes back, scrollback included.
+- 🧩 **Sessions on one screen** — use **Session split** to choose multiple sessions and arrange them side by side, stacked, or in a grid. Each session keeps its own panes, with matching colored borders in the sidebar and terminal area. Drag sessions from the sidebar onto a terminal’s left, right, top, or bottom edge to add them to the view. Drag the boundaries to resize; the arrangement is restored on restart. Clicking a displayed terminal focuses its session. Opening or creating a session outside the selection shows it alone; selecting any member brings back the saved split with its colors and proportions. Use a tile’s **Show this session only** or **Remove from view** button to change the view while the sessions keep running.
 - 🤝 **Pair mode** — implement × review, cross-review, brainstorm, or build together: two agents pass prompts to each other automatically.
 - 🔁 **Conversations survive restarts** — `claude` and `codex` are detected and reopened with `--resume`, and any past conversation can be handed to a fresh session.
 - 🌿 **Git built in** — changes always visible above the terminal: commit, push, pull, branch, stash — plus PRs, issues, worktrees, and a diff viewer.

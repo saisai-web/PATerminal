@@ -25,5 +25,6 @@
 @import "./styles/agents.css";
 @import "./styles/pair.css";
 @import "./styles/divider-broadcast.css";
+@import "./styles/session-view.css";
 @import "./styles/license.css";
 @import "./styles/rtl.css";   /* 必ず最後 */

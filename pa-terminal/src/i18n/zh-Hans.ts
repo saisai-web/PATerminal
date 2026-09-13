@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const zhHans: Dict = {
+  "view.toolbar": "会话分屏",
+  "view.title": "同时显示多个会话",
+  "view.description": "保留各会话内的窗格布局。从侧栏打开其他会话会替换当前操作的区域。",
+  "view.grid": "网格",
+  "view.row": "左右",
+  "view.col": "上下",
+  "view.show": "并排显示",
+  "view.solo": "仅显示此会话",
+  "view.remove": "从视图移除（会话继续运行）",
+  "view.resize": "调整会话显示大小",
+  "view.choose": "请选择至少两个会话。",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "sidebar.searchPlaceholder": "搜索会话...",
