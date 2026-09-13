@@ -66,7 +66,9 @@ await page.waitForTimeout(600);
 
   // ツールバーに入口ボタンがある
   check("pair toolbar button exists", await page.locator("#pair-open").isVisible());
-  check("pair toolbar button label", (await page.locator("#pair-open").textContent()).includes("ペア"));
+  check("pair toolbar button has an accessible label",
+    (await page.locator("#pair-open").getAttribute("aria-label")).includes("ペア") &&
+    (await page.locator("#pair-open").textContent()).trim() === "");
 
   // モーダルを開くと現在セッションの2ペインが選択肢に入っている
   await page.locator("#pair-open").click();
@@ -92,7 +94,7 @@ await page.waitForTimeout(600);
     await page.locator("#pair-chip-impl").evaluate((el) => el.classList.contains("is-turn")));
   check("toolbar button shows running state",
     await page.locator("#pair-open").evaluate((el) => el.classList.contains("is-on")) &&
-      (await page.locator("#pair-open").textContent()).includes("0/2"));
+      (await page.locator("#pair-open").getAttribute("title")).includes("0/2"));
 
   // 初回タスクが実装役へ入力され、Enter が別送されている
   const implInit = await writesTo(implId);
@@ -109,8 +111,9 @@ await page.waitForTimeout(600);
   await page.locator("#pair-round-inc").click();
   check("plus raises max rounds",
     (await page.locator("#pair-strip-round").textContent()) === "ラウンド 0/3");
-  check("toolbar label follows round change",
-    (await page.locator("#pair-open").textContent()).includes("0/3"));
+  check("toolbar tooltip follows round change",
+    (await page.locator("#pair-open").getAttribute("title")).includes("0/3") &&
+    (await page.locator("#pair-open").textContent()).trim() === "");
   await page.locator("#pair-round-dec").click();
   await page.locator("#pair-round-dec").click();
   check("minus lowers max rounds",

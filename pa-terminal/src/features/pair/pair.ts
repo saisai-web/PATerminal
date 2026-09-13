@@ -310,7 +310,6 @@ function releasePairSignals(st: PairState) {
 }
 
 const openBtn = document.querySelector<HTMLButtonElement>("#pair-open")!;
-const openLabelEl = document.querySelector<HTMLSpanElement>("#pair-open-label")!;
 const stripEl = document.querySelector<HTMLDivElement>("#pair-strip")!;
 const stripNameEl = document.querySelector<HTMLSpanElement>("#pair-strip-name")!;
 const aChipEl = document.querySelector<HTMLSpanElement>("#pair-chip-impl")!;
@@ -1184,11 +1183,11 @@ export function updatePairStrip() {
   const showSync = st && st.kind === "coop" && st.building;
   const counterN = st ? (showSync ? st.syncCount : st.round) : 0;
   const counterMax = st ? (showSync ? st.maxSync : st.maxRounds) : 0;
-  // SVG アイコンを保つため、ボタン全体ではなくラベル span だけ書き換える
-  openLabelEl.textContent = running
+  const label = running
     ? t("pair.buttonRunning", { n: String(counterN), max: String(counterMax) })
     : t("pair.toolbar");
-  openBtn.title = t("pair.toolbarTitle");
+  openBtn.setAttribute("aria-label", label);
+  openBtn.title = running ? `${label}: ${t("pair.toolbarTitle")}` : t("pair.toolbarTitle");
 
   if (st) {
     stripNameEl.textContent = t("pair.title");

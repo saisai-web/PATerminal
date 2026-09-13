@@ -8,7 +8,7 @@
 }
 /* display/align/gap は #toolbar button（toolbar.css）が担う */
 
-/* 稼働中のツールバーボタンはミニインジケータになる（ラウンド数を載せて点滅） */
+/* 稼働中のツールバーボタンはミニインジケータになる（点滅し、ラウンド数はツールチップに表示） */
 #pair-open.is-on {
   color: var(--chrome);
   background: var(--accent);

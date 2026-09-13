@@ -69,8 +69,7 @@ check("3-pane session is restored intact while locked", (await paneCount()) === 
   `panes=${await paneCount()}`);
 
 // --- 🔒 マーク ---
-for (const sel of ["#broadcast", "#pair-open", "#quick-phrases-open", "#takeover-open",
-  "#auto-enter-toggle"]) {
+for (const sel of ["#broadcast", "#pair-open", "#quick-phrases-open", "#takeover-open"]) {
   check(`${sel} shows the lock mark`,
     await page.locator(`${sel}.is-locked`).count() === 1);
 }

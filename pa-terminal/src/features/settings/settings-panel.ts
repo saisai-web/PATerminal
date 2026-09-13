@@ -19,13 +19,13 @@ import { renderQuickPhrasesTexts } from "../quick-phrases/quick-phrases";
 import { getPairDefaultCmds, renderPairTexts, updatePairDefaultCmds } from "../pair/pair";
 import { flushSessionSave, scheduleSave } from "../../app/session";
 import { renderSidebar } from "../sidebar/sidebar";
-import { getActiveWs, getHostOs, panes, workspaces } from "../../workspace/state";
+import { getActiveWs, getHostOs, panes } from "../../workspace/state";
 import { renderSessionTrashTexts } from "../sidebar/session-trash";
 import { getWorktreePrefs, updateWorktreePrefs, worktreeDirFor } from "../git/worktree";
 import type { WorktreeLocation } from "../git/worktree";
 import { renderBroadcastUi } from "../../workspace/workspace";
 import { renderBroadcastDialogTexts } from "../broadcast/broadcast-dialog";
-import { getLicense, isLocked, requireFeature } from "../license/license";
+import { getLicense } from "../license/license";
 import { renderLockMarks } from "../license/lock-marks";
 import { renderLicenseSection, setLicenseManageOpen } from "../license/license-settings";
 import { renderPurchaseModalTexts } from "../license/purchase-modal";
@@ -43,12 +43,6 @@ const settingsCloseBtn = document.querySelector<HTMLButtonElement>("#settings-cl
 const settingsThemesEl = document.querySelector<HTMLDivElement>("#settings-themes")!;
 const settingsLangsEl = document.querySelector<HTMLDivElement>("#settings-langs")!;
 const settingsNotifEl = document.querySelector<HTMLInputElement>("#settings-notif")!;
-const autoEnterBtn = document.querySelector<HTMLButtonElement>("#auto-enter-toggle")!;
-const autoEnterOverlay = document.querySelector<HTMLDivElement>("#auto-enter-overlay")!;
-const autoEnterPanel = document.querySelector<HTMLDivElement>("#auto-enter-panel")!;
-const autoEnterCloseBtn = document.querySelector<HTMLButtonElement>("#auto-enter-close")!;
-const autoEnterAllEl = document.querySelector<HTMLInputElement>("#auto-enter-all")!;
-const autoEnterListEl = document.querySelector<HTMLDivElement>("#auto-enter-list")!;
 const settingsVersionEl = document.querySelector<HTMLSpanElement>("#settings-version")!;
 const settingsCheckBtn = document.querySelector<HTMLButtonElement>("#settings-check-update")!;
 const settingsUpdateResultEl = document.querySelector<HTMLDivElement>("#settings-update-result")!;
@@ -88,7 +82,6 @@ type UpdateInfo = { current: string; latest: string | null; url: string | null }
 
 let currentTheme: ThemeId = DEFAULT_THEME;
 let notificationsEnabled = true; // settings.notifications（デフォルト ON）
-let autoEnterAllEnabled = false; // 全セッションの新規作成分も含む自動Enter
 
 /** 直近のアップデート確認結果。言語切替の再描画でも表示を維持する */
 let updateState:
@@ -123,68 +116,6 @@ export function setNotificationsEnabled(on: boolean): void {
   notificationsEnabled = on;
 }
 
-export function isAutoEnterEnabled(): boolean {
-  const ws = getActiveWs();
-  return !!ws && isAutoEnterEnabledForWorkspace(ws);
-}
-
-export function isAutoEnterEnabledForWorkspace(ws: { autoEnter: boolean }): boolean {
-  // ソフトロック対象: 判定の実体（pane.ts の実送信）ごと止める
-  if (isLocked()) return false;
-  return autoEnterAllEnabled || ws.autoEnter;
-}
-
-export function isAutoEnterAllEnabled(): boolean {
-  return autoEnterAllEnabled;
-}
-
-export function setAutoEnterAllEnabled(on: boolean): void {
-  autoEnterAllEnabled = on;
-  renderAutoEnterButton();
-}
-
-export function renderAutoEnterButton() {
-  autoEnterBtn.setAttribute("aria-pressed", String(isAutoEnterEnabled()));
-  autoEnterBtn.setAttribute("aria-label", t("autoEnter.label"));
-  autoEnterBtn.title = t("autoEnter.label");
-}
-
-function renderAutoEnterList() {
-  autoEnterListEl.textContent = "";
-  autoEnterAllEl.checked = autoEnterAllEnabled;
-  const activeWs = getActiveWs();
-  for (const ws of workspaces) {
-    const row = document.createElement("label");
-    row.className = "auto-enter-row" + (ws === activeWs ? " is-active" : "");
-    row.title = ws.name;
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = autoEnterAllEnabled || ws.autoEnter;
-    input.disabled = autoEnterAllEnabled;
-    input.setAttribute("aria-label", ws.name);
-    input.onchange = () => {
-      ws.autoEnter = input.checked;
-      renderAutoEnterButton();
-      scheduleSave();
-    };
-    const name = document.createElement("span");
-    name.textContent = ws.name;
-    row.append(input, name);
-    autoEnterListEl.append(row);
-  }
-}
-
-function setAutoEnterOpen(open: boolean) {
-  autoEnterOverlay.hidden = !open;
-  autoEnterBtn.setAttribute("aria-expanded", String(open));
-  if (open) {
-    renderAutoEnterList();
-    autoEnterCloseBtn.focus();
-  } else if (document.activeElement instanceof HTMLElement) {
-    autoEnterBtn.focus();
-  }
-}
-
 export function applyTheme(id: ThemeId) {
   currentTheme = id;
   applyThemeCss(id);
@@ -206,11 +137,9 @@ export function applyLanguage(l: Lang) {
   renderPairTexts();
   renderSessionTrashTexts();
   const activeWs = getActiveWs();
-  // ブロードキャストボタンとヒントの文言は状態依存なので個別に貼り直す
+  // ブロードキャストボタンの説明は状態依存なので個別に貼り直す
   if (activeWs) renderBroadcastUi(activeWs);
   renderBroadcastDialogTexts();
-  renderAutoEnterButton();
-  if (!autoEnterOverlay.hidden) renderAutoEnterList();
   renderSettingsPanel();
   // applyStaticTexts が textContent を置換するので 🔒 クラスと動的文言を貼り直す
   renderLockMarks();
@@ -507,41 +436,17 @@ document.querySelector<HTMLButtonElement>("#settings-third-party-open")!.onclick
   setSettingsOpen(false);
   void showThirdPartyNotices();
 };
-autoEnterBtn.onclick = () => {
-  if (requireFeature()) setAutoEnterOpen(true); // 自動 Enter はソフトロック対象
-};
-autoEnterCloseBtn.onclick = () => setAutoEnterOpen(false);
-autoEnterAllEl.onchange = () => {
-  autoEnterAllEnabled = autoEnterAllEl.checked;
-  renderAutoEnterList();
-  renderAutoEnterButton();
-  scheduleSave();
-};
-autoEnterOverlay.addEventListener("pointerdown", (e) => {
-  if (e.target === autoEnterOverlay) setAutoEnterOpen(false);
-});
 settingsOverlay.addEventListener("pointerdown", (e) => {
   if (e.target === settingsOverlay) setSettingsOpen(false); // バックドロップクリックで閉じる
 });
 // パネル内の打鍵をターミナルやアプリのショートカットに流さない（startInlineEdit と同じ流儀）
 settingsPanel.addEventListener("keydown", (e) => e.stopPropagation());
-autoEnterPanel.addEventListener("keydown", (e) => e.stopPropagation());
 window.addEventListener(
   "keydown",
   (e) => {
     if (!settingsOverlay.hidden && e.key === "Escape") {
       e.stopPropagation();
       setSettingsOpen(false);
-    }
-  },
-  true,
-);
-window.addEventListener(
-  "keydown",
-  (e) => {
-    if (!autoEnterOverlay.hidden && e.key === "Escape") {
-      e.stopPropagation();
-      setAutoEnterOpen(false);
     }
   },
   true,

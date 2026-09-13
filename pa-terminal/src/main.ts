@@ -10,7 +10,6 @@ import { initGitPanel } from "./features/git/git-panel";
 import { initWsGit } from "./features/sidebar/ws-git";
 import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
-import { initPathAttachments } from "./features/attachments/path-attachments";
 import { initDropPaths } from "./features/attachments/drop-paths";
 import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
 import { initWorktreeDialog } from "./features/git/worktree-dialog";
@@ -52,7 +51,6 @@ import { getDeletedWorkspaces } from "./features/sidebar/session-trash";
 import { initSessionTrash } from "./features/sidebar/session-trash";
 import { initHistoryDialog } from "./features/history/history-dialog";
 import { initPairMode, nextPairSessionName, notifyPairExit, updatePairStrip } from "./features/pair/pair";
-import { renderAutoEnterButton } from "./features/settings/settings-panel";
 import { initLicense, onLicenseChange, requireFeature } from "./features/license/license";
 import { renderLockMarks } from "./features/license/lock-marks";
 import { initPurchaseModal } from "./features/license/purchase-modal";
@@ -71,7 +69,6 @@ import { stopPairAutoRelay } from "./features/pair/pair";
 // ============================================================
 
 const broadcastBtn = document.querySelector<HTMLButtonElement>("#broadcast")!;
-const bcHintEl = document.querySelector<HTMLSpanElement>("#bc-hint")!;
 const splitRightBtn = document.querySelector<HTMLButtonElement>("#split-right")!;
 const splitDownBtn = document.querySelector<HTMLButtonElement>("#split-down")!;
 
@@ -120,7 +117,6 @@ initBroadcastDialog({
     if (ws && fid) ws.panes.get(fid)?.focus();
   },
 });
-initPathAttachments();
 initDropPaths();
 initDirectoryChange({ beforeReplace: notifyPairExit });
 initQuickPhrases({
@@ -243,7 +239,6 @@ initPairMode({
 });
 // セッション切替でペアストリップとツールバーの ⇄ ボタンを追従させる
 onActiveWorkspaceChange(() => updatePairStrip());
-onActiveWorkspaceChange(() => renderAutoEnterButton());
 // 分割ボタンの 🔒 はアクティブセッションのペイン数に依存する（2枚まで無料）
 onActiveWorkspaceChange(() => renderLockMarks());
 

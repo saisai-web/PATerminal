@@ -3,7 +3,7 @@
 // ネイティブ側（src-tauri/src/system/drop.rs）が、ファイルパスを持つドラッグだけを
 // 横取りして `filedrop:drag` / `filedrop:drop` を送ってくる。座標は WebView 左上原点の
 // CSS px なので、そのまま elementFromPoint で落とし先のペインを決める。
-// 入力の形（引用・空白区切り・末尾の空白）は path-attachments.ts の添付ボタンと同じ。
+// パスをシェル向けに引用し、空白区切り・末尾の空白付きで入力する。
 // ============================================================
 
 import { listen } from "@tauri-apps/api/event";

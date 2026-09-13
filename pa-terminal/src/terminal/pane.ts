@@ -22,7 +22,7 @@ import { broadcastWrite, setFocused } from "./focus";
 import { t } from "../i18n";
 import { startInlineEdit } from "../shared/inline-edit";
 import { scheduleSave } from "../app/session";
-import { getTheme, isAutoEnterEnabledForWorkspace } from "../features/settings/settings-panel";
+import { getTheme } from "../features/settings/settings-panel";
 import { renderSidebar } from "../features/sidebar/sidebar";
 import { resumeCommandFor } from "../features/agents/agents";
 import { getFocusedId, getHostOs, panes } from "../workspace/state";
@@ -435,8 +435,7 @@ export class Pane {
       if (marksActivity) this.activityEngaged = true;
       diag.data += data.length;
       diagPush(`d:${data.length <= 4 ? JSON.stringify(data) : data.length}`);
-      const isEnter = data === "\r" || data === "\n";
-      if (this.ws.broadcast || (isEnter && isAutoEnterEnabledForWorkspace(this.ws))) {
+      if (this.ws.broadcast) {
         broadcastWrite(this.ws, data, marksActivity);
       } else {
         this.write(data, marksActivity);

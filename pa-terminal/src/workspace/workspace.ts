@@ -34,8 +34,6 @@ import { displayedWorkspaces, removeWorkspaceFromView } from "./view";
 
 const grid = document.querySelector<HTMLDivElement>("#grid")!;
 const broadcastBtn = document.querySelector<HTMLButtonElement>("#broadcast")!;
-const broadcastLabelEl = document.querySelector<HTMLSpanElement>("#broadcast-label")!;
-const bcHintEl = document.querySelector<HTMLSpanElement>("#bc-hint")!;
 
 /** createWorkspace から初期ペイン生成と activate を除いた版（復元用） */
 export function createEmptyWorkspace(
@@ -43,7 +41,6 @@ export function createEmptyWorkspace(
   name: string,
   shellKind: ShellKind,
   broadcast: boolean,
-  autoEnter = false,
 ): Workspace {
   const layer = document.createElement("div");
   layer.className = "workspace-layer";
@@ -55,7 +52,6 @@ export function createEmptyWorkspace(
     name,
     shellKind,
     broadcast,
-    autoEnter,
     broadcastTargets: new Set(),
     root: null,
     layer,
@@ -71,9 +67,9 @@ export function createEmptyWorkspace(
 export function createWorkspace(
   name: string,
   shellKind: ShellKind,
-  opts?: { activate?: boolean; group?: string; cwd?: string; autoEnter?: boolean; pane?: PaneSpec },
+  opts?: { activate?: boolean; group?: string; cwd?: string; pane?: PaneSpec },
 ): Workspace {
-  const ws = createEmptyWorkspace(undefined, name, shellKind, false, opts?.autoEnter === true);
+  const ws = createEmptyWorkspace(undefined, name, shellKind, false);
   ws.group = opts?.group;
   appendSidebarEntry(ws, ws.group);
   ws.root = {
@@ -325,7 +321,6 @@ export async function duplicateWorkspace(src: Workspace, count = 1) {
     const ws = createWorkspace(copyWorkspaceName(src.name), src.shellKind, {
       group: src.group,
       cwd: cwd ?? undefined,
-      autoEnter: src.autoEnter,
       activate: false,
     });
     ws.note = src.note;
@@ -344,23 +339,22 @@ export async function duplicateWorkspace(src: Workspace, count = 1) {
   if (pane) setFocused(pane.id);
 }
 
-/** ツールバーのボタン・ヒント・ペイン枠・サイドバーの送信先マークを一斉入力の状態に
+/** ツールバーのボタン・ペイン枠・サイドバーの送信先マークを一斉入力の状態に
     合わせる。表示反映はここに一元化し、setActive と言語切替の両方から呼ぶ。
     送信先が空（従来どおりセッション内で閉じる）ときは文言も従来のままにする。 */
 export function renderBroadcastUi(ws: Workspace) {
   const n = ws.broadcast ? ws.broadcastTargets.size : 0;
   document.body.classList.toggle("broadcasting", ws.broadcast);
-  broadcastLabelEl.textContent = !ws.broadcast
+  const label = !ws.broadcast
     ? t("toolbar.broadcast")
     : n
       ? t("toolbar.broadcastOnN", { n: String(n + 1) })
       : t("toolbar.broadcastOn");
-  broadcastBtn.title = ws.broadcast ? t("toolbar.broadcastOffTitle") : t("toolbar.broadcastTitle");
+  broadcastBtn.setAttribute("aria-label", label);
+  broadcastBtn.title = ws.broadcast
+    ? `${label}: ${t("toolbar.broadcastOffTitle")}`
+    : t("toolbar.broadcastTitle");
   broadcastBtn.setAttribute("aria-pressed", String(ws.broadcast));
-  bcHintEl.hidden = !ws.broadcast;
-  bcHintEl.textContent = n
-    ? t("toolbar.broadcastHintN", { n: String(n + 1) })
-    : t("toolbar.broadcastHint");
   refreshBroadcastMarks();
   const targets = new Set(ws.broadcast ? [ws.id, ...ws.broadcastTargets] : []);
   for (const w of workspaces) w.layer.classList.toggle("is-broadcast-target", targets.has(w.id));

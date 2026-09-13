@@ -26,15 +26,8 @@ const headerOrder = await page.locator(".pane.is-focused .pane-bar #pane-actions
 check("pane-clear sits directly to the right of history",
   headerOrder.indexOf("pane-clear") === headerOrder.indexOf("session-trash-open") + 1,
   `order=${JSON.stringify(headerOrder)}`);
-check("auto-enter is visible in the toolbar, next to the takeover history button",
-  await page.locator("#toolbar #auto-enter-toggle").isVisible() &&
-    (await page.locator(".pane.is-focused .pane-bar #auto-enter-toggle").count()) === 0);
-const toolbarOrder = await page.locator("#toolbar > *").evaluateAll(
-  (els) => els.map((el) => el.id || el.className),
-);
-check("auto-enter sits directly to the right of the takeover history button",
-  toolbarOrder.indexOf("auto-enter-toggle") === toolbarOrder.indexOf("takeover-open") + 1,
-  `order=${JSON.stringify(toolbarOrder)}`);
+check("auto-enter controls are removed",
+  (await page.locator("#auto-enter-toggle, #auto-enter-overlay").count()) === 0);
 await page.evaluate(() => window.__ptyPushAll("clear-me\r\n"));
 await page.waitForTimeout(1200);
 const paneTextBeforeClear = await page.evaluate(() => {
@@ -62,8 +55,6 @@ check("trash button restarts the pane's shell (kills the old process, spawns a f
     !paneTextAfterClear?.includes("clear-me") &&
     killedBeforeRespawn);
 await page.click("#settings-open");
-check("auto-enter defaults to off",
-  (await page.locator("#auto-enter-toggle").getAttribute("aria-pressed")) === "false");
 await page.click('#settings-nav .settings-nav-item[data-section="pair"]');
 const implVal = await page.locator("#settings-pair-impl").inputValue();
 const reviewVal = await page.locator("#settings-pair-review").inputValue();
@@ -101,57 +92,22 @@ check("worktree defaults persisted",
     && saved.worktree?.inherit === false,
   `worktree=${JSON.stringify(saved.worktree)}`);
 
-// 自動Enter: ボタンから対象セッションを選び、選択したセッションの全ペインへEnterを送る
-await page.click("#auto-enter-toggle");
-check("auto-enter opens a session picker",
-  await page.locator("#auto-enter-panel").isVisible() &&
-    (await page.locator("#auto-enter-list .auto-enter-row").count()) === 1);
-check("active session is initially not selected for auto-enter",
-  !(await page.locator("#auto-enter-list input[type=checkbox]").isChecked()));
-await page.locator("#auto-enter-list input[type=checkbox]").check();
-await page.click("#auto-enter-close");
+// Enter はフォーカス中のペインだけに送る。
 await page.click("#split-right");
 await page.waitForTimeout(250);
 check("history and pane-clear follow the focused pane after splitting",
   await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible() &&
     await page.locator(".pane.is-focused .pane-bar #pane-clear").isVisible());
 await page.locator(".pane .pane-body").first().click();
+const focusedId = await page.locator(".pane.is-focused").getAttribute("data-pane-id");
 const enterBefore = await page.evaluate(() => window.__ptyWrites.length);
 await page.keyboard.press("Enter");
 await page.waitForTimeout(100);
 const enterWrites = await page.evaluate((n) => window.__ptyWrites.slice(n), enterBefore);
 const enterPaneIds = new Set(enterWrites.filter((w) => w.data === "\r").map((w) => w.id));
-check("auto-enter sends Enter to every pane in the session", enterPaneIds.size === 2,
+check("Enter reaches only the focused pane", enterPaneIds.size === 1 &&
+  enterWrites.every((w) => w.id === focusedId),
   `panes hit=${enterPaneIds.size}`);
-
-// 新しいセッションは既定でOFF。前のセッションの選択は保持される
-await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
-await page.waitForTimeout(250);
-check("new session defaults to auto-enter off",
-  (await page.locator("#auto-enter-toggle").getAttribute("aria-pressed")) === "false");
-await page.click("#auto-enter-toggle");
-const autoEnterChecks = page.locator("#auto-enter-list input[type=checkbox]");
-check("auto-enter picker keeps settings per session",
-  (await autoEnterChecks.count()) === 2 &&
-    await autoEnterChecks.nth(0).isChecked() &&
-    !(await autoEnterChecks.nth(1).isChecked()));
-await page.locator("#auto-enter-all").check();
-check("auto-enter picker keeps an all-sessions mode",
-  await page.locator("#auto-enter-all").isChecked() &&
-    await autoEnterChecks.nth(0).isDisabled() &&
-    await autoEnterChecks.nth(1).isDisabled());
-await page.click("#auto-enter-close");
-await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
-await page.waitForTimeout(250);
-check("all-sessions mode applies to newly created sessions",
-  (await page.locator("#auto-enter-toggle").getAttribute("aria-pressed")) === "true");
-await page.waitForTimeout(1200);
-const autoEnterSaved = await page.evaluate(() => JSON.parse(window.__savedSession));
-check("auto-enter setting is persisted per workspace",
-  autoEnterSaved.settings?.autoEnter === true &&
-    autoEnterSaved.workspaces?.some((workspace) => workspace.autoEnter === true) === true);
 
 // ペアのセットアップモーダルは入れ替え後の既定コマンドで開く（「このセッションを置き換え」が既定）
 await page.click("#pair-open");
@@ -161,6 +117,37 @@ check("pair setup modal prefills the swapped defaults",
   modalImpl === "codex" && modalReview === "claude",
   `impl=${modalImpl} review=${modalReview}`);
 await page.click("#pair-close");
+
+// 旧保存データの全体設定・セッション別設定が true でも Enter を拡散しない。
+await page.waitForFunction(() => {
+  const saved = JSON.parse(window.__savedSession ?? "null");
+  return saved?.workspaces?.[0]?.root?.kind === "split";
+});
+const legacySession = await page.evaluate(() => JSON.parse(window.__savedSession));
+legacySession.settings.autoEnter = true;
+for (const workspace of legacySession.workspaces) workspace.autoEnter = true;
+await page.addInitScript((saved) => {
+  window.__mockSessionLoad = JSON.stringify(saved);
+}, legacySession);
+await page.reload();
+await page.waitForSelector(".workspace-layer:not([hidden]) .pane");
+await page.waitForFunction(() => window.__ptySpawns.length === 2);
+await page.locator(".pane .pane-body").first().click();
+const restoredFocusedId = await page.locator(".pane.is-focused").getAttribute("data-pane-id");
+await page.evaluate(() => { window.__ptyWrites.length = 0; });
+await page.keyboard.press("Enter");
+await page.waitForFunction(() => window.__ptyWrites.some((w) => w.data === "\r"));
+await page.waitForTimeout(100);
+const legacyWrites = await page.evaluate(() => window.__ptyWrites);
+check("legacy auto-enter settings do not broadcast Enter after restoring",
+  legacyWrites.length === 1 && legacyWrites[0].data === "\r" && legacyWrites[0].id === restoredFocusedId,
+  JSON.stringify(legacyWrites));
+await page.waitForFunction(() => {
+  const saved = JSON.parse(window.__savedSession ?? "null");
+  return saved && !("autoEnter" in saved.settings) &&
+    saved.workspaces.every((workspace) => !("autoEnter" in workspace));
+});
+check("obsolete auto-enter settings are omitted from new saves", true);
 
 await page.close();
 
