@@ -2,8 +2,8 @@
 
 /* ペアアイコン（二人組の SVG）。stroke: currentColor なのでボタン・ストリップの文字色に追従する */
 .pair-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
   flex: none;
 }
 /* display/align/gap は #toolbar button（toolbar.css）が担う */

@@ -64,24 +64,30 @@
 
 #ws-new {
   font: inherit;
+  font-size: var(--control-icon-size);
   color: var(--text);
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
-  width: 28px;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
+  flex: none;
+  padding: 0;
   cursor: pointer;
 }
 #ws-new:hover { border-color: var(--dim); }
 
 #sidebar-collapse {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--control-icon-size);
   line-height: 1;
   color: var(--dim);
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
-  width: 28px;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
+  flex: none;
   padding: 0;
   cursor: pointer;
 }
@@ -114,6 +120,7 @@
   flex: none;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   padding: 6px 8px 0;
 }
@@ -150,15 +157,15 @@
 }
 #ws-status-filter button[data-status-filter="archived"] {
   position: relative;
-  width: 26px;
-  height: 21px;
+  width: 28px;
+  height: 28px;
   padding: 2px;
   display: grid;
   place-items: center;
 }
 #ws-status-filter button[data-status-filter="archived"] svg {
-  width: 15px;
-  height: 15px;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 #ws-archive-badge {
   position: absolute;
@@ -195,6 +202,7 @@
 
 #sidebar-foot {
   flex: none;
+  min-height: var(--app-footer-height);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -207,13 +215,14 @@
 #settings-open,
 #license-open {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--control-icon-size);
   color: var(--dim);
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
-  width: 30px;
-  height: 26px;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
+  padding: 0;
   cursor: pointer;
 }
 #settings-open {
@@ -770,19 +779,22 @@
 .ws-close {
   flex: none;
   font: inherit; color: var(--dim); background: none; border: 0; cursor: pointer;
+  font-size: var(--control-icon-size);
+  min-width: 28px;
+  min-height: 28px;
   padding: 2px;
 }
 .ws-pin {
   opacity: 0.9;
 }
 .ws-archive {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   opacity: 0.8;
 }
-.ws-archive svg { width: 16px; height: 16px; }
+.ws-archive svg { width: var(--control-icon-size); height: var(--control-icon-size); }
 .ws-archive[aria-pressed="true"] { color: var(--accent); }
 .ws-close {
   visibility: hidden;
