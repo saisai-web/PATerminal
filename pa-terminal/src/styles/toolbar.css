@@ -5,6 +5,8 @@
 /* --- toolbar --- */
 #toolbar {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -26,13 +28,14 @@
 #toolbar button {
   display: inline-flex;
   align-items: center;
+  min-height: var(--control-button-size);
   gap: 5px;
 }
 
 /* ツールバーボタンのアイコン（stroke: currentColor でボタンの文字色に追従する） */
 .toolbar-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
   flex: none;
 }
 

@@ -62,10 +62,10 @@
 #exp-head-row > button {
   flex: none;
   font: inherit;
-  font-size: 16px;
+  font-size: var(--control-icon-size);
   line-height: 1;
-  width: 26px;
-  height: 26px;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
   color: var(--dim);
   background: none;
   border: 1px solid transparent;
@@ -90,7 +90,12 @@
 }
 #exp-tools button {
   font: inherit; color: var(--dim); background: transparent;
-  border: 1px solid var(--line); border-radius: 3px; padding: 2px 8px; cursor: pointer;
+  font-size: var(--control-icon-size);
+  line-height: 1;
+  flex: none;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
+  border: 1px solid var(--line); border-radius: 3px; padding: 0; cursor: pointer;
 }
 #exp-tools button:hover { border-color: var(--dim); }
 #exp-tools button.is-on { color: var(--accent); border-color: var(--accent); }
@@ -124,9 +129,10 @@
 .exp-fav-del {
   flex: none;
   font: inherit;
+  font-size: var(--control-icon-size);
   line-height: 1;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   color: var(--dim);
   background: none;
   border: 1px solid transparent;

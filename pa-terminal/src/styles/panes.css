@@ -6,12 +6,10 @@
   background: var(--line);
 }
 
-/* ターミナル下の余白フッター。サイドバーの設定ボタン上の境界線と同じ高さに
-   線を通す（#sidebar-foot = padding 6px×2 + ボタン 26px + border-top 1px = 39px。
-   ここも border-box で height に border を含むので同じ 39px で揃う） */
+/* サイドバー・Files と共通の高さにして、下端の境界線を揃える。 */
 #main-foot {
   flex: none;
-  height: 39px;
+  height: var(--app-footer-height);
   border-top: 1px solid var(--line);
   background: var(--chrome);
 }
@@ -43,6 +41,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: var(--control-button-size);
 }
 
 .pane-note {
@@ -70,19 +69,22 @@
   flex: none;
   font: inherit;
   font-size: 14px;
-  color: var(--dim);
+  color: var(--text);
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
-  width: 30px;
-  height: 26px;
+  width: var(--control-button-size);
+  height: var(--control-button-size);
+  display: grid;
+  place-items: center;
+  padding: 5px;
   cursor: pointer;
 }
 #pane-actions button:hover { color: var(--text); border-color: var(--dim); }
 #pane-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #pane-actions .sidebar-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
   display: block;
   margin: 0 auto;
 }
@@ -101,6 +103,8 @@
 .pane-close {
   margin-left: auto;
   font: inherit;
+  font-size: 14px;
+  min-height: var(--control-button-size);
   color: var(--dim);
   background: none;
   border: 0;

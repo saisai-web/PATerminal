@@ -72,17 +72,19 @@
 }
 .exp-row-deep .exp-row-name { padding-left: 6px; }
 
-/* #sidebar-foot / #main-foot と同寸（padding 6px×2 + ボタン 26px + border 1px = 39px）に
-   して、下端の境界線が画面全幅で一直線に通るようにする */
+/* サイドバー・ターミナルと共通の高さにして、下端の境界線を揃える。 */
 #exp-actions {
   display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--app-footer-height);
   gap: 6px;
   padding: 6px;
   border-top: 1px solid var(--line);
 }
 #exp-actions button {
   flex: 1;
-  height: 26px;
+  height: var(--control-button-size);
   font: inherit; color: var(--text); background: transparent;
   border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; cursor: pointer;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -92,9 +94,9 @@
 /* エクスプローラーを閉じている間だけ右端に出る再オープンアイコン */
 #exp-reopen {
   flex: none;
-  width: 30px;
+  width: 36px;
   font: inherit;
-  color: var(--dim);
+  color: var(--text);
   background: var(--chrome);
   border: 0;
   border-left: 1px solid var(--line);
@@ -103,7 +105,7 @@
   display: grid;
   place-items: center;
 }
-#exp-reopen svg { width: 18px; height: 18px; }
+#exp-reopen svg { width: 24px; height: 24px; }
 #exp-reopen:hover { color: var(--accent); background: var(--hover); }
 #exp-reopen:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 #exp-reopen[hidden] { display: none; }
