@@ -216,7 +216,16 @@
   height: 26px;
   cursor: pointer;
 }
-#settings-open { margin-left: auto; }
+#settings-open {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 5px;
+  color: var(--text);
+}
+#settings-open svg { width: 24px; height: 24px; }
 #settings-open:hover,
 #license-open:hover { color: var(--text); border-color: var(--dim); }
 #settings-open:focus-visible,
