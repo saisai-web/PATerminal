@@ -1,0 +1,88 @@
+#session-view-open.is-on { color: var(--accent); border-color: var(--accent); }
+#session-view-solo[hidden] { display: none; }
+#toolbar { flex-wrap: wrap; }
+.workspace-view-header[hidden] { display: none; }
+.multi-session .workspace-layer { overflow: hidden; right: auto; bottom: auto; }
+.workspace-view-header {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+.workspace-view-header button {
+  font: inherit;
+  color: var(--dim);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  height: 24px;
+  min-width: 24px;
+}
+.workspace-view-header button:hover { background: var(--hover); color: var(--text); }
+.workspace-view-header button:focus-visible { outline: 1px solid var(--accent); }
+.workspace-view-header .workspace-view-name {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-view-header .workspace-view-name { color: var(--session-color); }
+.is-active-workspace .workspace-view-name { font-weight: 700; }
+/* Overlay the outline so it never changes the terminal's measured rows/columns. */
+.multi-session .workspace-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  border: 2px solid var(--session-color);
+  opacity: 0.8;
+}
+.multi-session .workspace-layer.is-active-workspace::after { border-width: 3px; opacity: 1; }
+.multi-session .workspace-layer:not(.is-broadcast-target) .pane.is-focused { border-color: var(--session-color); }
+.ws-item.is-displayed.has-session-color { border-color: var(--session-color); }
+.ws-item.is-displayed.is-selected.has-session-color { box-shadow: inset 3px 0 0 var(--session-color); }
+.ws-item.is-displayed.is-active.has-session-color { outline: 1px solid var(--session-color); outline-offset: -2px; }
+.workspace-divider:focus-visible { outline: 1px solid var(--accent); background: var(--accent); }
+#session-view-description, #session-view-count { color: var(--dim); margin: 0; line-height: 1.5; }
+#session-view-modes { display: flex; gap: 6px; margin: 12px 0; }
+#session-view-modes button, #session-view-search {
+  font: inherit;
+  color: var(--text);
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+#session-view-modes button { flex: 1; cursor: pointer; }
+#session-view-modes button:hover { border-color: var(--dim); }
+#session-view-modes button:focus-visible, #session-view-search:focus { outline: 1px solid var(--accent); }
+#session-view-modes [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--active-bg); }
+#session-view-search { width: 100%; margin-bottom: 8px; }
+#session-view-list { max-height: 40vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; }
+#session-view-list input { accent-color: var(--accent); }
+#session-view-count { margin-top: 8px; }
+#session-view-drop-preview {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  overflow: hidden;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 2px dashed var(--accent);
+  font-weight: 600;
+}
+#session-view-drop-preview[hidden] { display: none; }

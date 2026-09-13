@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const de: Dict = {
+  "view.toolbar": "Sitzungen teilen",
+  "view.title": "Mehrere Sitzungen anzeigen",
+  "view.description": "Die Bereiche jeder Sitzung bleiben zusammen. Eine andere Sitzung in der Seitenleiste ersetzt die aktive Kachel.",
+  "view.grid": "Raster",
+  "view.row": "Nebeneinander",
+  "view.col": "Untereinander",
+  "view.show": "Zusammen anzeigen",
+  "view.solo": "Nur diese Sitzung anzeigen",
+  "view.remove": "Aus Ansicht entfernen (Sitzung läuft weiter)",
+  "view.resize": "Sitzungsgröße ändern",
+  "view.choose": "Mindestens zwei Sitzungen auswählen.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "settings.finderSection": "Finder-Integration",

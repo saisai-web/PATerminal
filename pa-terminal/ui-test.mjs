@@ -46,6 +46,8 @@ import themeContrast from "./ui-tests/40-theme-contrast.mjs";
 import sessionArchive from "./ui-tests/41-session-archive.mjs";
 import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
 import fileDrop from "./ui-tests/44-file-drop.mjs";
+import sessionView from "./ui-tests/44-session-view.mjs";
+import sessionViewNavigation from "./ui-tests/45-session-view-navigation.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
 import finderOpen from "./ui-tests/44-finder-open.mjs";
@@ -68,6 +70,8 @@ const sharedSuites = [
   ["theme-contrast", themeContrast],
 ];
 const independentSuites = [
+  ["session-view", sessionView],
+  ["session-view-navigation", sessionViewNavigation],
   ["worktree-preferences", worktreePreferences],
   ["restore-v4", restoreV4],
   ["migrate-v2", migrateV2],

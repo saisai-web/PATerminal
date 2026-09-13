@@ -2,7 +2,7 @@ export default async function (ctx) {
 const { browser, check, BASE_URL } = ctx;
 
 // ============================================================
-// Whole 行の「最近操作した順」トグル（配置・フラットMRU表示・DnD無効・復帰）
+// Whole 行の「最近操作した順」トグル（配置・フラットMRU表示・一覧並べ替え防止・復帰）
 // ============================================================
 
 const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
@@ -58,8 +58,22 @@ check("sessions are flat in most-recently-operated order",
   JSON.stringify(await visibleNames()) === JSON.stringify(["Alpha", "Gamma", "Beta"]));
 check("group headers are hidden while sorted",
   (await page.locator(".ws-group:visible").count()) === 0);
-check("session drag is disabled while sorted",
-  (await page.locator('.ws-item[data-ws-id="recent-a"]').getAttribute("draggable")) === "false");
+check("session drag remains available for terminal splits while sorted",
+  (await page.locator('.ws-item[data-ws-id="recent-a"]').getAttribute("draggable")) === "true");
+const savedOrder = () => page.evaluate(async () => {
+  const { workspaces } = await import("/src/workspace/state.ts");
+  return workspaces.map((w) => ({ id: w.id, group: w.group, order: w.sidebarOrder }));
+});
+const beforeDrag = await savedOrder();
+const source = await page.locator('.ws-item[data-ws-id="recent-a"] .ws-name').boundingBox();
+const target = await page.locator('.ws-item[data-ws-id="recent-c"]').boundingBox();
+await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+await page.mouse.down();
+await page.mouse.move(target.x + target.width / 2, target.y + target.height - 4, { steps: 10 });
+await page.mouse.move(target.x + target.width / 2, target.y + target.height - 3);
+await page.mouse.up();
+check("sidebar drops while sorted preserve saved order and group membership",
+  JSON.stringify(await savedOrder()) === JSON.stringify(beforeDrag));
 
 // 切替操作で順序が追従する: Beta をアクティブ化すると先頭へ。
 await page.locator('.ws-item[data-ws-id="recent-b"] .ws-head').click();

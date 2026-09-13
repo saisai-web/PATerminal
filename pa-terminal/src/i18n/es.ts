@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const es: Dict = {
+  "view.toolbar": "Dividir sesiones",
+  "view.title": "Mostrar varias sesiones",
+  "view.description": "Conserva los paneles de cada sesión. Abrir otra sesión en la barra lateral sustituye el área activa.",
+  "view.grid": "Cuadrícula",
+  "view.row": "En paralelo",
+  "view.col": "Apiladas",
+  "view.show": "Mostrar juntas",
+  "view.solo": "Mostrar solo esta sesión",
+  "view.remove": "Quitar de la vista (la sesión sigue activa)",
+  "view.resize": "Cambiar tamaño de las sesiones",
+  "view.choose": "Selecciona al menos dos sesiones.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "settings.finderSection": "Integración con Finder",

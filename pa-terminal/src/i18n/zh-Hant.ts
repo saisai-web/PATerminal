@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const zhHant: Dict = {
+  "view.toolbar": "工作階段分割",
+  "view.title": "同時顯示多個工作階段",
+  "view.description": "保留各工作階段內的窗格配置。從側欄開啟其他工作階段會取代目前操作的區域。",
+  "view.grid": "格狀",
+  "view.row": "左右",
+  "view.col": "上下",
+  "view.show": "並排顯示",
+  "view.solo": "僅顯示此工作階段",
+  "view.remove": "從畫面移除（工作階段繼續執行）",
+  "view.resize": "調整工作階段顯示大小",
+  "view.choose": "請選取至少兩個工作階段。",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "settings.finderSection": "Finder 整合",

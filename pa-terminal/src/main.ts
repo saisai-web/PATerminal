@@ -7,7 +7,7 @@ import { initTakeover } from "./features/agents/takeover";
 import { initAgentPanel } from "./features/git/agent-panel";
 import { initGitPanel } from "./features/git/git-panel";
 import { initWsGit } from "./features/sidebar/ws-git";
-import { initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
+import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
 import { initPathAttachments } from "./features/attachments/path-attachments";
 import { initDropPaths } from "./features/attachments/drop-paths";
@@ -60,6 +60,8 @@ import { initGuide } from "./features/license/guide";
 import { initLicenseSettings, setLicenseManageOpen } from "./features/license/license-settings";
 import { initSelfBuildNotify } from "./features/license/self-build-notify";
 import { ensureEulaAccepted } from "./features/license/eula";
+import { initSessionView } from "./features/session-view/session-view";
+import { displayedWorkspaces } from "./workspace/view";
 import { stopBroadcast } from "./terminal/focus";
 import { stopPairAutoRelay } from "./features/pair/pair";
 
@@ -76,12 +78,12 @@ const splitDownBtn = document.querySelector<HTMLButtonElement>("#split-down")!;
 initSidebarStatusFilter();
 // Whole 行の「最近操作した順」トグル（同上）
 initSidebarRecentSort();
+initSessionView({ dragged: getDraggingWorkspaces });
 
 // 通知ゲート用のフォーカス追跡（メニュー閉じ処理とは独立に持つ）
 window.addEventListener("focus", () => {
   setAppFocused(true);
-  const ws = getActiveWs();
-  if (ws) {
+  for (const ws of displayedWorkspaces()) {
     ws.attention = null; // 復帰して見ているセッションの注意は既読
     updateWsActivity(ws);
   }

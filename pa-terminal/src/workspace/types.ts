@@ -4,6 +4,7 @@
 
 import type { Pane } from "../terminal/pane";
 import type { TreeNode } from "../terminal/tree";
+import type { WorkspaceView } from "./view";
 
 /** ペインで検知した実行中の AI エージェント（claude / codex）。
     保存しておき、復元時に会話を引き継ぐ再開コマンドを組み立てる
@@ -95,7 +96,7 @@ export type Workspace = {
       （起動直後は必ず空 = セッション内のみ）。一斉入力を切ると同時に空にする */
   broadcastTargets: Set<string>;
   root: TreeNode | null;
-  /** このセッション専用の絶対配置レイヤー。#grid の子 */
+  /** このセッション専用の絶対配置レイヤー。#grid の子。複数セッションの同時表示も可能 */
   layer: HTMLDivElement;
   panes: Map<string, Pane>;
   /** 常設表示する直近の状態。未読を消してもクリアせず、保存はしない */
@@ -188,6 +189,7 @@ export type SessionV4 = Omit<SessionV3, "workspaces"> & {
 /** v5 = 最近削除したセッションを永続化し、再起動後も履歴ごと復元できる */
 export type SessionV5 = Omit<SessionV4, "version"> & {
   version: 5;
+  view?: WorkspaceView;
   deletedWorkspaces: DeletedWorkspace[];
 };
 

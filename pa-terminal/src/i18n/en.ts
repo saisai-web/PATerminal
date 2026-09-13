@@ -5,6 +5,17 @@
 // テーマ名・シェル名などの固有名詞、git 操作バーのラベル（Commit / Push / …）。
 
 export const en = {
+  "view.toolbar": "Session split",
+  "view.title": "Display multiple sessions",
+  "view.description": "Keep each session’s panes together. Selecting another session in the sidebar replaces the focused tile.",
+  "view.grid": "Grid",
+  "view.row": "Side by side",
+  "view.col": "Stacked",
+  "view.show": "Show together",
+  "view.solo": "Show this session only",
+  "view.remove": "Remove from view (keep session running)",
+  "view.resize": "Resize sessions",
+  "view.choose": "Select at least two sessions.",
   // サイドバー
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",

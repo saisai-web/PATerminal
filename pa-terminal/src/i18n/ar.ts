@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const ar: Dict = {
+  "view.toolbar": "تقسيم الجلسات",
+  "view.title": "عرض جلسات متعددة",
+  "view.description": "تبقى أجزاء كل جلسة معًا. فتح جلسة أخرى من الشريط الجانبي يستبدل المساحة النشطة.",
+  "view.grid": "شبكة",
+  "view.row": "جنبًا إلى جنب",
+  "view.col": "فوق بعضها",
+  "view.show": "عرض معًا",
+  "view.solo": "عرض هذه الجلسة فقط",
+  "view.remove": "إزالة من العرض (تستمر الجلسة)",
+  "view.resize": "تغيير حجم الجلسات",
+  "view.choose": "اختر جلستين على الأقل.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "settings.finderSection": "تكامل Finder",

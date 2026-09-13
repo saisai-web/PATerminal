@@ -25,6 +25,7 @@ const allowedFeatureDirectories = new Set([
   "license",
   "pair",
   "quick-phrases",
+  "session-view",
   "settings",
   "sidebar",
   "update",

@@ -30,6 +30,7 @@ import {
 import { firstLeaf } from "../terminal/tree";
 import { normalizeWorkspaceNote } from "./note";
 import type { PaneSpec, ShellKind, Workspace, WorkspaceBackgroundColor } from "./types";
+import { displayedWorkspaces, removeWorkspaceFromView } from "./view";
 
 const grid = document.querySelector<HTMLDivElement>("#grid")!;
 const broadcastBtn = document.querySelector<HTMLButtonElement>("#broadcast")!;
@@ -63,6 +64,7 @@ export function createEmptyWorkspace(
     attention: null,
   };
   workspaces.push(ws);
+  layer.dataset.wsId = ws.id;
   return ws;
 }
 
@@ -112,6 +114,7 @@ export function nextSessionName(): string {
 
 export function renameWorkspace(w: Workspace, v: string) {
   w.name = v;
+  layout();
   renderSidebar(); // アバターの頭文字にも即反映
   scheduleSave();
 }
@@ -122,7 +125,7 @@ export function updateWorkspaceNote(w: Workspace, value: unknown) {
   w.note = note;
   // サイドバーは再描画せず（入力フォーカスを維持）、ペインバーだけを同期する。
   // 空↔非空や行数変更で本文領域の高さが変わるため、表示中なら即座に再フィットする。
-  if (w === getActiveWs()) layout(w);
+  if (!w.layer.hidden) layout(w);
   else syncPaneNotes(w);
   scheduleSave();
 }
@@ -143,10 +146,12 @@ export function toggleWorkspaceArchived(w: Workspace) {
   if (!workspaces.includes(w)) return;
   const archived = w.archived !== true;
   w.archived = archived ? true : undefined;
+  const otherShown = displayedWorkspaces().find((ws) => ws !== w);
+  if (archived) removeWorkspaceFromView(w.id);
 
   if (archived && getActiveWs() === w) {
     const index = workspaces.indexOf(w);
-    const next =
+    const next = otherShown ??
       workspaces.slice(index + 1).find((workspace) => !workspace.archived) ??
       workspaces.slice(0, index).reverse().find((workspace) => !workspace.archived);
     if (next) {
@@ -154,6 +159,8 @@ export function toggleWorkspaceArchived(w: Workspace) {
       return;
     }
   }
+  const active = getActiveWs();
+  if (active) setActive(active);
   renderSidebar();
   scheduleSave();
 }
@@ -355,12 +362,14 @@ export function renderBroadcastUi(ws: Workspace) {
     ? t("toolbar.broadcastHintN", { n: String(n + 1) })
     : t("toolbar.broadcastHint");
   refreshBroadcastMarks();
+  const targets = new Set(ws.broadcast ? [ws.id, ...ws.broadcastTargets] : []);
+  for (const w of workspaces) w.layer.classList.toggle("is-broadcast-target", targets.has(w.id));
 }
 
-export function setActive(ws: Workspace) {
-  // 同一セッションへの状態再適用（broadcast 切替など）では、ユーザーが遡って見ている
-  // スクロール位置を壊さない。非表示から開き直すときだけ末尾へ戻す。
-  const reopening = ws.layer.hidden;
+export function setActive(ws: Workspace, focusId?: string) {
+  if (!workspaces.includes(ws)) return;
+  // 分割に指定したセッションの構成は切替では変えない。指定外は単独で表示し、
+  // 指定したセッションに戻ったときだけ保存済みの分割を再表示する。
   // 表示中セッションが変わる経路は、サイドバークリック以外にも新規作成・履歴・
   // 数字ショートカットなど多数ある。操作対象の選択をここで新しい1件へ揃えないと、
   // 以前の選択と新しい active の両方に選択マークが残る。同じ active への再適用
@@ -387,44 +396,63 @@ export function setActive(ws: Workspace) {
     group = groupById(group.parentId);
   }
   if (expanded) scheduleSave();
-  for (const w of workspaces) w.layer.hidden = w !== ws;
-  // 可視状態を Rust に伝える。非表示ペインの出力は Rust 側で堰き止められる
-  const shownIds: string[] = [];
-  const hiddenIds: string[] = [];
+  const shown = new Set(displayedWorkspaces());
+  const reopening = [...shown].filter((w) => w.layer.hidden);
   for (const w of workspaces) {
-    for (const id of w.panes.keys()) (w === ws ? shownIds : hiddenIds).push(id);
+    w.layer.hidden = !shown.has(w);
+    if (shown.has(w)) w.attention = null;
   }
-  if (hiddenIds.length) void invoke("pty_set_visible", { ids: hiddenIds, visible: false });
   // ブロードキャスト表示はアクティブセッションの状態を反映
   renderBroadcastUi(ws);
+  // Toolbars/strips can change the grid height. Apply them before measuring the panes.
+  for (const cb of activeWatchers) cb();
   // 表示してから layout（非表示中は寸法ゼロで fit が失敗する）
-  layout(ws);
+  layout();
   // xterm の viewport は hidden 中や再表示時のリフローで先頭位置が残ることがある。
   // layout/refit 後に末尾へ送っておけば、このあと Rust から解禁される保留出力も
   // 「末尾を見ている」状態のまま追従する。
-  if (reopening) {
-    for (const pane of ws.panes.values()) pane.scrollToBottom();
+  for (const w of reopening) {
+    for (const pane of w.panes.values()) pane.scrollToBottom();
   }
   // **サイズを確定させてから溜まった出力を解禁する。** 非表示中にペイン幅が変わって
   // いると、pty_set_visible が先だと旧サイズで描かれた出力（最大2MB）が新しい
   // グリッドへ流し込まれる。pty_resize と pty_set_visible は別々の非同期コマンドで
   // 順序保証が無いので、ここで明示的に待つ。保留が無ければマイクロタスクで解決する
-  if (shownIds.length) {
-    void flushResizes(shownIds)
-      .catch(() => {})
-      .then(() => invoke("pty_set_visible", { ids: shownIds, visible: true }));
-  }
+  syncPtyVisibility();
   // 同一セッション内での再適用（broadcast トグル等）ではフォーカスを維持する
-  const fid = getFocusedId();
+  const fid = focusId ?? getFocusedId();
   const keep = fid && ws.panes.has(fid) ? fid : firstLeaf(ws.root)?.pane.id;
   if (keep) setFocused(keep);
   renderSidebar();
   // グループ階層・作成経路を問わず、表示中セッションがサイドバーでも見える位置に来る。
   scrollWsIntoView(ws);
-  for (const cb of activeWatchers) cb();
 }
 
-/** setActive の後処理。機能側の追従（ペアストリップ等）を main.ts が登録する。
+// Serialize visibility batches, and discard obsolete switches before releasing buffered output.
+// This also covers sessions removed from the list while their snapshots are still being captured.
+let visibilityRevision = 0;
+let visibilityChain: Promise<void> = Promise.resolve();
+function syncPtyVisibility() {
+  const revision = ++visibilityRevision;
+  visibilityChain = visibilityChain.catch(() => {}).then(async () => {
+    if (revision !== visibilityRevision) return;
+    const shownIds = displayedWorkspaces().flatMap((w) => [...w.panes.keys()]);
+    const shown = new Set(shownIds);
+    const hiddenIds = [...panes.keys()].filter((id) => !shown.has(id));
+    if (hiddenIds.length) await invoke("pty_set_visible", { ids: hiddenIds, visible: false });
+    // A previously hidden terminal measures its font/WebGL cells on its first rendered frame.
+    // Refit using those live metrics before releasing output buffered at the old dimensions.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    if (revision !== visibilityRevision) return;
+    layout();
+    await flushResizes(shownIds);
+    if (revision === visibilityRevision && shownIds.length) {
+      await invoke("pty_set_visible", { ids: shownIds, visible: true });
+    }
+  }).catch((error) => console.error("pty visibility failed:", error));
+}
+
+/** setActive の表示更新（最終 layout より前）。機能側の追従を main.ts が登録する。
     workspace.ts から features/ を import して新しい循環を作らないための逆向きフック */
 const activeWatchers: Array<() => void> = [];
 export function onActiveWorkspaceChange(cb: () => void): void {
@@ -444,14 +472,19 @@ export async function closeWorkspace(ws: Workspace) {
     // セッションを消してしまう。採取は Pane.destroy 前ならよく、非表示ペインでも
     // SerializeAddon はバッファから読めるので（通常保存と同じ）、表示上の
     // クローズを済ませてから退避する
+    const otherShown = displayedWorkspaces().find((w) => w !== ws);
     workspaces.splice(idx, 1);
+    removeWorkspaceFromView(ws.id);
     selectedWsIds.delete(ws.id); // 閉じたセッションを選択に残さない
     if (getSelectionAnchor() === ws.id) setSelectionAnchor(null);
     ws.layer.hidden = true;
     if (workspaces.length === 0) {
       createWorkspace("Session 1", "default");
     } else if (getActiveWs() === ws) {
-      setActive(workspaces[Math.max(0, idx - 1)]);
+      setActive(otherShown ?? workspaces[Math.max(0, idx - 1)]);
+    } else {
+      const active = getActiveWs();
+      if (active) setActive(active);
     }
     renderSidebar();
     // destroy 前でなければ xterm の表示履歴を取得できない。退避が完了してから破棄する

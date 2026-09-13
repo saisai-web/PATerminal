@@ -14,11 +14,11 @@ body.dragging { user-select: none; }
 body.dragging .pane { pointer-events: none; }
 
 /* --- ブロードキャスト中の全域警告 --- */
-body.broadcasting .pane { border-color: var(--alarm); }
-body.broadcasting .divider { background: var(--alarm); }
+.workspace-layer.is-broadcast-target .pane { border-color: var(--alarm); }
+.workspace-layer.is-broadcast-target .divider { background: var(--alarm); }
 
 @media (prefers-reduced-motion: no-preference) {
-  body.broadcasting .divider { animation: pulse 2.4s ease-in-out infinite; }
+  .workspace-layer.is-broadcast-target .divider { animation: pulse 2.4s ease-in-out infinite; }
   @keyframes pulse {
     0%, 100% { background: var(--alarm); }
     50% { background: var(--pulse); }

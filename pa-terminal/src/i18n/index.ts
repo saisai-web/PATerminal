@@ -154,6 +154,9 @@ export function applyStaticTexts(): void {
   for (const el of document.querySelectorAll<HTMLElement>("[data-i18n-title]")) {
     el.title = t(el.dataset.i18nTitle as MsgKey);
   }
+  for (const el of document.querySelectorAll<HTMLElement>("[data-i18n-aria-label]")) {
+    el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel as MsgKey));
+  }
   for (const el of document.querySelectorAll<HTMLInputElement>("[data-i18n-placeholder]")) {
     el.placeholder = t(el.dataset.i18nPlaceholder as MsgKey);
   }

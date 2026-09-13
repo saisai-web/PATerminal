@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const ja: Dict = {
+  "view.toolbar": "セッション分割",
+  "view.title": "複数セッションを分割表示",
+  "view.description": "各セッション内の分割を保って並べます。一覧から別のセッションを開くと、操作中の表示枠が入れ替わります。",
+  "view.grid": "格子状",
+  "view.row": "左右",
+  "view.col": "上下",
+  "view.show": "並べて表示",
+  "view.solo": "このセッションのみ表示",
+  "view.remove": "表示から外す（セッションは継続）",
+  "view.resize": "セッションの表示サイズを変更",
+  "view.choose": "セッションを2つ以上選択してください。",
   "ws.creationNote": "セッションメモ（任意）",
   "settings.worktreeAutoBranch": "ブランチ名を自動入力する",
   "settings.finderSection": "Finder 連携",

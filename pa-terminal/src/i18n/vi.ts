@@ -1,6 +1,17 @@
 import type { Dict } from "./en";
 
 export const vi: Dict = {
+  "view.toolbar": "Chia phiên",
+  "view.title": "Hiển thị nhiều phiên",
+  "view.description": "Giữ nguyên các ngăn trong mỗi phiên. Mở phiên khác từ thanh bên sẽ thay thế vùng đang thao tác.",
+  "view.grid": "Lưới",
+  "view.row": "Ngang",
+  "view.col": "Dọc",
+  "view.show": "Hiển thị cùng nhau",
+  "view.solo": "Chỉ hiển thị phiên này",
+  "view.remove": "Bỏ khỏi màn hình (phiên vẫn chạy)",
+  "view.resize": "Đổi kích thước phiên",
+  "view.choose": "Chọn ít nhất hai phiên.",
   "ws.creationNote": "Session note (optional)",
   "settings.worktreeAutoBranch": "Automatically fill in the branch name",
   "settings.finderSection": "Tích hợp Finder",

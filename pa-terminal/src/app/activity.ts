@@ -14,7 +14,7 @@ import { t } from "../i18n";
 import { updateAgentWatch } from "../features/agents/watch";
 import { notifyPairActivity, notifyPairExit, notifyPairSignal } from "../features/pair/pair";
 import { isNotificationsEnabled } from "../features/settings/settings-panel";
-import { getActiveWs, isAppFocused, panes } from "../workspace/state";
+import { isAppFocused, panes } from "../workspace/state";
 import type { Pane } from "../terminal/pane";
 import type { ActivityState, Workspace } from "../workspace/types";
 
@@ -132,7 +132,7 @@ export function updateWsActivity(ws: Workspace) {
 
 /** 「ユーザーが今それを見ていない」= 通知・注意ドットに値する状況か */
 function shouldAlert(ws: Workspace): boolean {
-  return !isAppFocused() || ws !== getActiveWs();
+  return !isAppFocused() || ws.layer.hidden;
 }
 
 let notifGranted: boolean | null = null;

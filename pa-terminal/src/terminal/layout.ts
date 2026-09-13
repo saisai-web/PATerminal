@@ -7,6 +7,8 @@ import { scheduleSave } from "../app/session";
 import { getActiveWs } from "../workspace/state";
 import type { SplitNode, TreeNode } from "./tree";
 import type { Rect, Workspace } from "../workspace/types";
+import { displayedWorkspaces, getActiveWorkspaceView } from "../workspace/view";
+import { placeWorkspaceLayers, WORKSPACE_HEADER_HEIGHT } from "./workspace-layout";
 
 let rafId = 0;
 
@@ -39,14 +41,33 @@ export const dividerEls = new Map<SplitNode, HTMLDivElement>();
 /** ドラッグ計算用: 各 split が占める矩形の最新値 */
 export const splitRects = new Map<SplitNode, Rect>();
 
-export function layout(ws: Workspace | null = getActiveWs()) {
+export function layout(ws?: Workspace | null) {
+  placeWorkspaceLayers();
+  for (const target of ws ? [ws] : displayedWorkspaces()) layoutWorkspace(target);
+}
+
+function paneRect(ws: Workspace): Rect {
+  const r = ws.layer.getBoundingClientRect();
+  const y = getActiveWorkspaceView() ? WORKSPACE_HEADER_HEIGHT : 0;
+  return { x: 0, y, w: r.width, h: Math.max(0, r.height - y) };
+}
+
+/** All displayed sessions follow sidebar/explorer/window dragging, without refitting. */
+export function placeVisibleWorkspaces() {
+  placeWorkspaceLayers();
+  for (const ws of displayedWorkspaces()) {
+    if (ws.root && !ws.layer.hidden) place(ws, ws.root, paneRect(ws));
+  }
+}
+
+function layoutWorkspace(ws: Workspace) {
   if (!ws) return;
   syncPaneNotes(ws);
   // 1ペインだけのときは閉じるボタンを隠す（最後の1枚は閉じられない）
   ws.layer.classList.toggle("single-pane", ws.root?.kind === "leaf");
-  const r = ws.layer.getBoundingClientRect();
+  if (ws.layer.hidden) return;
   const live = new Set<SplitNode>();
-  if (ws.root) place(ws, ws.root, { x: 0, y: 0, w: r.width, h: r.height }, live);
+  if (ws.root) place(ws, ws.root, paneRect(ws), live);
   // このワークスペースのツリーから消えた split のディバイダを回収
   for (const [split, el] of [...dividerEls]) {
     if (el.parentElement === ws.layer && !live.has(split)) {
@@ -64,20 +85,18 @@ export function layout(ws: Workspace | null = getActiveWs()) {
     毎イベントで refit すると xterm が folding を繰り返し、TUI には SIGWINCH が
     連射される（TUI が欲しいのは落ち着いた1回だけ）。 */
 let layoutTimer = 0;
-export function scheduleLayout(ws: Workspace | null = getActiveWs()) {
-  if (!ws) return;
+export function scheduleLayout() {
+  if (!getActiveWs()) return;
   if (!rafId) {
     rafId = requestAnimationFrame(() => {
       rafId = 0;
-      if (!ws.root) return;
-      const r = ws.layer.getBoundingClientRect();
-      place(ws, ws.root, { x: 0, y: 0, w: r.width, h: r.height });
+      placeVisibleWorkspaces();
     });
   }
   if (layoutTimer) clearTimeout(layoutTimer);
   layoutTimer = window.setTimeout(() => {
     layoutTimer = 0;
-    layout(ws);
+    layout();
   }, LAYOUT_SETTLE_MS);
 }
 
@@ -144,9 +163,7 @@ function createDivider(ws: Workspace, split: SplitNode): HTMLDivElement {
       if (!rafId) {
         rafId = requestAnimationFrame(() => {
           rafId = 0;
-          if (!ws.root) return;
-          const r = ws.layer.getBoundingClientRect();
-          place(ws, ws.root, { x: 0, y: 0, w: r.width, h: r.height });
+          placeVisibleWorkspaces();
         });
       }
     };

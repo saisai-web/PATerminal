@@ -21,7 +21,7 @@ import { expCtxHandler } from "./explorer-menu";
 import { attachLocationFlyout } from "../sidebar/new-session-location";
 import { openFileViewer } from "./file-viewer";
 import { t } from "../../i18n";
-import { getRafId, layout, place, setRafId } from "../../terminal/layout";
+import { getRafId, layout, placeVisibleWorkspaces, setRafId } from "../../terminal/layout";
 import { scheduleSave } from "../../app/session";
 import {
   compactExplorerPath,
@@ -1031,10 +1031,7 @@ expResizeEl.addEventListener("pointerdown", (down) => {
       setRafId(
         requestAnimationFrame(() => {
           setRafId(0);
-          const ws = getActiveWs();
-          if (!ws?.root) return;
-          const r = ws.layer.getBoundingClientRect();
-          place(ws, ws.root, { x: 0, y: 0, w: r.width, h: r.height });
+          placeVisibleWorkspaces();
         }),
       );
     }
