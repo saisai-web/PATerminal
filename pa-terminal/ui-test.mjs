@@ -45,6 +45,7 @@ import recentSort from "./ui-tests/39-recent-sort.mjs";
 import themeContrast from "./ui-tests/40-theme-contrast.mjs";
 import sessionArchive from "./ui-tests/41-session-archive.mjs";
 import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
+import fileDrop from "./ui-tests/44-file-drop.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
 
@@ -103,6 +104,7 @@ const independentSuites = [
   ["recent-sort", recentSort],
   ["session-archive", sessionArchive],
   ["scroll-anchor", scrollAnchor],
+  ["file-drop", fileDrop],
 ];
 
 // Push / PR では、基盤・保存形式・Git 監視・通知・主要エージェント機能を

@@ -102,8 +102,10 @@ export function getDraggingWorkspaces(): Workspace[] {
 
 // tauri.conf.json で dragDropEnabled:false にしている（true だと wry のネイティブ
 // ファイルドロップハンドラが HTML5 の dragover/drop を横取りし、サイドバーの DnD が
-// 一切動かない）。その代償として OS からのファイルドロップが WebView 素通しになるので、
-// ページ遷移（ドロップしたファイルの表示）だけはここで抑止する。
+// 一切動かない）。OS からのファイルドロップは src-tauri/src/system/drop.rs が WebView の
+// ネイティブ層で（ファイルパスを持つドラッグだけ）横取りしてペインへ渡す。ここに残す
+// preventDefault は Linux や想定外のペイロードが WebView へ素通しした時に、ページ遷移
+// （ドロップしたファイルの表示）だけは起こさないための保険。
 window.addEventListener("dragover", (e) => e.preventDefault());
 window.addEventListener("drop", (e) => e.preventDefault());
 

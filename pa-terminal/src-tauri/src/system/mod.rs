@@ -3,7 +3,9 @@
 //! - `session` … session.json の保存 / 読み込みと診断ログ
 //! - `update`  … GitHub Releases でのアップデート確認
 //! - `os`      … 既定ブラウザ / 既定アプリ / ファイルマネージャーへ渡す
+//! - `drop`    … OS からのファイルドロップをペインへのパス入力にする（ネイティブ横取り）
 
+pub(crate) mod drop;
 pub(crate) mod os;
 pub(crate) mod session;
 pub(crate) mod update;

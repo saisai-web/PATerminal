@@ -208,6 +208,7 @@ export class Pane {
 
     this.el = document.createElement("div");
     this.el.className = "pane";
+    this.el.dataset.paneId = this.id; // 座標からの逆引き用（OS ファイルドロップの落とし先判定）
 
     const bar = document.createElement("div");
     bar.className = "pane-bar";
