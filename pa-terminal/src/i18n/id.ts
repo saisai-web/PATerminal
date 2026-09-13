@@ -250,6 +250,17 @@ export const id: Dict = {
   "pane.restarting": "memulai shell interaktif (memulihkan input terminal)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Ganti folder kerja",
+  "move.destination": "Folder tujuan",
+  "move.submit": "Pindah dan lanjutkan",
+  "move.agent": "Mulai ulang {agent} di folder pilihan dengan percakapan tersimpan. Pekerjaan yang berjalan akan terhenti dan input yang belum dikirim tidak diteruskan.",
+  "move.shell": "Mengubah folder kerja terminal ini.",
+  "move.closed": "Panel ini telah ditutup.",
+  "move.detectFailed": "CLI yang berjalan tidak terdeteksi. Coba lagi.",
+  "move.absolutePath": "Masukkan jalur folder absolut tanpa karakter kontrol.",
+  "move.changed": "CLI yang berjalan telah berubah. Periksa detail lalu coba lagi.",
+  "move.noSession": "ID percakapan belum tersedia. Tunggu hingga percakapan tersimpan lalu coba lagi. CLI belum dihentikan.",
+
   "agents.exited": "{agent} telah berakhir",
   "agents.resume": "Lanjutkan percakapan",
   "agents.dismiss": "Tutup",

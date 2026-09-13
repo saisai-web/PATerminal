@@ -250,6 +250,17 @@ export const de: Dict = {
   "pane.restarting": "Interaktive Shell wird gestartet (Terminaleingabe wird wiederhergestellt)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Arbeitsordner wechseln",
+  "move.destination": "Zielordner",
+  "move.submit": "Wechseln und fortsetzen",
+  "move.agent": "Startet {agent} im gewählten Ordner mit dem gespeicherten Gespräch neu. Laufende Arbeit wird unterbrochen; ungesendete Eingaben gehen verloren.",
+  "move.shell": "Ändert den Arbeitsordner dieses Terminals.",
+  "move.closed": "Dieses Fenster wurde geschlossen.",
+  "move.detectFailed": "Das laufende CLI konnte nicht erkannt werden. Bitte erneut versuchen.",
+  "move.absolutePath": "Gib einen absoluten Ordnerpfad ohne Steuerzeichen ein.",
+  "move.changed": "Das laufende CLI hat sich geändert. Prüfe die Angaben und versuche es erneut.",
+  "move.noSession": "Die Gesprächs-ID ist noch nicht verfügbar. Warte auf das Speichern und versuche es erneut. Das CLI wurde nicht beendet.",
+
   "agents.exited": "{agent} wurde beendet",
   "agents.resume": "Unterhaltung fortsetzen",
   "agents.dismiss": "Schließen",

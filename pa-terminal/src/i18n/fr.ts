@@ -250,6 +250,17 @@ export const fr: Dict = {
   "pane.restarting": "démarrage d’un shell interactif (restauration de la saisie)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Changer de dossier de travail",
+  "move.destination": "Dossier de destination",
+  "move.submit": "Déplacer et reprendre",
+  "move.agent": "Redémarre {agent} dans le dossier choisi avec la conversation enregistrée. Le travail en cours sera interrompu et le texte non envoyé sera perdu.",
+  "move.shell": "Change le dossier de travail de ce terminal.",
+  "move.closed": "Ce volet a été fermé.",
+  "move.detectFailed": "Impossible de détecter le CLI en cours. Réessayez.",
+  "move.absolutePath": "Saisissez un chemin de dossier absolu sans caractères de contrôle.",
+  "move.changed": "Le CLI en cours a changé. Vérifiez les détails et réessayez.",
+  "move.noSession": "L’identifiant de conversation est indisponible. Attendez son enregistrement et réessayez. Le CLI reste ouvert.",
+
   "agents.exited": "{agent} s'est terminé",
   "agents.resume": "Reprendre la conversation",
   "agents.dismiss": "Fermer",

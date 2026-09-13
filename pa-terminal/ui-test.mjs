@@ -47,6 +47,7 @@ import sessionArchive from "./ui-tests/41-session-archive.mjs";
 import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
+import changeDirectory from "./ui-tests/44-change-directory.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -66,6 +67,7 @@ const sharedSuites = [
   ["theme-contrast", themeContrast],
 ];
 const independentSuites = [
+  ["change-directory", changeDirectory],
   ["worktree-preferences", worktreePreferences],
   ["restore-v4", restoreV4],
   ["migrate-v2", migrateV2],

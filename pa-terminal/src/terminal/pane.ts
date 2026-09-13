@@ -162,7 +162,7 @@ export class Pane {
   private readonly restoreText?: string;
   /** true ならセッション復元起動（run ではなく resumeRun を使う） */
   private readonly resumed: boolean;
-  private readonly cwdEl: HTMLSpanElement;
+  private readonly cwdEl: HTMLButtonElement;
   /** セッションメモはツリー先頭 leaf のペインバーだけに表示する。 */
   private readonly noteEl: HTMLDivElement;
   private webglLoaded = false;
@@ -224,8 +224,13 @@ export class Pane {
         scheduleSave();
       });
     };
-    this.cwdEl = document.createElement("span");
+    this.cwdEl = document.createElement("button");
+    this.cwdEl.type = "button";
     this.cwdEl.className = "pane-cwd";
+    this.cwdEl.dataset.paneId = this.id;
+    this.cwdEl.dataset.i18nTitle = "move.title";
+    this.cwdEl.title = t("move.title");
+    this.cwdEl.setAttribute("aria-haspopup", "dialog");
     this.cwdEl.textContent = this.cwd ?? "";
     const close = document.createElement("button");
     close.className = "pane-close";
@@ -403,10 +408,17 @@ export class Pane {
     // 前回の画面内容を先に描く。PTY 出力より前でなければならない。
     // 古い保存データが入力・マウス・alternate buffer のモードを含んでいても、
     // 表示履歴の直後で必ず解除し、ライブな対話シェルへ持ち越さない。
-    if (this.restoreText) {
-      this.term.write(this.restoreText);
-      this.term.write(`${INTERACTIVE_MODE_RESET}\r\n\x1b[2m── ${t("pane.restored")} ──\x1b[0m\r\n`);
-    }
+    const restoreDone = this.restoreText ? new Promise<void>((resolve) => {
+      this.term.write(this.restoreText!, () => {
+        if (this.destroyed) { resolve(); return; }
+        // DECRST 6 (origin mode) homes the cursor. Restore its position explicitly
+        // after the mode reset, or the banner overwrites the second history line.
+        // Read after parsing/reflow; saved coordinates may use a different width.
+        const buffer = this.term.buffer.normal;
+        const cursor = `\x1b[${buffer.cursorY + 1};${buffer.cursorX + 1}H`;
+        this.term.write(`${INTERACTIVE_MODE_RESET}${cursor}\r\n\x1b[2m── ${t("pane.restored")} ──\x1b[0m\r\n`, resolve);
+      });
+    }) : undefined;
 
     // 打鍵は PTY 起動前から受け付ける: onData を spawn より先に張り、
     // write() の直列化キューを「spawn 完了で解放されるゲート」から始める。
@@ -439,6 +451,11 @@ export class Pane {
       requestResize(this.id, cols, rows);
     });
     this.disposables.push(resizeSub);
+
+    // Input is already subscribed and gated above. Finish restoring the display
+    // before a new process can interleave its prompt with that history.
+    if (restoreDone) await restoreDone;
+    if (this.destroyed) { spawnDone(); return; }
 
     const visibleAtSpawn = !this.ws.layer.hidden;
     const spawnShell = this.resumed ? this.spec.resumeShell ?? this.spec.shell : this.spec.shell;
@@ -500,6 +517,7 @@ export class Pane {
       // claude / codex を立ち上げるだけでは作業中にしない。実際の依頼はユーザーの打鍵か
       // ペアモードの writeAndWait で activity を開始する。
       setTimeout(() => {
+        if (this.destroyed) return;
         this.startupRunSent = true;
         this.write(`${withTerminalScrollback(cmd)}\r`, false);
       }, 400);

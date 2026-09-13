@@ -250,6 +250,17 @@ export const ja: Dict = {
   "pane.restarting": "対話シェルを起動しています（ターミナル入力を復旧）",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "作業フォルダを切り替え",
+  "move.destination": "移動先フォルダ",
+  "move.submit": "移動して再開",
+  "move.agent": "{agent} を選んだフォルダで再起動し、保存済みの会話を引き継ぎます。実行中の作業は中断され、未送信の入力は引き継がれません。",
+  "move.shell": "このターミナルの作業フォルダを変更します。",
+  "move.closed": "このペインは閉じられました。",
+  "move.detectFailed": "実行中のCLIを確認できませんでした。もう一度お試しください。",
+  "move.absolutePath": "制御文字を含まないフォルダの絶対パスを入力してください。",
+  "move.changed": "実行中のCLIが変わりました。内容を確認して、もう一度実行してください。",
+  "move.noSession": "会話IDをまだ取得できません。会話が保存されてから再度お試しください。CLIは終了していません。",
+
   "agents.exited": "{agent} が終了しました",
   "agents.resume": "会話を再開",
   "agents.dismiss": "閉じる",

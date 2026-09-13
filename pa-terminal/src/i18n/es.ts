@@ -250,6 +250,17 @@ export const es: Dict = {
   "pane.restarting": "iniciando un shell interactivo (restaurando la entrada)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Cambiar carpeta de trabajo",
+  "move.destination": "Carpeta de destino",
+  "move.submit": "Mover y reanudar",
+  "move.agent": "Reinicia {agent} en la carpeta elegida con la conversación guardada. El trabajo en curso se interrumpirá y se perderá el texto sin enviar.",
+  "move.shell": "Cambia la carpeta de trabajo de esta terminal.",
+  "move.closed": "Este panel se ha cerrado.",
+  "move.detectFailed": "No se pudo detectar el CLI en ejecución. Inténtalo de nuevo.",
+  "move.absolutePath": "Introduce una ruta absoluta de carpeta sin caracteres de control.",
+  "move.changed": "El CLI en ejecución ha cambiado. Revisa los detalles e inténtalo de nuevo.",
+  "move.noSession": "El ID de conversación aún no está disponible. Espera a que se guarde y vuelve a intentarlo. El CLI sigue abierto.",
+
   "agents.exited": "{agent} finalizó",
   "agents.resume": "Reanudar conversación",
   "agents.dismiss": "Cerrar",

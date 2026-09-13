@@ -35,5 +35,10 @@ export function isValidSessionId(id: unknown): id is string {
 export function resumeCommandFor(agent: PaneAgentInfo | undefined): string | null {
   if (!agent || !isKnownAgent(agent.kind)) return null;
   const id = isValidSessionId(agent.sessionId) ? agent.sessionId : undefined;
-  return RESUME_COMMANDS[agent.kind](id);
+  const command = RESUME_COMMANDS[agent.kind](id);
+  // The shell starts in spec.cwd. An explicit override also bypasses Codex's
+  // saved-directory preference/prompt, without interpolating a path into shell code.
+  return agent.kind === "codex" && id && agent.useCurrentCwd === true
+    ? `${command} --cd .`
+    : command;
 }
