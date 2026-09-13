@@ -2568,6 +2568,9 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "embed-resource",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "portable-pty",
  "reqwest 0.12.28",
  "serde",
@@ -2579,6 +2582,9 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "trash",
+ "webview2-com",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

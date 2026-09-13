@@ -4,9 +4,10 @@
 //! `#[tauri::command]` は**定義したモジュールのパス**で登録する。コマンド登録は
 //! 関数だけでなく同名の補助マクロも辿るため、`mod.rs` での再エクスポートは使えない。
 //!
-//! Rust → フロントのイベントは `pty` モジュールが出す3種類だけ:
+//! Rust → フロントのイベントは `pty` モジュールが出す3種類:
 //! `pty:exit`（プロセス終了）/ `pty:act`（busy/idle 遷移 + 静止時の入力待ち判定）/
-//! `pty:bell`（本物の BEL）。
+//! `pty:bell`（本物の BEL）と、`system::drop` が出す OS ファイルドロップの2種類
+//! （`filedrop:drag` / `filedrop:drop`）。
 
 mod agents;
 mod env;
@@ -19,6 +20,8 @@ mod system;
 #[cfg(test)]
 mod testutil;
 mod worktree;
+
+use tauri::Manager;
 
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -34,6 +37,17 @@ pub fn run() {
         .manage(pty::Panes::default())
         .manage(license::LicenseState::default())
         .manage(system::update::PendingUpdate::default())
+        // OS ファイルドロップのネイティブフック。WebView2 は子 HWND を遅れて作ることが
+        // あるので、ページ読み込み完了時にも同じ（冪等な）取り付けを再試行する
+        .setup(|app| {
+            system::drop::install(app.handle());
+            Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                system::drop::install(webview.app_handle());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // ターミナル
             crate::pty::pty_spawn,

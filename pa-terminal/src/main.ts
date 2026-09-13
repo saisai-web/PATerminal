@@ -10,6 +10,7 @@ import { initWsGit } from "./features/sidebar/ws-git";
 import { initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
 import { initPathAttachments } from "./features/attachments/path-attachments";
+import { initDropPaths } from "./features/attachments/drop-paths";
 import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
 import { initWorktreeDialog } from "./features/git/worktree-dialog";
 import { updateWsActivity } from "./app/activity";
@@ -116,6 +117,7 @@ initBroadcastDialog({
   },
 });
 initPathAttachments();
+initDropPaths();
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。
   insert: (text) => {

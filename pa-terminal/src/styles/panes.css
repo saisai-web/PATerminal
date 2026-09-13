@@ -24,6 +24,11 @@
 }
 
 .pane.is-focused { border-color: var(--focus-border); }
+/* OS からのファイルドロップ中、カーソル直下のペイン（エクスプローラーの is-drop-target と同じ流儀） */
+.pane.is-drop-target {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 .pane.is-dead .pane-title { color: var(--dim); text-decoration: line-through; }
 
 .pane-bar {
