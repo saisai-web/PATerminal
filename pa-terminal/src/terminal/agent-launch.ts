@@ -23,10 +23,22 @@ export function withTerminalScrollback(command: string): string {
   if (!executable) return command;
   const name = value(executable[0]).split(/[\\/]/).pop()?.toLowerCase();
   if (!name || !["codex", "codex.exe", "codex.cmd", "codex.bat"].includes(name)) return command;
+  let hasInline = false;
+  let hasWhimsy = false;
+  let previous = "";
   for (const token of tokens.slice(index + 1)) {
-    if (value(token[0]) === "--") break;
-    if (value(token[0]) === "--no-alt-screen") return command;
+    const arg = value(token[0]);
+    if (arg === "--") break;
+    if (arg === "--no-alt-screen") hasInline = true;
+    if ((previous === "-c" || previous === "--config") && arg === "tui.whimsy=false") {
+      hasWhimsy = true;
+    }
+    previous = arg;
   }
+  // Codex 0.154.0's Astra composer sparkle redraws even while idle. Disable
+  // decorative effects for app-managed launches so PTY silence can signal done.
+  // Keep work spinners (tui.animations) enabled and preserve user config on disk.
+  const flags = `${hasInline ? "" : " --no-alt-screen"}${hasWhimsy ? "" : " -c tui.whimsy=false"}`;
   const end = executable.index! + executable[0].length;
-  return `${command.slice(0, end)} --no-alt-screen${command.slice(end)}`;
+  return `${command.slice(0, end)}${flags}${command.slice(end)}`;
 }

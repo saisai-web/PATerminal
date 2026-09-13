@@ -132,6 +132,17 @@ Verify with `ui-tests/21-activity.mjs` and `ui-tests/38-session-status-filter.mj
 confirm on a real machine that opening a claude / codex pane and switching sessions neither
 shows "running" nor produces a notification.
 
+Codex 0.154.0's Astra input composer adds idle sparkle dots (`chat_composer/sparkle.rs`),
+redrawing every 150ms even without a task. App-managed Codex launches pass
+`-c tui.whimsy=false` in `src/terminal/agent-launch.ts` and `src-tauri/src/pty/scrollback.rs`
+so output can become idle. Keep work animations enabled; do not filter arbitrary braille dots
+or change Claude's activity detection. Apply this policy to startup, restoration, direct
+launches, and the resume banner. Manual shell commands bypass these helpers: use the same
+CLI option or set `whimsy = false` in `[tui]` in the user's Codex config and restart Codex.
+Verify `scripts/agent-launch.test.mjs`, the Rust scrollback tests, and agent restore/takeover
+UI tests. With truecolor and OSC foreground/background replies, idle Codex emits continual
+sparkle output by default and becomes silent with `tui.whimsy=false`.
+
 ### Terminal Colors
 
 `pty_spawn` must always pass through `configure_terminal_color()`.

@@ -450,7 +450,7 @@ await page.waitForTimeout(600);
   check("reviewer launches codex with the notify injection",
     (await writesTo(newReview)).some((d) =>
       d.includes("env PATERM_PAIR_SIGNAL='/mock/pair-signals/") &&
-      d.includes(`codex --no-alt-screen -c 'notify=["/mock/pair-signals/notify.sh"]'`)));
+      d.includes(`codex --no-alt-screen -c tui.whimsy=false -c 'notify=["/mock/pair-signals/notify.sh"]'`)));
   check("input focus lands on the implementer pane, not the reviewer",
     (await page.evaluate(() =>
       document.activeElement?.closest(".pane")?.querySelector(".pane-title")?.textContent)) === "impl");

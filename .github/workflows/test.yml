@@ -41,6 +41,7 @@ jobs:
         run: |
           npm run check:architecture
           npx tsc --noEmit
+          npm run test:agent-launch
 
       - name: Verify legal and release support files
         working-directory: pa-terminal

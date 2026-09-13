@@ -26,6 +26,7 @@ import { panes } from "../../workspace/state";
 import type { Pane } from "../../terminal/pane";
 import type { PaneAgentInfo } from "../../workspace/types";
 import { resumeCommandFor } from "./agents";
+import { withTerminalScrollback } from "../../terminal/agent-launch";
 
 const SWEEP_MS = 5000;
 /** これ未満しか観測していないエージェントの終了にはバナーを出さない
@@ -211,7 +212,7 @@ function showResumeBanner(pane: Pane, info: PaneAgentInfo): void {
   resume.onclick = (e) => {
     e.stopPropagation();
     hideResumeBanner(pane);
-    pane.write(`${cmd}\r`);
+    pane.write(`${withTerminalScrollback(cmd)}\r`);
     pane.focus();
   };
   const close = document.createElement("button");

@@ -76,6 +76,12 @@ right where it left off. The history picker lists your saved Claude Code and Cod
 conversations, marks the ones still running, and can hand any of them to a new session in
 the right directory.
 
+Codex 0.154.0 adds animated dots to the Astra input area even while idle, which can
+keep the session status on **Running**. PATerminal disables these decorative effects
+for Codex launches and resumes it manages. If you type `codex` yourself, use
+`codex -c tui.whimsy=false`, or add `whimsy = false` under `[tui]` in
+`~/.codex/config.toml` and restart Codex. Work spinners remain enabled.
+
 ![Resume-from-history picker listing saved Claude Code conversations](docs/assets/resume-history.png)
 
 ## 🌿 Git, without leaving the terminal
