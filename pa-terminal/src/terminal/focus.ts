@@ -20,8 +20,6 @@ const paneActions = document.querySelector<HTMLDivElement>("#pane-actions")!;
     追加セッションを **workspaces 配列を走査して**足す（閉じられた ID はここで落ちる
     ので、セッション終了時に集合を掃除する必要が無い）。 */
 export function broadcastWorkspaces(ws: Workspace): Workspace[] {
-  // 自動Enter は一斉入力 OFF でも broadcastWrite を通るので、送信先はここでも明示的に
-  // 「一斉入力中だけ効く」ことにする（自動Enter はセッション内に閉じたまま）
   if (!ws.broadcast || !ws.broadcastTargets.size) return [ws];
   const list = [ws];
   for (const w of workspaces) {

@@ -13,7 +13,6 @@ import { FREE_PANE_LIMIT, isLocked } from "./license";
 /** ペイン数に関係なく常にロックされる入口（Locked 中のみ 🔒） */
 const LOCKED_SELECTORS = [
   "#broadcast",
-  "#auto-enter-toggle",
   "#pair-open",
   "#quick-phrases-open",
   "#takeover-open",

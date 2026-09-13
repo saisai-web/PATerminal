@@ -231,45 +231,7 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(100);
 check("Escape closes clean viewer immediately", await page.locator("#file-overlay").isHidden());
 
-// --- 36a3. 任意ファイル: 種別を制限せず、選択パスをターミナルへ入力 ---
-const filePathWriteBefore = await page.evaluate(() => window.__ptyWrites.length);
-await page.evaluate(() => {
-  window.__mockPickedFiles = ["/home/user/design brief.pdf", "/tmp/archive.unknown-extension"];
-});
-await page.click("#attach-file");
-await page.waitForTimeout(200);
-const filePathState = await page.evaluate((n) => ({
-  sent: window.__ptyWrites.slice(n).map((x) => x.data).join(""),
-  dialog: window.__dialogOpenCalls.at(-1),
-}), filePathWriteBefore);
-check("file picker accepts any extension and inserts quoted paths without running them",
-  filePathState.sent === "'/home/user/design brief.pdf' '/tmp/archive.unknown-extension' " &&
-    filePathState.dialog?.directory === false &&
-    filePathState.dialog?.multiple === true &&
-    !filePathState.dialog?.filters,
-  JSON.stringify(filePathState));
-
-// --- 36a4. 画像: 選択パスをターミナルへ入力 / エクスプローラー内でプレビュー ---
-const imageWriteBefore = await page.evaluate(() => window.__ptyWrites.length);
-await page.evaluate(() => {
-  window.__mockPickedImages = ["/home/user/photo one.png", "/tmp/screenshot.jpg"];
-});
-await page.click("#attach-image");
-await page.waitForTimeout(200);
-const imagePathWrites = await page.evaluate(
-  (n) => window.__ptyWrites.slice(n).map((x) => x.data).join(""), imageWriteBefore);
-check("image picker inserts quoted paths without running them",
-  imagePathWrites === "'/home/user/photo one.png' '/tmp/screenshot.jpg' ",
-  `sent=${JSON.stringify(imagePathWrites)}`);
-
-// キャンセル時はターミナルへ何も送らない
-await page.evaluate(() => { window.__mockPickedImages = null; });
-const imageCancelBefore = await page.evaluate(() => window.__ptyWrites.length);
-await page.click("#attach-image");
-await page.waitForTimeout(100);
-check("canceling image picker leaves terminal input unchanged",
-  (await page.evaluate(() => window.__ptyWrites.length)) === imageCancelBefore);
-
+// --- 36a3. エクスプローラー内で画像をプレビュー ---
 // 一覧へテスト画像を一時追加し、テキスト欄でなく画像要素を表示する
 await page.evaluate(() => {
   window.__mockFsTree["/home/user"].push({ name: "photo.png", isDir: false });

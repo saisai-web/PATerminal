@@ -79,12 +79,12 @@ check("broadcast stays inside active session", b2Ids.size === 1, `panes hit=${b2
 await page.keyboard.press(`${MOD}+Digit1`);
 await page.waitForTimeout(300);
 const backPanes = await page.locator(".workspace-layer:not([hidden]) .pane").count();
-const bcastLabel1 = await page.locator("#broadcast").textContent();
+const bcastLabel1 = await page.locator("#broadcast").getAttribute("aria-label");
 check("Cmd+1 switches back to session 1", backPanes === pAfter, `visible=${backPanes}`);
 check("broadcast state is per-session (ws1 off)", bcastLabel1 === "一斉入力", `label="${bcastLabel1}"`);
 await page.keyboard.press(`${MOD}+Digit2`);
 await page.waitForTimeout(300);
-const bcastLabel2 = await page.locator("#broadcast").textContent();
+const bcastLabel2 = await page.locator("#broadcast").getAttribute("aria-label");
 check("broadcast state restored on ws2 (on)", bcastLabel2 === "一斉入力中", `label="${bcastLabel2}"`);
 await page.click("#broadcast"); // off に戻す
 

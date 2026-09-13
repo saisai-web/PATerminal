@@ -14,9 +14,13 @@ check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0)
   `width=${Math.round(sidebarBox0?.width ?? 0)}px`);
 check("explorer panel closed by default", await page.locator("#explorer").isHidden());
 check("toolbar has no explorer toggle", (await page.locator("#explorer-toggle").count()) === 0);
-check("toolbar has a file-path attachment button next to the image button",
-  await page.locator("#attach-file").isVisible() &&
-    await page.locator("#attach-image + #attach-file").count() === 1);
+check("toolbar has no attachment or auto-enter controls",
+  (await page.locator("#attach-image, #attach-file, #auto-enter-toggle, #auto-enter-overlay").count()) === 0);
+check("toolbar controls use icons with accessible names and tooltips",
+  await page.locator("#toolbar button").evaluateAll((buttons) => buttons.every((button) =>
+    button.textContent.trim() === "" && button.querySelector("svg") &&
+    button.getAttribute("aria-label")?.trim() && button.title.trim())));
+check("toolbar contains no visible text", (await page.locator("#toolbar").innerText()).trim() === "");
 check("right-side explorer opener is visible by default",
   await page.locator("#exp-reopen").isVisible() &&
     (await page.locator("#exp-reopen svg").count()) === 1);

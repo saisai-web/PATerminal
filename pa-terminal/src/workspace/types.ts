@@ -91,8 +91,6 @@ export type Workspace = {
   sidebarOrder?: number;
   shellKind: ShellKind;
   broadcast: boolean;
-  /** Enterだけをこのセッションの全ペインへ送る */
-  autoEnter: boolean;
   /** 一斉入力の追加送信先セッション ID（自分自身は含めない）。空なら従来どおり
       このセッション内で閉じる。**ランタイム専用で session.json には保存しない**
       （起動直後は必ず空 = セッション内のみ）。一斉入力を切ると同時に空にする */
@@ -125,8 +123,6 @@ export type SerializedWorkspace = {
   sidebarOrder?: number;
   shellKind: ShellKind;
   broadcast: boolean;
-  /** Enterだけをこのセッションの全ペインへ送る */
-  autoEnter?: boolean;
   root: SerializedNode;
 };
 
@@ -150,8 +146,6 @@ export type SessionV3 = {
     /** 対応言語コード（BCP47）。未知の値は boot() で既定言語に落とす */
     language?: string;
     notifications?: boolean;
-    /** Enterキーだけを全セッションの全ペインへ送るモード */
-    autoEnter?: boolean;
     /** v3 までは文字列配列（全部が汎用）。リポジトリ専用は { text, repo } で持つ */
     quickPhrases?: Array<string | { text?: string; repo?: string }>;
     /** 新規セッションの場所フライアウトに出す「最近使った場所」（新しい順） */
@@ -177,7 +171,6 @@ export type SessionV3 = {
     group?: string;
     shellKind: ShellKind;
     broadcast: boolean;
-    autoEnter?: boolean;
     root: SerializedNode;
   }>;
 };

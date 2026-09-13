@@ -24,9 +24,7 @@ import {
 } from "../features/quick-phrases/quick-phrases";
 import {
   getTheme,
-  isAutoEnterAllEnabled,
   isNotificationsEnabled,
-  setAutoEnterAllEnabled,
   setNotificationsEnabled,
   setTheme,
 } from "../features/settings/settings-panel";
@@ -120,7 +118,6 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     sidebarOrder: ws.sidebarOrder,
     shellKind: ws.shellKind,
     broadcast: ws.broadcast,
-    autoEnter: ws.autoEnter || undefined,
     root: serialize(ws.root),
   };
 }
@@ -137,7 +134,6 @@ function serializeAll(): SessionV5 {
       theme: getTheme(),
       language: getLang(),
       notifications: isNotificationsEnabled(),
-      autoEnter: isAutoEnterAllEnabled() || undefined,
       quickPhrases: getQuickPhrases(),
       collapsed: {
         changes: isAgentPanelCollapsed(),
@@ -191,10 +187,14 @@ async function saveNow(): Promise<boolean> {
       }
     }
     await invoke("session_save", { data: JSON.stringify(serializeAll(), null, 2) });
-    saveStateEl.textContent = "";
+    saveStateEl.hidden = true;
+    saveStateEl.title = "";
+    saveStateEl.removeAttribute("aria-label");
     return true;
   } catch {
-    saveStateEl.textContent = t("save.failed");
+    saveStateEl.title = t("save.failed");
+    saveStateEl.setAttribute("aria-label", t("save.failed"));
+    saveStateEl.hidden = false;
     return false;
   } finally {
     saving = false;
@@ -231,7 +231,7 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
   try {
     // 通常は元IDを再利用する。手編集した保存データ等で衝突していれば新しいIDへ退避する
     const id = workspaces.some((w) => w.id === saved.id) ? undefined : saved.id;
-    const ws = createEmptyWorkspace(id, saved.name, saved.shellKind, saved.broadcast, saved.autoEnter === true);
+    const ws = createEmptyWorkspace(id, saved.name, saved.shellKind, saved.broadcast);
     ws.note = normalizeWorkspaceNote(saved.note);
     ws.pinned = saved.pinned === true || undefined;
     ws.archived = saved.archived === true || undefined;
@@ -310,7 +310,6 @@ export async function boot() {
   applyStaticTexts();
   renderLockMarks(); // applyStaticTexts の後（🔒 は .is-locked クラス + CSS 疑似要素）
   setNotificationsEnabled(savedSettings?.notifications !== false); // 未設定はデフォルト ON
-  setAutoEnterAllEnabled(savedSettings?.autoEnter === true); // 旧全体設定も全セッションモードとして復元
 
   if (parsedRaw) {
     try {
@@ -352,7 +351,7 @@ export async function boot() {
           if (parent) group.parentId = undefined;
         }
         for (const s of v4.workspaces) {
-          const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast, s.autoEnter === true);
+          const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);
           ws.pinned = s.pinned === true || undefined;
           ws.archived = s.archived === true || undefined;
@@ -393,7 +392,7 @@ export async function boot() {
           groups.push({ id, name: s.group });
         }
         for (const s of v3.workspaces) {
-          const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast, s.autoEnter === true);
+          const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);
           ws.group = typeof s.group === "string" ? legacyGroupIds.get(s.group) : undefined;
           ws.root = restoreTree(ws, s.root);

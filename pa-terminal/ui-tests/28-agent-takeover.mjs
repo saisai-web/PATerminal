@@ -30,24 +30,19 @@ await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(300);
 
 // ---- 一覧の表示 ----
-check("history is in the focused pane header, auto-enter is in the toolbar",
-  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible() &&
-    (await page.locator(".pane.is-focused .pane-bar #auto-enter-toggle").count()) === 0 &&
-    await page.locator("#toolbar #auto-enter-toggle").isVisible());
-const toolbarOrder = await page.locator("#toolbar > *").evaluateAll(
-  (els) => els.map((el) => el.id || el.className),
-);
-check("auto-enter sits directly to the right of the takeover history button",
-  toolbarOrder.indexOf("auto-enter-toggle") === toolbarOrder.indexOf("takeover-open") + 1,
-  `order=${JSON.stringify(toolbarOrder)}`);
+check("history is in the focused pane header",
+  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible());
+check("takeover history is the last toolbar button",
+  await page.locator("#toolbar > button").last().getAttribute("id") === "takeover-open");
 await page.locator("#takeover-open").click();
 check("toolbar button opens the takeover modal",
   await page.locator("#takeover-panel").isVisible());
 check("toolbar history opens the shared dialog on the conversation tab",
   (await page.locator("#history-tab-takeover").getAttribute("aria-selected")) === "true" &&
     await page.locator("#session-trash-panel").isHidden());
-check("the toolbar button is labeled 履歴",
-  (await page.locator("#takeover-open").textContent()) === "履歴");
+check("the toolbar history icon has the accessible label 履歴",
+  (await page.locator("#takeover-open").getAttribute("aria-label")) === "履歴" &&
+    (await page.locator("#takeover-open").textContent()).trim() === "");
 check("the modal is titled 履歴から引き継ぐ",
   (await page.locator("#history-title").textContent()) === "履歴から引き継ぐ");
 check("the modal has a single unified list (no running section)",
