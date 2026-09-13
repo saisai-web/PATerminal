@@ -77,6 +77,17 @@ right where it left off. The history picker lists your saved Claude Code and Cod
 conversations, marks the ones still running, and can hand any of them to a new session in
 the right directory.
 
+Click the folder name or folder button in the pane bar to change the working folder of an existing terminal.
+With Claude Code or Codex running, select a destination and choose **Move and resume**
+to restart the CLI in the same pane with its saved conversation. The explorer's
+**Move terminal here** action uses the same flow. Running work is interrupted and
+unsent input is not preserved; the app leaves the CLI running if it cannot resolve a
+conversation ID or validate the destination. The new directory is also saved for app
+restarts. CLI options supplied only on the original command line are not replayed.
+Resuming Claude Code across unrelated project directories requires v2.1.223 or later
+([Claude Code session reference](https://code.claude.com/docs/en/sessions)); Codex uses
+an explicit working-directory override ([Codex CLI reference](https://developers.openai.com/codex/cli/reference/)).
+
 ![Resume-from-history picker listing saved Claude Code conversations](docs/assets/resume-history.png)
 
 ## 🌿 Git, without leaving the terminal

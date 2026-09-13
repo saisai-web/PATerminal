@@ -267,6 +267,17 @@ export const zhHant: Dict = {
   "pane.restarting": "正在啟動互動式 shell（恢復終端輸入）",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "切換工作資料夾",
+  "move.destination": "目的地資料夾",
+  "move.submit": "移動並繼續",
+  "move.agent": "在所選資料夾重啟 {agent} 並恢復已儲存的對話。執行中的工作會中斷，未傳送的輸入不會保留。",
+  "move.shell": "變更此終端的工作資料夾。",
+  "move.closed": "此窗格已關閉。",
+  "move.detectFailed": "無法偵測執行中的 CLI，請重試。",
+  "move.absolutePath": "請輸入不含控制字元的資料夾絕對路徑。",
+  "move.changed": "執行中的 CLI 已變更，請確認後重試。",
+  "move.noSession": "尚未取得對話 ID。請等待對話儲存後重試。CLI 尚未停止。",
+
   "agents.exited": "{agent} 已結束",
   "agents.resume": "恢復對話",
   "agents.dismiss": "關閉",

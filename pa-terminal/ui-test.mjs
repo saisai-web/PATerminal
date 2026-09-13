@@ -51,6 +51,7 @@ import sessionViewNavigation from "./ui-tests/45-session-view-navigation.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
 import finderOpen from "./ui-tests/44-finder-open.mjs";
+import changeDirectory from "./ui-tests/44-change-directory.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -72,6 +73,7 @@ const sharedSuites = [
 const independentSuites = [
   ["session-view", sessionView],
   ["session-view-navigation", sessionViewNavigation],
+  ["change-directory", changeDirectory],
   ["worktree-preferences", worktreePreferences],
   ["restore-v4", restoreV4],
   ["migrate-v2", migrateV2],

@@ -10,7 +10,7 @@ import { scheduleSave } from "../app/session";
 import { MAX_RATIO, MIN_RATIO } from "../shared/constants";
 import { FREE_PANE_LIMIT, requireFeature } from "../features/license/license";
 import { renderLockMarks } from "../features/license/lock-marks";
-import { getActiveWs } from "../workspace/state";
+import { getActiveWs, workspaces } from "../workspace/state";
 import type { PaneSpec, Workspace } from "../workspace/types";
 
 export type TreeNode =
@@ -94,13 +94,24 @@ export async function restartPane(ws: Workspace, id: string) {
     run: old.spec.run,
   };
 
-  await old.destroy();
-  const fresh = makePane(ws, spec);
+  await replacePane(ws, id, spec);
+}
+
+/** Replace just this leaf after its PTY closes. Recheck ownership after awaits:
+ * closing the workspace or another restart must never resurrect an orphan pane. */
+export async function replacePane(ws: Workspace, id: string, spec: PaneSpec, scrollback?: string) {
+  if (!ws.root || !workspaces.includes(ws)) return;
+  const found = findParent(ws.root, id);
+  if (!found?.leaf.pane.alive) return;
+  await found.leaf.pane.destroy();
+  if (!workspaces.includes(ws) || !ws.layer.isConnected || !ws.root || findParent(ws.root, id)?.leaf !== found.leaf) return;
+  const fresh = makePane(ws, spec, { scrollback });
   found.leaf.pane = fresh;
 
   layout(ws);
   if (ws === getActiveWs()) setFocused(fresh.id);
   scheduleSave();
+  return fresh;
 }
 
 export async function closePane(ws: Workspace, id: string) {

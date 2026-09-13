@@ -17,7 +17,8 @@ import {
 } from "./explorer";
 import { openFileViewer } from "./file-viewer";
 import { t } from "../../i18n";
-import { cdCommandFor, parentPath, pathBasename } from "./paths";
+import { parentPath, pathBasename } from "./paths";
+import { moveTerminalTo } from "../agents/change-directory";
 import { getActiveWs, getFocusedId, getHostOs, panes } from "../../workspace/state";
 import { splitPane } from "../../terminal/tree";
 
@@ -40,13 +41,13 @@ export function openInOs(path: string) {
   void invoke("open_path", { path }).catch((e) => console.error("open_path failed:", e));
 }
 
-/** フォーカス中ペインのシェルに cd を打ち込み、ターミナル自体をそのフォルダへ移動させる。
-    エクスプローラーの表示は動かさない（cwd は OSC 7 で追って反映される） */
+/** シェルなら cd、AI CLI 起動中なら会話を引き継ぐフォルダ切り替えを開く。
+    cwd の表示は実際の移動・再起動に追従させる。 */
 export function terminalCdTo(path: string) {
   const fid = getFocusedId();
   const pane = fid ? panes.get(fid) : undefined;
   if (!pane) return;
-  pane.write(`${cdCommandFor(pane, path)}\r`);
+  void moveTerminalTo(pane, path);
 }
 
 // フォルダ / ファイルの右クリックメニュー

@@ -25,7 +25,7 @@ import { scheduleSave } from "../../app/session";
 import { panes } from "../../workspace/state";
 import type { Pane } from "../../terminal/pane";
 import type { PaneAgentInfo } from "../../workspace/types";
-import { resumeCommandFor } from "./agents";
+import { isKnownAgent, isValidSessionId, resumeCommandFor } from "./agents";
 
 const SWEEP_MS = 5000;
 /** これ未満しか観測していないエージェントの終了にはバナーを出さない
@@ -47,7 +47,7 @@ type WatchState = {
   since: number;
   /** 解決済みなら再試行しない（後から出来た別セッションへ乗り換えない） */
   resolved: boolean;
-  resolving: boolean;
+  resolution?: Promise<void>;
 };
 
 /** paneId → 実行中エージェントの観測状態 */
@@ -68,6 +68,22 @@ export function initAgentWatch(): void {
 export function updateAgentWatch(): void {
   if (Date.now() - lastSweepAt < 1000) return;
   void sweep();
+}
+
+/** Refresh on explicit directory changes, including agents started between sweeps.
+ * Never fall back to stale spec.agent when detection fails. */
+export async function agentForDirectoryChange(pane: Pane): Promise<PaneAgentInfo | null> {
+  const result = await invoke<Record<string, string | null>>("pty_agents", { ids: [pane.id] });
+  if (!pane.alive || panes.get(pane.id) !== pane) throw new Error(t("move.closed"));
+  if (!(pane.id in result)) throw new Error(t("move.detectFailed"));
+  const kind = result[pane.id];
+  if (kind && !isKnownAgent(kind)) throw new Error(t("move.detectFailed"));
+  apply(pane, kind, Date.now());
+  if (!kind) return null;
+  await resolveSessionId(pane);
+  if (!pane.alive || panes.get(pane.id) !== pane) throw new Error(t("move.closed"));
+  if (pane.spec.agent?.kind !== kind) throw new Error(t("move.detectFailed"));
+  return { ...pane.spec.agent };
 }
 
 async function sweep(): Promise<void> {
@@ -116,8 +132,9 @@ function apply(pane: Pane, kind: string | null, now: number): void {
         kind,
         firstSeen: now,
         since: now - SINCE_SLACK_MS,
-        resolved: false,
-        resolving: false,
+        // An explicit resumed conversation must stay pinned even when another
+        // agent creates a newer transcript in the destination directory.
+        resolved: pane.spec.agent?.kind === kind && isValidSessionId(pane.spec.agent.sessionId),
       });
       // 実行中エージェントとして記録。復元直後の再検知では保存済みの sessionId を
       // 残す（新しい ID が解決できるまでのフォールバック）
@@ -158,10 +175,17 @@ function apply(pane: Pane, kind: string | null, now: number): void {
 
 /** 検知時点の cwd からエージェントのセッション ID を解決して spec.agent に足す。
     解決できるまで各スイープから再試行され、成功したら固定される */
-async function resolveSessionId(pane: Pane): Promise<void> {
+function resolveSessionId(pane: Pane): Promise<void> {
   const state = running.get(pane.id);
-  if (!state || state.resolving || state.resolved) return;
-  state.resolving = true;
+  if (!state || state.resolved) return Promise.resolve();
+  if (state.resolution) return state.resolution;
+  state.resolution = resolveObservedSessionId(pane, state).finally(() => {
+    state.resolution = undefined;
+  });
+  return state.resolution;
+}
+
+async function resolveObservedSessionId(pane: Pane, state: WatchState): Promise<void> {
   try {
     let live: string | null = null;
     try {
@@ -178,7 +202,7 @@ async function resolveSessionId(pane: Pane): Promise<void> {
     });
     // await 中に終了・別エージェント化していたら反映しない
     if (running.get(pane.id) !== state || !pane.alive) return;
-    if (id && pane.spec.agent?.kind === state.kind) {
+    if (isValidSessionId(id) && pane.spec.agent?.kind === state.kind) {
       state.resolved = true;
       if (pane.spec.agent.sessionId !== id) {
         pane.spec.agent = { kind: state.kind, sessionId: id };
@@ -187,8 +211,6 @@ async function resolveSessionId(pane: Pane): Promise<void> {
     }
   } catch {
     /* 旧バイナリ等。ID 無し（--continue へ退化）のまま */
-  } finally {
-    state.resolving = false;
   }
 }
 

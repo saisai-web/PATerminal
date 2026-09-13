@@ -267,6 +267,17 @@ export const it: Dict = {
   "pane.restarting": "avvio di una shell interattiva (ripristino dell’input)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Cambia cartella di lavoro",
+  "move.destination": "Cartella di destinazione",
+  "move.submit": "Sposta e riprendi",
+  "move.agent": "Riavvia {agent} nella cartella scelta con la conversazione salvata. Il lavoro in corso verrà interrotto e il testo non inviato andrà perso.",
+  "move.shell": "Cambia la cartella di lavoro di questo terminale.",
+  "move.closed": "Questo riquadro è stato chiuso.",
+  "move.detectFailed": "Impossibile rilevare il CLI in esecuzione. Riprova.",
+  "move.absolutePath": "Inserisci un percorso assoluto di cartella senza caratteri di controllo.",
+  "move.changed": "Il CLI in esecuzione è cambiato. Controlla i dettagli e riprova.",
+  "move.noSession": "ID della conversazione non ancora disponibile. Attendi il salvataggio e riprova. Il CLI non è stato arrestato.",
+
   "agents.exited": "{agent} è terminato",
   "agents.resume": "Riprendi conversazione",
   "agents.dismiss": "Chiudi",

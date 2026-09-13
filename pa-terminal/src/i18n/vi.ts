@@ -267,6 +267,17 @@ export const vi: Dict = {
   "pane.restarting": "đang khởi động shell tương tác (khôi phục nhập liệu)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Đổi thư mục làm việc",
+  "move.destination": "Thư mục đích",
+  "move.submit": "Chuyển và tiếp tục",
+  "move.agent": "Khởi động lại {agent} trong thư mục đã chọn với hội thoại đã lưu. Công việc đang chạy sẽ bị ngắt và nội dung chưa gửi sẽ không được giữ lại.",
+  "move.shell": "Đổi thư mục làm việc của terminal này.",
+  "move.closed": "Ngăn này đã đóng.",
+  "move.detectFailed": "Không thể phát hiện CLI đang chạy. Hãy thử lại.",
+  "move.absolutePath": "Nhập đường dẫn thư mục tuyệt đối không có ký tự điều khiển.",
+  "move.changed": "CLI đang chạy đã thay đổi. Kiểm tra chi tiết rồi thử lại.",
+  "move.noSession": "Chưa có ID hội thoại. Đợi hội thoại được lưu rồi thử lại. CLI chưa bị dừng.",
+
   "agents.exited": "{agent} đã kết thúc",
   "agents.resume": "Tiếp tục cuộc trò chuyện",
   "agents.dismiss": "Đóng",

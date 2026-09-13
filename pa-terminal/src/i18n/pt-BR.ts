@@ -267,6 +267,17 @@ export const ptBR: Dict = {
   "pane.restarting": "iniciando um shell interativo (restaurando a entrada)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Alterar pasta de trabalho",
+  "move.destination": "Pasta de destino",
+  "move.submit": "Mover e retomar",
+  "move.agent": "Reinicia {agent} na pasta escolhida com a conversa salva. O trabalho em andamento será interrompido e o texto não enviado será perdido.",
+  "move.shell": "Altera a pasta de trabalho deste terminal.",
+  "move.closed": "Este painel foi fechado.",
+  "move.detectFailed": "Não foi possível detectar o CLI em execução. Tente novamente.",
+  "move.absolutePath": "Insira um caminho absoluto de pasta sem caracteres de controle.",
+  "move.changed": "O CLI em execução mudou. Confira os detalhes e tente novamente.",
+  "move.noSession": "O ID da conversa ainda não está disponível. Aguarde a conversa ser salva e tente novamente. O CLI não foi encerrado.",
+
   "agents.exited": "{agent} foi encerrado",
   "agents.resume": "Retomar conversa",
   "agents.dismiss": "Fechar",

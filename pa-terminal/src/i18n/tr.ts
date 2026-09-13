@@ -267,6 +267,17 @@ export const tr: Dict = {
   "pane.restarting": "etkileşimli kabuk başlatılıyor (terminal girişi geri yükleniyor)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Çalışma klasörünü değiştir",
+  "move.destination": "Hedef klasör",
+  "move.submit": "Taşı ve devam et",
+  "move.agent": "{agent} seçilen klasörde kayıtlı konuşmayla yeniden başlatılır. Devam eden çalışma kesilir ve gönderilmemiş girişler taşınmaz.",
+  "move.shell": "Bu terminalin çalışma klasörünü değiştirir.",
+  "move.closed": "Bu bölme kapatıldı.",
+  "move.detectFailed": "Çalışan CLI algılanamadı. Tekrar deneyin.",
+  "move.absolutePath": "Kontrol karakterleri içermeyen mutlak bir klasör yolu girin.",
+  "move.changed": "Çalışan CLI değişti. Ayrıntıları kontrol edip tekrar deneyin.",
+  "move.noSession": "Konuşma kimliği henüz mevcut değil. Konuşmanın kaydedilmesini bekleyip tekrar deneyin. CLI durdurulmadı.",
+
   "agents.exited": "{agent} sonlandı",
   "agents.resume": "Konuşmayı sürdür",
   "agents.dismiss": "Kapat",

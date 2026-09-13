@@ -267,6 +267,17 @@ export const zhHans: Dict = {
   "pane.restarting": "正在启动交互式 shell（恢复终端输入）",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "切换工作文件夹",
+  "move.destination": "目标文件夹",
+  "move.submit": "移动并恢复",
+  "move.agent": "在所选文件夹重启 {agent} 并恢复已保存的对话。正在执行的工作会中断，未发送的输入不会保留。",
+  "move.shell": "更改此终端的工作文件夹。",
+  "move.closed": "此窗格已关闭。",
+  "move.detectFailed": "无法检测运行中的 CLI，请重试。",
+  "move.absolutePath": "请输入不含控制字符的文件夹绝对路径。",
+  "move.changed": "运行中的 CLI 已变化，请确认后重试。",
+  "move.noSession": "尚未获取对话 ID。请等待对话保存后重试。CLI 尚未停止。",
+
   "agents.exited": "{agent} 已退出",
   "agents.resume": "恢复对话",
   "agents.dismiss": "关闭",

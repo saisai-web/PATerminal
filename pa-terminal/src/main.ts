@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import "@xterm/xterm/css/xterm.css";
 import "./styles.css";
 import { initAgentWatch } from "./features/agents/watch";
+import { initDirectoryChange } from "./features/agents/change-directory";
 import { initTakeover } from "./features/agents/takeover";
 import { initAgentPanel } from "./features/git/agent-panel";
 import { initGitPanel } from "./features/git/git-panel";
@@ -50,7 +51,7 @@ import { groupById, groupPath } from "./workspace/groups";
 import { getDeletedWorkspaces } from "./features/sidebar/session-trash";
 import { initSessionTrash } from "./features/sidebar/session-trash";
 import { initHistoryDialog } from "./features/history/history-dialog";
-import { initPairMode, nextPairSessionName, updatePairStrip } from "./features/pair/pair";
+import { initPairMode, nextPairSessionName, notifyPairExit, updatePairStrip } from "./features/pair/pair";
 import { renderAutoEnterButton } from "./features/settings/settings-panel";
 import { initLicense, onLicenseChange, requireFeature } from "./features/license/license";
 import { renderLockMarks } from "./features/license/lock-marks";
@@ -121,6 +122,7 @@ initBroadcastDialog({
 });
 initPathAttachments();
 initDropPaths();
+initDirectoryChange({ beforeReplace: notifyPairExit });
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。
   insert: (text) => {

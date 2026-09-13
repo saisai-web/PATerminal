@@ -14,6 +14,8 @@ export type PaneAgentInfo = {
   /** エージェント CLI の保存ファイルから解決した会話 ID。無ければ
       `--continue` / `resume --last` 相当の「最後の会話」再開に退化する */
   sessionId?: string;
+  /** フォルダ移動後の再開では、CLI に保存された旧 cwd よりペインの cwd を優先する。 */
+  useCurrentCwd?: boolean;
 };
 
 export type PaneSpec = {

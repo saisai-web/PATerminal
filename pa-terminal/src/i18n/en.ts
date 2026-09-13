@@ -284,6 +284,17 @@ export const en = {
   "pane.restarting": "starting an interactive shell (restoring terminal input)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "Change working folder",
+  "move.destination": "Destination folder",
+  "move.submit": "Move and resume",
+  "move.agent": "Restart {agent} in the selected folder with the saved conversation. Running work will be interrupted; unsent input will not be carried over.",
+  "move.shell": "Change the working folder of this terminal.",
+  "move.closed": "This pane has been closed.",
+  "move.detectFailed": "Could not detect the running CLI. Please retry.",
+  "move.absolutePath": "Enter an absolute folder path without control characters.",
+  "move.changed": "The running CLI changed. Check the details and try again.",
+  "move.noSession": "The conversation ID is not available yet. Wait for the conversation to be saved, then retry. The CLI has not been stopped.",
+
   "agents.exited": "{agent} exited",
   "agents.resume": "Resume conversation",
   "agents.dismiss": "Dismiss",

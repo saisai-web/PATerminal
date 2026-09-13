@@ -267,6 +267,17 @@ export const ko: Dict = {
   "pane.restarting": "대화형 셸을 시작하는 중입니다(터미널 입력 복구)",
 
   // エージェント終了バナー（features/agents）
+  "move.title": "작업 폴더 변경",
+  "move.destination": "대상 폴더",
+  "move.submit": "이동 후 재개",
+  "move.agent": "선택한 폴더에서 {agent}를 다시 시작하고 저장된 대화를 이어갑니다. 실행 중인 작업은 중단되며 보내지 않은 입력은 유지되지 않습니다.",
+  "move.shell": "이 터미널의 작업 폴더를 변경합니다.",
+  "move.closed": "이 창이 닫혔습니다.",
+  "move.detectFailed": "실행 중인 CLI를 확인할 수 없습니다. 다시 시도하세요.",
+  "move.absolutePath": "제어 문자가 없는 폴더의 절대 경로를 입력하세요.",
+  "move.changed": "실행 중인 CLI가 변경되었습니다. 확인 후 다시 시도하세요.",
+  "move.noSession": "아직 대화 ID를 가져올 수 없습니다. 대화가 저장된 후 다시 시도하세요. CLI는 중지되지 않았습니다.",
+
   "agents.exited": "{agent} 이(가) 종료되었습니다",
   "agents.resume": "대화 재개",
   "agents.dismiss": "닫기",

@@ -80,6 +80,9 @@ export function setFocused(id: string) {
         const close = head.querySelector<HTMLButtonElement>(".pane-close");
         if (close) head.insertBefore(paneActions, close);
         else head.append(paneActions);
+        // Moving the actions changes the header height. Measure before focus
+        // restores the scroll anchor, rather than waiting for ResizeObserver.
+        focusedPane.refit();
       }
       paneActions.hidden = false;
     }
