@@ -94,9 +94,9 @@
 /* エクスプローラーを閉じている間だけ右端に出る再オープンアイコン */
 #exp-reopen {
   flex: none;
-  width: var(--control-button-size);
+  width: 36px;
   font: inherit;
-  color: var(--dim);
+  color: var(--text);
   background: var(--chrome);
   border: 0;
   border-left: 1px solid var(--line);
@@ -105,7 +105,7 @@
   display: grid;
   place-items: center;
 }
-#exp-reopen svg { width: var(--control-icon-size); height: var(--control-icon-size); }
+#exp-reopen svg { width: 24px; height: 24px; }
 #exp-reopen:hover { color: var(--accent); background: var(--hover); }
 #exp-reopen:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 #exp-reopen[hidden] { display: none; }
