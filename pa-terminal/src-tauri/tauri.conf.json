@@ -32,6 +32,15 @@
     "macOS": {
       "minimumSystemVersion": "11.0"
     },
+    "fileAssociations": [
+      {
+        "ext": [],
+        "contentTypes": ["public.folder"],
+        "name": "Folder",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ],
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
       "allowDowngrades": true,

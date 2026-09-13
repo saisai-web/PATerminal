@@ -182,7 +182,7 @@ await page.click("#settings-open");
 check("settings overlay opens", await page.locator("#settings-overlay").isVisible());
 // 左ナビ + 右コンテンツの2ペイン構成。開いた直後はテーマセクションが選択されている
 check("settings nav lists all sections with theme active",
-  (await page.locator("#settings-nav .settings-nav-item").count()) === 7 &&
+  (await page.locator("#settings-nav .settings-nav-item").count()) === 8 &&
     await page.locator('#settings-nav .settings-nav-item[data-section="theme"]').evaluate(
       (el) => el.classList.contains("is-active")));
 const themeBtns = await page.locator("#settings-themes .settings-choice").count();

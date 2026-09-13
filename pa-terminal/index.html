@@ -12,6 +12,7 @@
         <div id="sidebar-head">
           <input id="ws-search" type="search" data-i18n-placeholder="sidebar.searchPlaceholder" placeholder="Search sessions..." />
           <button id="ws-new" data-i18n-title="sidebar.newSession" title="新規セッション (Cmd/Ctrl+T)">+</button>
+          <button id="ws-new-finder" type="button" title="Finderから開く…" aria-label="Finderから開く…"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></button>
           <button id="sidebar-collapse" data-i18n-title="sidebar.collapse" title="セッション一覧をたたむ (Cmd/Ctrl+B)">«</button>
         </div>
         <div id="ws-new-form" hidden>
@@ -701,6 +702,7 @@
             <button type="button" class="settings-nav-item" data-section="worktree" data-i18n="settings.worktreeSection">Worktreeの既定の置き場所</button>
             <button type="button" class="settings-nav-item" data-section="license" data-i18n="settings.licenseSection">ライセンス</button>
             <button type="button" class="settings-nav-item" data-section="update" data-i18n="settings.update">アップデート</button>
+            <button type="button" class="settings-nav-item" data-section="finder" data-i18n="settings.finderSection">Finder 連携</button>
           </nav>
           <div id="settings-content">
             <section data-section="theme">
@@ -792,6 +794,15 @@
                 <button id="settings-check-update" data-i18n="settings.checkUpdate">アップデートを確認</button>
               </div>
               <div id="settings-update-result" aria-live="polite"></div>
+            </section>
+            <!-- macOS 専用: Finder の右クリック →「クイックアクション」に「PATerminalで開く」を出す。JS が他 OS では nav ごと隠す -->
+            <section data-section="finder" hidden>
+              <h3 data-i18n="settings.finderSection">Finder 連携</h3>
+              <p class="settings-hint" data-i18n="settings.finderDesc">Finder でフォルダを右クリック → クイックアクション → 「PATerminalで開く」で、そのフォルダの新規セッションを開けるようにします。</p>
+              <div id="settings-finder-row">
+                <button id="settings-finder-install" type="button" data-i18n="settings.finderInstall">クイックアクションをインストール</button>
+              </div>
+              <div id="settings-finder-result" aria-live="polite"></div>
             </section>
           </div>
         </div>

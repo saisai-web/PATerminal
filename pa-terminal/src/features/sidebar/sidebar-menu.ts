@@ -25,7 +25,7 @@ import {
   clearWsSelection,
 } from "./sidebar-selection";
 import { renderSidebar } from "./sidebar";
-import { attachLocationFlyout } from "./new-session-location";
+import { attachLocationFlyout, osFolderPickLabel, pickFolderFromOs } from "./new-session-location";
 import { isArchiveSessionStatusFilterActive } from "./session-status-filter";
 import { collapsedGroups, groups, workspaces } from "../../workspace/state";
 import {
@@ -255,6 +255,21 @@ export function openGroupMenu(
   showCtxMenu(menu, x, y);
 }
 
+/** 「Finderから開く…」の直接項目。サブメニューを経由せず OS のフォルダ選択を開き、
+    選んだフォルダで onPick を呼ぶ。ダイアログでメニューが閉じても Promise は解決する */
+function buildOpenFromOsItem(onPick: (cwd: string) => void): HTMLButtonElement {
+  const item = document.createElement("button");
+  item.textContent = osFolderPickLabel();
+  item.title = t("loc.pickTitle");
+  item.onclick = () => {
+    closeGroupMenu();
+    void pickFolderFromOs().then((cwd) => {
+      if (cwd) onPick(cwd);
+    });
+  };
+  return item;
+}
+
 /** グループ見出しの右クリックメニュー。
     新規セッションはそのグループへ、新規グループは子階層へ、いずれも見出し直下の行へ
     クイック作成する。表示中セッションや選択中セッションは挿入位置に使わない。
@@ -286,6 +301,9 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
     },
     { submenu: true },
   );
+  const finder = buildOpenFromOsItem((cwd) => {
+    void quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd });
+  });
 
   const child = document.createElement("button");
   child.textContent = t("ctx.createGroup");
@@ -357,7 +375,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
       scheduleSave();
     })();
   };
-  menu.append(session, child, createSep, renameBtn, dissolve, sep, closeAll);
+  menu.append(session, finder, child, createSep, renameBtn, dissolve, sep, closeAll);
   showCtxMenu(menu, x, y);
 }
 
@@ -387,6 +405,9 @@ export function openListCtxMenu(x: number, y: number, at?: number) {
     },
     { submenu: true },
   );
+  const finder = buildOpenFromOsItem((cwd) => {
+    void quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd });
+  });
   const group = document.createElement("button");
   group.textContent = t("ctx.createGroup");
   group.title = t("ctx.createGroupTitle");
@@ -394,7 +415,7 @@ export function openListCtxMenu(x: number, y: number, at?: number) {
     closeGroupMenu();
     createGroup(nextGroupName(), undefined, at);
   };
-  menu.append(session, group);
+  menu.append(session, finder, group);
   showCtxMenu(menu, x, y);
 }
 

@@ -14,6 +14,7 @@ import { initDropPaths } from "./features/attachments/drop-paths";
 import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
 import { initWorktreeDialog } from "./features/git/worktree-dialog";
 import { updateWsActivity } from "./app/activity";
+import { flushPendingOpenDirs } from "./app/open-dirs";
 import "./terminal/diag";
 import { broadcastWrite, toggleBroadcast } from "./terminal/focus";
 import { initBroadcastDialog, openBroadcastDialog } from "./features/broadcast/broadcast-dialog";
@@ -358,6 +359,8 @@ async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
   setExplorerOpen(false, { save: false });
+  // Finder から渡されたフォルダ（起動前の分も含む）は復元が終わってから開く
+  flushPendingOpenDirs();
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・
   // 自ビルドの新バージョン通知はその後に起動する
   initLicenseBanner({ layout: () => layout() });
