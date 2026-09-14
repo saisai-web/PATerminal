@@ -66,8 +66,9 @@ jobs:
 
   # Windows 固有のコード（pty/cwd.rs の PEB 読み取り・pty/agent.rs の Toolhelp32・
   # pty/shell.rs の起動引数）と、公開ヘッダに無い NT オフセットのコンパイル時アサートは、
-  # このジョブでは単体テストを実行する。アプリ本体と配布物のビルドは
-  # build.yml で毎 push / PR に macOS / Windows 両方を確認する。
+  # このジョブでしか CI のコンパイル対象にならない（release.yml はRelease公開時のみ）。
+  # フロントは OS 非依存（OS 差は PATERMINAL_TEST_OS で frontend ジョブから回す）なので
+  # Rust だけを走らせる。
   rust-windows:
     name: Rust (Windows)
     runs-on: windows-latest
