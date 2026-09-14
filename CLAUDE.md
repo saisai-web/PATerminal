@@ -137,8 +137,13 @@ redrawing every 150ms even without a task. App-managed Codex launches pass
 `-c tui.whimsy=false` in `src/terminal/agent-launch.ts` and `src-tauri/src/pty/scrollback.rs`
 so output can become idle. Keep work animations enabled; do not filter arbitrary braille dots
 or change Claude's activity detection. Apply this policy to startup, restoration, direct
-launches, and the resume banner. Manual shell commands bypass these helpers: use the same
-CLI option or set `whimsy = false` in `[tui]` in the user's Codex config and restart Codex.
+launches, and the resume banner. Manual shell commands bypass these helpers, so
+`agents/codex_config.rs` also saves `[tui] whimsy = false` in the user-level Codex
+config before the app opens any terminals. Honor `CODEX_HOME`, preserve other
+settings/comments and symlinks, and replace the file atomically. This deliberately
+affects Codex outside PATerminal too. Do not overwrite invalid configs; report
+failures. Already-running Codex must restart, and explicit CLI/project overrides
+can still take precedence.
 Verify `scripts/agent-launch.test.mjs`, the Rust scrollback tests, and agent restore/takeover
 UI tests. With truecolor and OSC foreground/background replies, idle Codex emits continual
 sparkle output by default and becomes silent with `tui.whimsy=false`.

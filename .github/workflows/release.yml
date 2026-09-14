@@ -248,6 +248,14 @@ jobs:
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
 
+      # A successful build does not prove the Windows loader / setup callbacks
+      # can start the official executable. Failure also prevents Latest promotion.
+      - name: verify Windows startup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: pa-terminal
+        run: ./scripts/windows-startup-smoke.ps1 -Executable ./src-tauri/target/release/pa-terminal.exe
+
       # tauri-action は .app を公証してから DMG を作る。実際に配布する最外層の
       # DMG にも公証 ticket を付け、オフラインでも Gatekeeper が確認できるようにする。
       - name: notarize and staple universal DMG

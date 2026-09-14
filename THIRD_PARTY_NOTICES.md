@@ -4,7 +4,7 @@ This file lists third-party components used by the official macOS universal and 
 
 This file is generated from `pa-terminal/package-lock.json`, `pa-terminal/Cargo.lock`, and the license files shipped in the installed packages. Do not edit it by hand; run `npm run generate:third-party-notices` from `pa-terminal`.
 
-Components: 389. Distinct bundled license or notice texts: 232.
+Components: 390. Distinct bundled license or notice texts: 232.
 
 ## Component inventory
 
@@ -309,6 +309,7 @@ Components: 389. Distinct bundled license or notice texts: 232.
 | Cargo | toml | 1.1.4+spec-1.1.0 | MIT OR Apache-2.0 |
 | Cargo | toml_datetime | 0.7.5+spec-1.1.0 | MIT OR Apache-2.0 |
 | Cargo | toml_datetime | 1.1.1+spec-1.1.0 | MIT OR Apache-2.0 |
+| Cargo | toml_edit | 0.25.13+spec-1.1.0 | MIT OR Apache-2.0 |
 | Cargo | toml_parser | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
 | Cargo | toml_writer | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 |
 | Cargo | tower | 0.5.3 | MIT |
@@ -3487,7 +3488,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### 4498464c2864825d
 
-Applies to: serde_spanned 1.1.1, toml 0.9.12+spec-1.1.0, toml 1.1.4+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0
+Applies to: serde_spanned 1.1.1, toml 0.9.12+spec-1.1.0, toml 1.1.4+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0
 
 ```text
 Copyright (c) Individual contributors
@@ -6147,7 +6148,7 @@ express Statement of Purpose.
 
 ### 6dc0e068dcf3a5bc
 
-Applies to: crc32fast 1.5.0, ctor 0.8.0, ctor-proc-macro 0.0.7, dpi 0.1.2, dtor 0.3.0, dtor-proc-macro 0.0.6, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, json-patch 3.0.1, notify-rust 4.18.0, serde_spanned 1.1.1, tao 0.35.3, toml 0.9.12+spec-1.1.0, toml 1.1.4+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
+Applies to: crc32fast 1.5.0, ctor 0.8.0, ctor-proc-macro 0.0.7, dpi 0.1.2, dtor 0.3.0, dtor-proc-macro 0.0.6, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, json-patch 3.0.1, notify-rust 4.18.0, serde_spanned 1.1.1, tao 0.35.3, toml 0.9.12+spec-1.1.0, toml 1.1.4+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
 
 ```text
 Apache License

@@ -25,6 +25,10 @@ mod worktree;
 use tauri::Manager;
 
 pub fn run() {
+    // Apply before any restored or manually started shell can launch Codex.
+    if let Err(error) = agents::codex_config::disable_idle_whimsy() {
+        eprintln!("Could not disable Codex idle decoration: {error}");
+    }
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init());

@@ -14,8 +14,9 @@
 //!   を実装し、ハンドラ無しのときは常に super へ流している。そのクラスの 4 メソッドの実装を
 //!   `class_replaceMethod` で置き換える（クラス自体は差し替えない。差し替えると macOS 26 の
 //!   AppKit が起動時に assert で落ちる）。
-//! - Windows: WebView2 が子 HWND に登録している IDropTarget を取り出して保持し、自前の
-//!   IDropTarget に差し替える。CF_HDROP を持たないドラッグは元の IDropTarget へ委譲する。
+//! - Windows: 同じプロセス・UI スレッドの子 HWND が持つ IDropTarget だけを差し替える。
+//!   CF_HDROP を持たないドラッグは元の IDropTarget へ委譲する。WebView2 の別プロセスが
+//!   所有する HWND の COM ポインターは、このプロセスでは参照できないため触らない。
 //! - Linux: 何もしない（フロントの window `dragover`/`drop` の preventDefault だけが効く）。
 //!
 //! 座標は WebView 左上原点の CSS px（macOS の pt = CSS px。Windows は DPI で割る）。
@@ -289,9 +290,12 @@ mod platform {
         DROPEFFECT_COPY, DROPEFFECT_NONE,
     };
     use windows::Win32::System::SystemServices::MODIFIERKEYS_FLAGS;
+    use windows::Win32::System::Threading::GetCurrentThreadId;
     use windows::Win32::UI::HiDpi::GetDpiForWindow;
     use windows::Win32::UI::Shell::{DragFinish, DragQueryFileW, HDROP};
-    use windows::Win32::UI::WindowsAndMessaging::{EnumChildWindows, GetPropW};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumChildWindows, GetPropW, GetWindowThreadProcessId,
+    };
 
     /// 差し替え済みの HWND。ページ再読み込み等で再度呼ばれても二重に差し替えない。
     static HOOKED: Mutex<Vec<isize>> = Mutex::new(Vec::new());
@@ -310,9 +314,16 @@ mod platform {
         let _ = EnumChildWindows(Some(parent), Some(each), LPARAM(0));
     }
 
-    /// OLE は RegisterDragDrop 時に IDropTarget を "OleDropTargetInterface" プロパティに置く。
-    /// それが在る HWND（= WebView2 が登録済みのもの）だけ差し替える。
+    /// OLE's window property is a raw, apartment-local COM pointer. WebView2's
+    /// descendant HWNDs can belong to its separate browser process; dereferencing
+    /// that process's property in IUnknown::AddRef crashes before the UI loads.
+    /// Leave windows outside this UI thread's process/apartment to WebView2.
     unsafe fn inject(hwnd: HWND) {
+        let mut owner_process = 0;
+        let owner_thread = GetWindowThreadProcessId(hwnd, Some(&mut owner_process));
+        if owner_process != std::process::id() || owner_thread != GetCurrentThreadId() {
+            return;
+        }
         let key = hwnd.0 as isize;
         {
             let hooked = HOOKED.lock().unwrap_or_else(|e| e.into_inner());
@@ -457,6 +468,120 @@ mod platform {
             }
             unsafe { *effect = DROPEFFECT_COPY };
             Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::env::HideConsole;
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::process::{Child, Command, Stdio};
+        use std::sync::mpsc;
+        use std::time::Duration;
+        use windows::Win32::Foundation::HANDLE;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, SetPropW, WINDOW_EX_STYLE, WS_POPUP,
+        };
+
+        fn foreign_drop_window() -> HWND {
+            unsafe {
+                let hwnd = CreateWindowExW(
+                    WINDOW_EX_STYLE::default(),
+                    w!("STATIC"),
+                    w!("PATerminal drop test"),
+                    WS_POPUP,
+                    0,
+                    0,
+                    1,
+                    1,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                // A non-null property from another process/apartment must never
+                // be dereferenced, regardless of its value in our address space.
+                SetPropW(
+                    hwnd,
+                    w!("OleDropTargetInterface"),
+                    Some(HANDLE(1usize as _)),
+                )
+                .unwrap();
+                hwnd
+            }
+        }
+
+        struct Helper(Child);
+
+        impl Drop for Helper {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+
+        #[test]
+        #[ignore = "subprocess fixture for ignores_foreign_process_drop_target"]
+        fn foreign_window_helper() {
+            let hwnd = foreign_drop_window();
+            println!("DROP_TEST_HWND={}", hwnd.0 as usize);
+            std::io::stdout().flush().unwrap();
+            let _ = std::io::stdin().read(&mut [0]);
+            unsafe { DestroyWindow(hwnd).unwrap() };
+        }
+
+        #[test]
+        fn ignores_foreign_process_drop_target() {
+            let mut helper = Helper(
+                Command::new(std::env::current_exe().unwrap())
+                    .args([
+                        "--ignored",
+                        "--exact",
+                        "system::drop::platform::tests::foreign_window_helper",
+                        "--nocapture",
+                    ])
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit())
+                    .hide_console()
+                    .spawn()
+                    .unwrap(),
+            );
+            let stdout = helper.0.stdout.take().unwrap();
+            let (send, receive) = mpsc::channel();
+            std::thread::spawn(move || {
+                for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                    if let Some(raw) = line.strip_prefix("DROP_TEST_HWND=") {
+                        let _ = send.send(raw.parse::<usize>().unwrap());
+                        break;
+                    }
+                }
+            });
+            let hwnd = HWND(receive.recv_timeout(Duration::from_secs(10)).unwrap() as _);
+            unsafe {
+                assert!(!GetPropW(hwnd, w!("OleDropTargetInterface")).is_invalid());
+                inject(hwnd);
+                // The browser's original drop target must remain untouched.
+                assert_eq!(GetPropW(hwnd, w!("OleDropTargetInterface")).0 as usize, 1);
+            }
+        }
+
+        #[test]
+        fn ignores_other_thread_drop_target() {
+            let (send, receive) = mpsc::channel();
+            let (finish, finished) = mpsc::channel();
+            let thread = std::thread::spawn(move || {
+                let hwnd = foreign_drop_window();
+                send.send(hwnd.0 as usize).unwrap();
+                let _ = finished.recv_timeout(Duration::from_secs(10));
+                unsafe { DestroyWindow(hwnd).unwrap() };
+            });
+            let hwnd = HWND(receive.recv_timeout(Duration::from_secs(10)).unwrap() as _);
+            unsafe { inject(hwnd) };
+            finish.send(()).unwrap();
+            thread.join().unwrap();
         }
     }
 }

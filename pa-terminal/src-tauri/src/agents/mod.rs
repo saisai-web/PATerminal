@@ -18,6 +18,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub(crate) mod codex_config;
 pub(crate) mod list;
 pub(crate) mod signal;
 
