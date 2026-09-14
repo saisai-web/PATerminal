@@ -90,9 +90,14 @@ an explicit working-directory override ([Codex CLI reference](https://developers
 
 Codex 0.154.0 adds animated dots to the Astra input area even while idle, which can
 keep the session status on **Running**. PATerminal disables these decorative effects
-for Codex launches and resumes it manages. If you type `codex` yourself, use
-`codex -c tui.whimsy=false`, or add `whimsy = false` under `[tui]` in
-`~/.codex/config.toml` and restart Codex. Work spinners remain enabled.
+for Codex launches and resumes it manages. At each app startup it also saves
+`whimsy = false` under `[tui]` in `$CODEX_HOME/config.toml` (or
+`~/.codex/config.toml`), so manually typed `codex` commands work on other PCs
+without manual configuration. This user-level setting also applies outside
+PATerminal. Existing settings and comments are preserved; work spinners remain
+enabled. Restart already-running Codex sessions to apply it. Explicit CLI or
+project-level overrides can still take precedence. Invalid or unwritable config
+files are left intact and the failure is logged.
 
 ![Resume-from-history picker listing saved Claude Code conversations](docs/assets/resume-history.png)
 

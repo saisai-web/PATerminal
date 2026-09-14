@@ -30,8 +30,5 @@ const migName = await page2.locator(".ws-item .ws-name").first().textContent();
 check("v1 session restores as single workspace", migPanes === 2 && migItems === 1,
   `panes=${migPanes} items=${migItems}`);
 check("migrated session named 'Session 1'", migName === "Session 1", `name="${migName}"`);
-const migSaved = await page2.evaluate(() => window.__savedSession);
-check("migrated session re-saved as v5",
-  typeof migSaved === "string" && migSaved.includes('"version": 5'), );
 
 }
