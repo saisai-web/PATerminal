@@ -24,7 +24,7 @@ with Git, session resume, and agent pair-programming built in.
 [![Download for macOS](https://img.shields.io/badge/macOS-Download_DMG-1c1c1e?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-macOS-universal.dmg) [![Download for Windows](https://img.shields.io/badge/Windows-Download_Installer-0078D4?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTMgNS41IDExIDQuNHY3LjFIM3pNMTIgNC4yIDIxIDN2OC41aC05ek0zIDEyLjVoOHY3LjFMMyAxOC41ek0xMiAxMi41aDlWMjFsLTktMS4yeiIvPjwvc3ZnPg==)](https://github.com/saisai-web/PATerminal/releases/latest/download/PATerminal-Windows-x64-setup.exe)
 
 <a href="https://paralellterminal.com">
-  <img src="docs/assets/hero.gif" alt="PATerminal demo: picking a quick phrase, launching Codex in a pane, and watching session activity update live" width="1024">
+  <img src="docs/assets/hero.gif" alt="PATerminal demo: four agent sessions side by side in one window, three Claude Code panes prompted one after another, and the sidebar status of each session switching from done to running and back" width="1024">
 </a>
 
 </div>
