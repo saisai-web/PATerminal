@@ -250,7 +250,9 @@ if (gitOpsOpen) {
     `state=${JSON.stringify(expandedStrip)} was=${gridHeightExpanded}`);
   // 三角ボタン以外に「帯の空白」クリックでも開閉できる（見出し行・帯そのものが対象）
   const stripBlankClick = (sel) => pageGitOps.evaluate((s) => {
-    document.querySelector(s).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const el = document.querySelector(s);
+    el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   }, sel);
   const stripCompact = () => pageGitOps.evaluate(() =>
     document.querySelector("#agent-panel")?.classList.contains("is-collapsed"));
@@ -288,6 +290,7 @@ if (gitOpsOpen) {
     selection?.removeAllRanges();
     // Keep the following hit-area checks independent if this regression is present.
     if (panel.classList.contains("is-collapsed")) {
+      panel.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
       panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
     return { afterDrag, afterPlainClick, selectedText };
@@ -298,6 +301,22 @@ if (gitOpsOpen) {
   check("a stale text selection does not disable later blank clicks",
     selectionClickStates?.afterPlainClick === true,
     `state=${JSON.stringify(selectionClickStates)}`);
+  // Pressing a file chip that the 3-second poll rebuilds before release sends the click to
+  // the list container. That must not toggle the strip on its own.
+  const rebuiltChipClick = await pageGitOps.evaluate(() => {
+    const panel = document.querySelector("#agent-panel");
+    const list = document.querySelector("#git-changes-list");
+    const row = list?.querySelector(".agent-file-row");
+    if (!panel || !list || !row) return null;
+    const before = panel.classList.contains("is-collapsed");
+    row.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
+    list.replaceChild(row.cloneNode(true), row);
+    list.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    return { before, after: panel.classList.contains("is-collapsed") };
+  });
+  check("a click retargeted by a rebuilt change list does not toggle the strip",
+    rebuiltChipClick !== null && rebuiltChipClick.before === rebuiltChipClick.after,
+    `state=${JSON.stringify(rebuiltChipClick)}`);
   await stripBlankClick("#agent-panel");
   await pageGitOps.waitForTimeout(120);
   check("clicking the blank strip compacts it", (await stripCompact()) === true);
