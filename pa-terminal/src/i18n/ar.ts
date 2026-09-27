@@ -41,6 +41,9 @@ export const ar: Dict = {
 
   "toolbar.splitRight": "تقسيم إلى اليمين (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "تقسيم إلى الأسفل (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "تقسيم يمين",
+  "toolbar.labelSplitDown": "تقسيم أسفل",
+  "toolbar.labelSolo": "هذه فقط",
   "toolbar.broadcast": "بث الإدخال",
   "toolbar.broadcastOn": "البث مُفعّل",
   "toolbar.broadcastTitle": "اختر الجلسات التي تتلقى ضغطات المفاتيح (Cmd/Ctrl+Shift+B لهذه الجلسة فقط)",

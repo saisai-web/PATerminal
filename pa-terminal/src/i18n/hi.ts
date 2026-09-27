@@ -41,6 +41,9 @@ export const hi: Dict = {
 
   "toolbar.splitRight": "दाईं ओर विभाजित करें (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "नीचे विभाजित करें (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "दाएँ बाँटें",
+  "toolbar.labelSplitDown": "नीचे बाँटें",
+  "toolbar.labelSolo": "केवल यह",
   "toolbar.broadcast": "ब्रॉडकास्ट",
   "toolbar.broadcastOn": "ब्रॉडकास्ट चालू",
   "toolbar.broadcastTitle": "चुनें कि कौन-से सत्र आपकी कीस्ट्रोक पाएँ (Cmd/Ctrl+Shift+B केवल इसी सत्र के लिए)",

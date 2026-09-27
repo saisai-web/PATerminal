@@ -41,6 +41,9 @@ export const ptBR: Dict = {
 
   "toolbar.splitRight": "Dividir à direita (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Dividir abaixo (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "À direita",
+  "toolbar.labelSplitDown": "Abaixo",
+  "toolbar.labelSolo": "Só esta",
   "toolbar.broadcast": "Transmitir",
   "toolbar.broadcastOn": "Transmitindo",
   "toolbar.broadcastTitle": "Escolha quais sessões recebem suas teclas (Cmd/Ctrl+Shift+B apenas nesta sessão)",

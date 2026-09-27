@@ -68,7 +68,7 @@ await page.waitForTimeout(600);
   check("pair toolbar button exists", await page.locator("#pair-open").isVisible());
   check("pair toolbar button has an accessible label",
     (await page.locator("#pair-open").getAttribute("aria-label")).includes("ペア") &&
-    (await page.locator("#pair-open").textContent()).trim() === "");
+    (await page.locator("#pair-open").textContent()).trim() === "ペア");
 
   // モーダルを開くと現在セッションの2ペインが選択肢に入っている
   await page.locator("#pair-open").click();
@@ -113,7 +113,7 @@ await page.waitForTimeout(600);
     (await page.locator("#pair-strip-round").textContent()) === "ラウンド 0/3");
   check("toolbar tooltip follows round change",
     (await page.locator("#pair-open").getAttribute("title")).includes("0/3") &&
-    (await page.locator("#pair-open").textContent()).trim() === "");
+    (await page.locator("#pair-open").textContent()).trim() === "ペア");
   await page.locator("#pair-round-dec").click();
   await page.locator("#pair-round-dec").click();
   check("minus lowers max rounds",

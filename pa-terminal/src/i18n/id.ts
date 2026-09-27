@@ -41,6 +41,9 @@ export const id: Dict = {
 
   "toolbar.splitRight": "Bagi ke kanan (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Bagi ke bawah (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "Bagi kanan",
+  "toolbar.labelSplitDown": "Bagi bawah",
+  "toolbar.labelSolo": "Hanya ini",
   "toolbar.broadcast": "Siaran",
   "toolbar.broadcastOn": "Menyiarkan",
   "toolbar.broadcastTitle": "Pilih sesi mana yang menerima ketikan Anda (Cmd/Ctrl+Shift+B hanya sesi ini)",

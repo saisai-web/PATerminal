@@ -16,11 +16,16 @@ check("the old right panel and change strip are gone",
   (await page.locator("#explorer, #exp-reopen, #agent-panel, #explorer-toggle").count()) === 0);
 check("toolbar has no attachment or auto-enter controls",
   (await page.locator("#attach-image, #attach-file, #auto-enter-toggle, #auto-enter-overlay").count()) === 0);
-check("toolbar controls use icons with accessible names and tooltips",
+check("toolbar controls use icons with a short label, accessible names and tooltips",
   await page.locator("#toolbar button").evaluateAll((buttons) => buttons.every((button) =>
-    button.textContent.trim() === "" && button.querySelector("svg") &&
+    button.querySelector(":scope > svg") &&
+    button.querySelector(".toolbar-label")?.textContent.trim() &&
     button.getAttribute("aria-label")?.trim() && button.title.trim())));
-check("toolbar contains no visible text", (await page.locator("#toolbar").innerText()).trim() === "");
+const toolbarLabels = await page.locator("#toolbar button:visible .toolbar-label").allTextContents();
+check("toolbar labels sit under the icons in toolbar order",
+  JSON.stringify(toolbarLabels) === JSON.stringify(
+    ["右に分割", "下に分割", "セッション分割", "一斉入力", "定型文", "ペア", "履歴", "Git", "Worktree"]),
+  JSON.stringify(toolbarLabels));
 check("toolbar has a Git button with an icon",
   await page.locator("#toolbar #git-open").isVisible() &&
     (await page.locator("#git-open svg").count()) === 1);

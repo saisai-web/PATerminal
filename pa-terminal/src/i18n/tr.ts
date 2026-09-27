@@ -41,6 +41,9 @@ export const tr: Dict = {
 
   "toolbar.splitRight": "Sağa böl (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Aşağı böl (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "Sağa böl",
+  "toolbar.labelSplitDown": "Aşağı böl",
+  "toolbar.labelSolo": "Yalnız bu",
   "toolbar.broadcast": "Toplu giriş",
   "toolbar.broadcastOn": "Toplu giriş açık",
   "toolbar.broadcastTitle": "Tuş vuruşlarını hangi oturumların alacağını seçin (Cmd/Ctrl+Shift+B yalnızca bu oturum)",

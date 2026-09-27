@@ -1004,7 +1004,46 @@ if (await overlay.isVisible()) {
   check("outside a repository the Git window says so and disables every action",
     noRepo.empty && noRepo.text.length > 0 && noRepo.status && noRepo.disabled,
     `state=${JSON.stringify(noRepo)}`);
+  check("the toolbar Worktree button is disabled outside a repository",
+    await pageGitOps.locator("#worktree-open").isDisabled());
 }
 await pageGitOps.close();
+
+// ============================================================
+// ツールバーの Worktree ボタン: Git ウィンドウを開かずに作成モーダルを直接出す
+// （Git ウィンドウ内の Worktree ボタンと同じモーダル）
+// ============================================================
+const pageWt = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+pageWt.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+await pageWt.addInitScript(() => {
+  window.__mockGitChanges = { repo: true, root: "/repo", files: [] };
+  window.__mockGitBranches = { current: "main", upstream: null, localBranches: ["main"], branches: [], remotes: [] };
+  window.__mockWorktreeBranches = {
+    branches: [{ name: "main", reference: "refs/heads/main", current: true }],
+    defaultRef: "refs/heads/main",
+  };
+  window.__mockWorktreeList = { entries: [] };
+});
+await pageWt.goto(BASE_URL);
+await pageWt.waitForSelector(".pane", { timeout: 10000 });
+await pageWt.locator(".pane .pane-body").first().click();
+await pageWt.waitForFunction(() => document.querySelector("#worktree-open")?.disabled === false,
+  undefined, { timeout: 5000 }).catch(() => {});
+check("the toolbar has a Worktree button right after the Git button",
+  await pageWt.locator("#git-open + #worktree-open").isVisible() &&
+    await pageWt.locator("#worktree-open svg").count() === 1 &&
+    Boolean(await pageWt.locator("#worktree-open").getAttribute("aria-label")));
+check("the toolbar Worktree button is enabled inside a repository",
+  await pageWt.locator("#worktree-open").isEnabled());
+await pageWt.click("#worktree-open");
+await pageWt.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
+check("the toolbar Worktree button opens the worktree modal without the Git window",
+  await pageWt.locator("#worktree-root").textContent() === "/repo" &&
+    await pageWt.locator("#git-window-overlay").isHidden());
+await pageWt.locator("#worktree-close").click();
+check("closing the modal returns focus to the toolbar Worktree button",
+  await pageWt.locator("#worktree-overlay").isHidden() &&
+    await pageWt.evaluate(() => document.activeElement?.id === "worktree-open"));
+await pageWt.close();
 
 }

@@ -41,6 +41,9 @@ export const it: Dict = {
 
   "toolbar.splitRight": "Dividi a destra (Cmd/Ctrl+Maiusc+D)",
   "toolbar.splitDown": "Dividi in basso (Cmd/Ctrl+Maiusc+S)",
+  "toolbar.labelSplitRight": "A destra",
+  "toolbar.labelSplitDown": "In basso",
+  "toolbar.labelSolo": "Solo questa",
   "toolbar.broadcast": "Trasmissione",
   "toolbar.broadcastOn": "Trasmissione attiva",
   "toolbar.broadcastTitle": "Scegli quali sessioni ricevono i tuoi tasti (Cmd/Ctrl+Shift+B solo per questa sessione)",

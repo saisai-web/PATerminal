@@ -134,6 +134,14 @@ await page.waitForTimeout(200);
 check("Git button opens the purchase modal instead of the Git window",
   await overlayVisible() && await page.locator("#git-window-overlay").isHidden());
 await closeOverlay();
+check("toolbar Worktree button stays clickable with the lock mark",
+  await page.locator("#worktree-open").isEnabled() &&
+    await page.locator("#worktree-open").evaluate((el) => el.classList.contains("is-locked")));
+await page.click("#worktree-open");
+await page.waitForTimeout(200);
+check("toolbar Worktree button opens the purchase modal instead of the worktree modal",
+  await overlayVisible() && await page.locator("#worktree-overlay").isHidden());
+await closeOverlay();
 
 // --- ゴミ箱: モーダルは開けるが復元だけロック ---
 await page.click("#session-trash-open");

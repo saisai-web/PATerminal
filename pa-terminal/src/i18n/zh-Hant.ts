@@ -41,6 +41,9 @@ export const zhHant: Dict = {
 
   "toolbar.splitRight": "向右分割 (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "向下分割 (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "向右分割",
+  "toolbar.labelSplitDown": "向下分割",
+  "toolbar.labelSolo": "僅此工作階段",
   "toolbar.broadcast": "同步輸入",
   "toolbar.broadcastOn": "同步輸入中",
   "toolbar.broadcastTitle": "選擇接收按鍵的工作階段（Cmd/Ctrl+Shift+B 僅限目前工作階段）",

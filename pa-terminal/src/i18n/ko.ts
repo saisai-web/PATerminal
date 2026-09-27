@@ -41,6 +41,9 @@ export const ko: Dict = {
 
   "toolbar.splitRight": "오른쪽으로 분할 (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "아래로 분할 (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "오른쪽 분할",
+  "toolbar.labelSplitDown": "아래 분할",
+  "toolbar.labelSolo": "이것만",
   "toolbar.broadcast": "동시 입력",
   "toolbar.broadcastOn": "동시 입력 중",
   "toolbar.broadcastTitle": "키 입력을 받을 세션을 선택합니다 (Cmd/Ctrl+Shift+B는 이 세션만)",

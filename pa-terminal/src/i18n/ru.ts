@@ -41,6 +41,9 @@ export const ru: Dict = {
 
   "toolbar.splitRight": "Разделить вправо (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Разделить вниз (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "Вправо",
+  "toolbar.labelSplitDown": "Вниз",
+  "toolbar.labelSolo": "Только эта",
   "toolbar.broadcast": "Общий ввод",
   "toolbar.broadcastOn": "Общий ввод включён",
   "toolbar.broadcastTitle": "Выберите сессии, которые получат ваш ввод (Cmd/Ctrl+Shift+B — только эта сессия)",

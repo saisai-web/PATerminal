@@ -9,6 +9,7 @@ import { showGitToast } from "./git-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentBranch, getGitCount, getGitCwd, getGitRoot, setCurrentBranch, updateGitWatch } from "./git-watch";
 import { t } from "../../i18n";
+import { isLocked, onLicenseChange } from "../license/license";
 import { renderPullBranches, renderPullTarget, updatePullDialog } from "./pull-dialog";
 import { updateWorktreeDialog } from "./worktree-dialog";
 import { focusCommitMessage, updateCommitBox } from "./git-status-view";
@@ -28,6 +29,8 @@ const worktreeBtn = document.querySelector<HTMLButtonElement>("#git-worktree")!;
 const pushBtn = document.querySelector<HTMLButtonElement>("#git-push")!;
 const fetchBtn = document.querySelector<HTMLButtonElement>("#git-fetch")!;
 const pullBtn = document.querySelector<HTMLButtonElement>("#git-pull")!;
+/** ツールバーの Worktree ボタン（Git ウィンドウを開かずに作成モーダルを直接開く） */
+const worktreeToolbarBtn = document.querySelector<HTMLButtonElement>("#worktree-open")!;
 
 let branchSig = ""; // 前回描画したブランチ情報のシグネチャ
 let actionBusy = false; // Git 操作中（操作ボタンをまとめて disabled）
@@ -78,6 +81,8 @@ export function updateActionButtons(): void {
   commitBtn.disabled = actionBusy || getGitCount() === 0;
   stashBtn.disabled = actionBusy || getGitCount() === 0;
   worktreeBtn.disabled = actionBusy || !repo;
+  // ロック中は押せるままにして、押したら購入案内を出す（Git ボタンと同じ扱い）
+  worktreeToolbarBtn.disabled = !isLocked() && (actionBusy || !repo);
   pushBtn.disabled = actionBusy || !repo || !canPush;
   fetchBtn.disabled = actionBusy || !repo || !canFetch;
   // リモートブランチが無ければプル不可。取り込み元の選択は押下後のモーダル内で行う
@@ -132,6 +137,8 @@ export function checkoutRemoteBranch(branch: string): void {
     return out || t("agent.switchBranchDone", { branch: branch.slice(branch.indexOf("/") + 1) });
   });
 }
+
+onLicenseChange(() => updateActionButtons());
 
 // Commit はファイルステータスのコミット欄へ移ってメッセージ入力にフォーカスする
 commitBtn.onclick = () => {

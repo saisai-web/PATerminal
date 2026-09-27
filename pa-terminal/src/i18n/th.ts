@@ -41,6 +41,9 @@ export const th: Dict = {
 
   "toolbar.splitRight": "แบ่งไปทางขวา (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "แบ่งลงด้านล่าง (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "แบ่งขวา",
+  "toolbar.labelSplitDown": "แบ่งล่าง",
+  "toolbar.labelSolo": "เฉพาะนี้",
   "toolbar.broadcast": "พิมพ์พร้อมกัน",
   "toolbar.broadcastOn": "กำลังพิมพ์พร้อมกัน",
   "toolbar.broadcastTitle": "เลือกเซสชันที่จะรับการพิมพ์ของคุณ (Cmd/Ctrl+Shift+B เฉพาะเซสชันนี้)",

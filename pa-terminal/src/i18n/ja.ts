@@ -41,6 +41,9 @@ export const ja: Dict = {
 
   "toolbar.splitRight": "右に分割 (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "下に分割 (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "右に分割",
+  "toolbar.labelSplitDown": "下に分割",
+  "toolbar.labelSolo": "単独表示",
   "toolbar.broadcast": "一斉入力",
   "toolbar.broadcastOn": "一斉入力中",
   "toolbar.broadcastTitle": "送信先セッションを選んで一斉入力 (Cmd/Ctrl+Shift+B でこのセッションのみ)",

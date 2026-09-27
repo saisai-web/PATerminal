@@ -17,6 +17,7 @@ const LOCKED_SELECTORS = [
   "#quick-phrases-open",
   "#takeover-open",
   "#git-open",
+  "#worktree-open",
 ];
 
 export function renderLockMarks() {

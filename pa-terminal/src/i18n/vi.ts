@@ -41,6 +41,9 @@ export const vi: Dict = {
 
   "toolbar.splitRight": "Chia sang phải (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Chia xuống dưới (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "Chia phải",
+  "toolbar.labelSplitDown": "Chia dưới",
+  "toolbar.labelSolo": "Chỉ phiên này",
   "toolbar.broadcast": "Gõ đồng loạt",
   "toolbar.broadcastOn": "Đang gõ đồng loạt",
   "toolbar.broadcastTitle": "Chọn phiên nào nhận phím bạn gõ (Cmd/Ctrl+Shift+B chỉ cho phiên này)",

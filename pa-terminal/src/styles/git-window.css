@@ -5,8 +5,8 @@
 /* ツールバーの Git ボタンの変更件数バッジ */
 #git-open-badge {
   position: absolute;
-  top: -6px;
-  inset-inline-end: -7px;
+  top: 1px;
+  inset-inline-end: 8px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;

@@ -49,6 +49,9 @@ export const en = {
   // ツールバー
   "toolbar.splitRight": "Split right (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Split down (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "Split right",
+  "toolbar.labelSplitDown": "Split down",
+  "toolbar.labelSolo": "This only",
   "toolbar.broadcast": "Broadcast",
   "toolbar.broadcastOn": "Broadcasting",
   "toolbar.broadcastTitle": "Pick which sessions receive your keystrokes (Cmd/Ctrl+Shift+B for this session only)",

@@ -41,6 +41,9 @@ export const zhHans: Dict = {
 
   "toolbar.splitRight": "向右拆分 (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "向下拆分 (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "向右分割",
+  "toolbar.labelSplitDown": "向下分割",
+  "toolbar.labelSolo": "仅此会话",
   "toolbar.broadcast": "同步输入",
   "toolbar.broadcastOn": "同步输入中",
   "toolbar.broadcastTitle": "选择接收按键的会话（Cmd/Ctrl+Shift+B 仅限当前会话）",

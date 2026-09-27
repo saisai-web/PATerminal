@@ -41,6 +41,9 @@ export const es: Dict = {
 
   "toolbar.splitRight": "Dividir a la derecha (Cmd/Ctrl+Shift+D)",
   "toolbar.splitDown": "Dividir abajo (Cmd/Ctrl+Shift+S)",
+  "toolbar.labelSplitRight": "A la derecha",
+  "toolbar.labelSplitDown": "Abajo",
+  "toolbar.labelSolo": "Solo esta",
   "toolbar.broadcast": "Difusión",
   "toolbar.broadcastOn": "Difundiendo",
   "toolbar.broadcastTitle": "Elige qué sesiones reciben tus pulsaciones (Cmd/Ctrl+Shift+B solo para esta sesión)",

@@ -41,6 +41,9 @@ export const de: Dict = {
 
   "toolbar.splitRight": "Nach rechts teilen (Cmd/Strg+Umschalt+D)",
   "toolbar.splitDown": "Nach unten teilen (Cmd/Strg+Umschalt+S)",
+  "toolbar.labelSplitRight": "Rechts teilen",
+  "toolbar.labelSplitDown": "Unten teilen",
+  "toolbar.labelSolo": "Nur diese",
   "toolbar.broadcast": "Broadcast",
   "toolbar.broadcastOn": "Broadcast aktiv",
   "toolbar.broadcastTitle": "Wähle, welche Sitzungen deine Tastendrücke erhalten (Cmd/Ctrl+Shift+B nur für diese Sitzung)",
