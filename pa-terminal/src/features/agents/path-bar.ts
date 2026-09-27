@@ -78,7 +78,7 @@ export function initPathBar(d: PathBarDeps): void {
 }
 
 /** ホーム配下は ~ で短く見せる（表示専用。操作は常に絶対パスで行う） */
-function displayPath(path: string): string {
+export function displayPath(path: string): string {
   if (home && home !== "/" && (path === home || path.startsWith(`${home}/`))) {
     return `~${path.slice(home.length)}`;
   }
@@ -130,6 +130,18 @@ export function syncPathBar(pane: Pane, agent?: string | null): void {
   }
 }
 
+/** そのペインのフォルダーブラウザーを開く（バーのクリックと右パネルの入口から）。
+    ブラウザーはペイン下部のバーに付いて開く */
+export function openPathBrowser(pane: Pane): void {
+  syncPathBar(pane);
+  const bar = pane.el.querySelector<HTMLDivElement>(":scope > .pane-pathbar");
+  const button = bar?.querySelector<HTMLButtonElement>(".pane-pathbar-path");
+  const cwd = bar?.dataset.cwd;
+  if (!bar || !button || !cwd || bar.dataset.open === "true") return;
+  deps?.focusPane(pane);
+  openBrowser(pane, bar, button, cwd);
+}
+
 function createBar(pane: Pane): HTMLDivElement {
   const bar = document.createElement("div");
   bar.className = "pane-pathbar";
@@ -148,14 +160,8 @@ function createBar(pane: Pane): HTMLDivElement {
   button.append(icon("folder"), parent, leaf, icon("caret", "pathbar-caret"));
   button.onclick = (e) => {
     e.stopPropagation();
-    if (bar.dataset.open === "true") {
-      closeBrowser?.();
-      return;
-    }
-    const cwd = bar.dataset.cwd;
-    if (!cwd) return;
-    deps?.focusPane(pane);
-    openBrowser(pane, bar, button, cwd);
+    if (bar.dataset.open === "true") closeBrowser?.();
+    else openPathBrowser(pane);
   };
   bar.append(agentEl, button);
   return bar;

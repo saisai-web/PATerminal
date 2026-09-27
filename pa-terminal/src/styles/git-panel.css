@@ -1,17 +1,8 @@
-/* エクスプローラー下部の git セクション（コミット履歴 + PR バッジ）。
-   パネル内で完結する（幅は変わらない）ので開閉・リサイズで layout()/refit は不要 */
-#exp-git-resize {
-  flex: none;
-  height: 5px;
-  cursor: row-resize;
-  border-top: 1px solid var(--line);
-}
-#exp-git-resize:hover, #exp-git-resize.is-dragging { background: var(--accent); }
-#exp-git-resize[hidden] { display: none; }
+/* 右パネルの git セクション（コミット履歴 + PR バッジ）。現在地カードの下の残りを使う。
+   パネル内で完結する（幅は変わらない）ので開閉で layout()/refit は不要 */
 #exp-git {
-  flex: none;
-  height: 30%;
-  min-height: 90px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

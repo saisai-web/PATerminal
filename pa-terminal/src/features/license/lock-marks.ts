@@ -35,7 +35,7 @@ export function renderLockMarks() {
   // 分割は2枚まで無料なので、アクティブセッションが既に上限のときだけ 🔒 を出す
   const paneCount = getActiveWs()?.panes.size ?? 0;
   const splitLocked = locked && paneCount >= FREE_PANE_LIMIT;
-  for (const sel of ["#split-right", "#split-down", "#exp-new-pane"]) {
+  for (const sel of ["#split-right", "#split-down"]) {
     const el = document.querySelector(sel);
     if (el) el.classList.toggle("is-locked", splitLocked);
   }

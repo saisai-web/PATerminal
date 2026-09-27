@@ -17,7 +17,7 @@ import { isLocked } from "../features/license/license";
 import { markSpawned, registerPane, requestResize, unregisterPane } from "./resize";
 import { PaneScrollbar } from "./scrollbar";
 import { withTerminalScrollback } from "./agent-launch";
-import { explorerFollow, renderExplorerFavs } from "../features/explorer/explorer";
+import { explorerFollow } from "../features/explorer/explorer";
 import { broadcastWrite, setFocused } from "./focus";
 import { t } from "../i18n";
 import { startInlineEdit } from "../shared/inline-edit";
@@ -638,10 +638,8 @@ export class Pane {
     scheduleSave();
     renderSidebar();
     if (!opts.fromPoll) updateWsGit(); // 非アクティブセッションの cd でもバッジを追従させる
-    // フォーカス中ペインの cd なら「セッションの現在地」ピン・git 監視・
-    // エクスプローラーの表示先も追従
+    // フォーカス中ペインの cd なら git 監視・右パネルの現在地も追従
     if (this.id === getFocusedId()) {
-      renderExplorerFavs();
       if (!opts.fromPoll) updateGitWatch();
       explorerFollow(path);
     }

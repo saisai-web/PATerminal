@@ -1011,30 +1011,21 @@ if (logShown) {
     await pageLog.waitForTimeout(3600);
     check("PR badge hides when branch has no PR", !(await pageLog.locator("#exp-git-pr").isVisible()));
   }
-  // スプリッタのドラッグで高さが変わる（エクスプローラー内で完結・上限 80%）
-  const hBefore = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  const handle = await pageLog.locator("#exp-git-resize").boundingBox();
-  if (handle) {
-    await pageLog.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await pageLog.mouse.down();
-    await pageLog.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 60, { steps: 5 });
-    await pageLog.mouse.up();
-  }
-  const hAfter = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  check("splitter drag grows git section", hAfter - hBefore > 40, `h ${Math.round(hBefore)}→${Math.round(hAfter)}`);
-  check("no stuck body.dragging after splitter drag",
-    !(await pageLog.evaluate(() => document.body.classList.contains("dragging"))));
-  // ダブルクリックで既定の高さ（30%）に戻る
-  await pageLog.locator("#exp-git-resize").dblclick();
-  const hReset = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  check("splitter dblclick resets height", Math.abs(hReset - hBefore) < 8, `h=${Math.round(hReset)}`);
+  // 現在地カードの下の残りを git セクションが使い切る（高さ調整のスプリッタは無い）
+  const fill = await pageLog.evaluate(() => {
+    const panel = document.querySelector("#explorer").getBoundingClientRect();
+    const git = document.querySelector("#exp-git").getBoundingClientRect();
+    return { gitBottom: git.bottom, panelBottom: panel.bottom, height: git.height, panel: panel.height };
+  });
+  check("git section fills the rest of the panel",
+    Math.abs(fill.gitBottom - fill.panelBottom) < 2 && fill.height > fill.panel * 0.6, JSON.stringify(fill));
   // リポジトリ外ではセクションごと消える
   await pageLog.evaluate(() => {
     window.__mockGitLog = { repo: false, root: null, branch: null, detached: false, commits: [] };
   });
   await pageLog.waitForTimeout(3600);
-  check("git section hides outside a repo",
-    !(await pageLog.locator("#exp-git").isVisible()) && !(await pageLog.locator("#exp-git-resize").isVisible()));
+  check("git section hides outside a repo and the panel says why",
+    !(await pageLog.locator("#exp-git").isVisible()) && await pageLog.locator("#exp-empty").isVisible());
 }
 await pageLog.close();
 

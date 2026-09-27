@@ -219,19 +219,5 @@ check("reopening the form resets the location to the default",
   (await page.locator("#ws-new-loc").textContent()) === "表示中ペインと同じ場所");
 await page.keyboard.press("Escape");
 
-// --- エクスプローラー右下の「新規セッション」にも同じフライアウト ---
-const beforeExp = await spawnCount();
-await page.click("#exp-reopen");
-await page.waitForTimeout(300);
-await page.mouse.move(640, 400);
-await page.hover("#exp-new-session");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("recent1").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeExp, { timeout: 3000 });
-check("explorer new-session button creates at the picked path",
-  (await lastSpawn()).cwd === "/proj/recent1", JSON.stringify(await lastSpawn()));
-check("explorer-created session is named after the picked folder",
-  (await page.locator(".ws-item", { hasText: "recent1" }).count()) >= 1);
-
 await page.close();
 }

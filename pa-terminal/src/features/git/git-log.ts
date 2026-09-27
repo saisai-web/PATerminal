@@ -14,7 +14,6 @@ import { updatePrTarget } from "./pr-overlay";
 import type { GitCommit, GitLog } from "./git-panel-types";
 
 const sectionEl = document.querySelector<HTMLDivElement>("#exp-git")!;
-const resizeEl = document.querySelector<HTMLDivElement>("#exp-git-resize")!;
 const branchEl = document.querySelector<HTMLButtonElement>("#exp-git-branch")!;
 const branchNameEl = document.querySelector<HTMLDivElement>("#exp-git-branch-name")!;
 const logEl = document.querySelector<HTMLDivElement>("#exp-git-log")!;
@@ -50,7 +49,6 @@ export async function pollLog(cwd: string): Promise<void> {
 export function renderGitSection(res: GitLog | null): void {
   const show = !!res?.repo;
   sectionEl.hidden = !show;
-  resizeEl.hidden = !show;
   if (!show) {
     logSig = "";
     branchLine = "";

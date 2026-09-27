@@ -54,7 +54,7 @@ if (!w.__TAURI_INTERNALS__) {
     "/tmp": [],
     "/tmp/pair-project": [],
   };
-  // Windows を装うテストでは既定ルートが "C:/" になる（paths.ts の fsDefaultRoot）。
+  // Windows を装うテストではドライブ配下（"C:/" 以下）のパスを使う。
   // ドライブルート配下にも同じ形の枝を用意して、Windows 分岐を実際に踏めるようにする
   if (w.__mockHostOs === "windows") {
     Object.assign(mockFsTree, {

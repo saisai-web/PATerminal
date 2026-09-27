@@ -13,7 +13,6 @@ import { applyStaticTexts, getLang, LANGS, setLang, t } from "../../i18n";
 import type { Lang } from "../../i18n";
 import { renderAgentPanelTexts } from "../git/agent-panel";
 import { ensureNotifPermission } from "../../app/activity";
-import { renderExplorerFavs, renderExplorerList } from "../explorer/explorer";
 import { renderGitPanelTexts } from "../git/git-panel";
 import { renderQuickPhrasesTexts } from "../quick-phrases/quick-phrases";
 import { getPairDefaultCmds, renderPairTexts, updatePairDefaultCmds } from "../pair/pair";
@@ -129,8 +128,6 @@ export function applyLanguage(l: Lang) {
   setLang(l);
   applyStaticTexts();
   renderSidebar();
-  renderExplorerFavs();
-  renderExplorerList();
   renderAgentPanelTexts();
   renderGitPanelTexts();
   renderQuickPhrasesTexts();

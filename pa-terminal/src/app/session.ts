@@ -10,7 +10,6 @@ import {
 import { MAX_RATIO, MIN_RATIO, PRESETS } from "../shared/constants";
 import {
   getExplorerFavorites,
-  renderExplorerFavs,
   setExplorerFavorites,
 } from "../features/explorer/explorer";
 import { groupById, newGroupId } from "../workspace/groups";
@@ -365,7 +364,6 @@ export async function boot() {
           if (validIds.has(id)) collapsedGroups.add(id);
         }
         setExplorerFavorites((v4.explorer?.favorites ?? []).filter((p) => typeof p === "string"));
-        renderExplorerFavs();
         // 表示タブは起動ごとに「すべて」へ戻る。前回アーカイブタブで終了していても、
         // 通常セッションがあるならそれを開き、表示中の端末だけ一覧から消えた状態にしない。
         const savedTarget = workspaces.find((w) => w.id === v4.activeId);
@@ -404,7 +402,6 @@ export async function boot() {
         // エクスプローラーの開閉・隠しファイルは常にデフォルト（表示 + ON）で開くため
         // 復元しない。お気に入りだけは永続データなので復元する
         setExplorerFavorites((v3.explorer?.favorites ?? []).filter((p) => typeof p === "string"));
-        renderExplorerFavs();
         const target = workspaces.find((w) => w.id === v3.activeId) ?? workspaces[0];
         if (target) {
           setActive(target);

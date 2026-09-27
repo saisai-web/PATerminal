@@ -13,10 +13,10 @@ src/
 ├── terminal/               xterm/PTY panes, trees, focus, and layout
 ├── workspace/              workspace model, groups, and shared runtime state
 ├── features/
-│   ├── agents/             running-agent detection, session resume info, and the resume banner
+│   ├── agents/             running-agent detection, resume banner, and the pane path bar / folder browser
 │   ├── attachments/        file drop handling and terminal path insertion
 │   ├── broadcast/          broadcast target picker for the toolbar toggle
-│   ├── explorer/           filesystem explorer, import, and file viewer
+│   ├── explorer/           right panel (focused folder + git host), favorites, paths, and file viewer
 │   ├── git/                change strip, Git actions, PRs, Issues, and worktrees
 │   ├── history/            shared dialog for conversation and deleted-session history
 │   ├── license/            trial/license status, soft-lock gate, lock marks, purchase modal, banners

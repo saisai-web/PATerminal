@@ -27,21 +27,14 @@ check("right-side explorer opener is visible by default",
 await page.click("#exp-reopen");
 await page.waitForTimeout(300);
 check("right-side opener opens explorer", await page.locator("#explorer").isVisible());
-// ターミナル下のフッター余白と「新規ペイン/新規セッション」バー:
-// サイドバーの設定ボタン上の線と同じ高さに揃い、境界線が全幅で一直線に通る
+// ターミナル下のフッター余白: サイドバーの設定ボタン上の線と同じ高さに揃う
 const mainFootBox = await page.locator("#main-foot").boundingBox();
 const sideFootBox = await page.locator("#sidebar-foot").boundingBox();
-const expActBox = await page.locator("#exp-actions").boundingBox();
 check("terminal footer aligns with sidebar foot line",
   mainFootBox && sideFootBox &&
     Math.abs(mainFootBox.y - sideFootBox.y) < 1 &&
     Math.abs(mainFootBox.height - sideFootBox.height) < 1,
   `main=${mainFootBox?.y}/${mainFootBox?.height} side=${sideFootBox?.y}/${sideFootBox?.height}`);
-check("explorer actions bar aligns with foot line",
-  expActBox && sideFootBox &&
-    Math.abs(expActBox.y - sideFootBox.y) < 1 &&
-    Math.abs(expActBox.height - sideFootBox.height) < 1,
-  `actions=${expActBox?.y}/${expActBox?.height} side=${sideFootBox?.y}/${sideFootBox?.height}`);
 
 // 以降の分割・ブロードキャスト回帰テスト用に4ペインへ増やす。
 // 分割は常にレイアウト全体への追加（横 = 全高の右列 / 下 = 全幅の下段）なので、

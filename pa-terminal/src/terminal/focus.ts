@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { updateWsActivity } from "../app/activity";
 import { updateGitWatch } from "../features/git/agent-panel";
-import { explorerFollow, focusedCwd, renderExplorerFavs } from "../features/explorer/explorer";
+import { explorerFollow, focusedCwd } from "../features/explorer/explorer";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
 import { getActiveWs, panes, setFocusedId, workspaces } from "../workspace/state";
@@ -86,9 +86,8 @@ export function setFocused(id: string) {
     }
     focusedPane.focus();
   }
-  renderExplorerFavs(); // 「セッションの現在地」ピンをフォーカス先の cwd に追従させる
   updateGitWatch(); // 変更ストリップの監視先もフォーカス先に即追従（定期ポーリングを待たない）
-  // エクスプローラーもフォーカス先の cwd へ。既知なら即時、実 cwd は updateGitWatch
+  // 右パネルの現在地もフォーカス先の cwd へ。既知なら即時、実 cwd は updateGitWatch
   // 経由の pty_cwd（resolveWatchCwd）が追って補正する
   const c = focusedCwd();
   if (c) explorerFollow(c);

@@ -17,24 +17,25 @@ await page.waitForTimeout(600);
 await page.click("#exp-reopen");
 await page.waitForTimeout(300);
 
-// --- エクスプローラーはドライブルート配下を表示する ---
-const expPath = await page.locator("#exp-path").textContent();
-check("explorer follows the pane cwd on a drive letter",
+// --- 右パネルの現在地はドライブ配下のパスを表示する ---
+const expPath = await page.locator("#exp-folder").getAttribute("data-path");
+check("panel follows the pane cwd on a drive letter",
   expPath === "C:/Users/user", `path=${expPath}`);
 
-// パンくずでドライブルートまで戻れる（Windows は "/" より上に出さない）
-await page.locator("#exp-path .exp-path-part").first().click();
-await page.waitForTimeout(300);
-const rootPath = await page.locator("#exp-path").textContent();
-const upVisible = await page.locator(".exp-row.is-up").count();
-check("drive root is the top of the tree", rootPath === "C:/" && upVisible === 0,
-  `path=${rootPath} up=${upVisible}`);
+// フォルダーブラウザーはドライブルートまで上がれる（Windows は "/" より上に出さない）
+await page.click("#exp-folder");
+await page.waitForSelector(".pathbar-pop .pathbar-row");
+const upBtn = page.locator(".pathbar-pop-head .pathbar-icon-btn").first();
+await upBtn.click();
+await upBtn.click();
+await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "C:/");
+check("drive root is the top of the folder browser", await upBtn.isDisabled());
 
-// --- 「ターミナルをここへ移動」は PowerShell の構文で送る ---
-await page.locator(".exp-row.is-dir", { hasText: "Users" }).click({ button: "right" });
-await page.waitForTimeout(200);
+// --- 「ここへ移動」は PowerShell の構文で送る ---
+await page.locator(".pathbar-row", { hasText: "Users" }).click();
+await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "Users");
 const cdBefore = await page.evaluate(() => window.__ptyWrites.length);
-await page.locator(".exp-ctx-item", { hasText: "ターミナルをここへ移動" }).click();
+await page.locator(".pathbar-action.is-primary").click();
 await page.waitForTimeout(300);
 const cdSent = await page.evaluate(
   (n) => window.__ptyWrites.slice(n).map((x) => x.data).join(""), cdBefore);

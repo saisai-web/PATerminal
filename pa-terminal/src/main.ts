@@ -23,7 +23,6 @@ import { initBroadcastDialog, openBroadcastDialog } from "./features/broadcast/b
 import {
   explorerFollow,
   getExplorerFavorites,
-  initExplorer,
   isExplorerOpen,
   setExplorerOpen,
   toggleExpFavorite,
@@ -304,7 +303,6 @@ async function resolveWatchCwd(): Promise<string | null> {
   return n;
 }
 
-initExplorer({ createWorkspace: createWorkspaceBesideActive });
 initAgentPanel({ layout: () => layout(), resolveWatchCwd, onCollapseChange: scheduleSave });
 initGitPanel({
   isExplorerOpen,
