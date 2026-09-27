@@ -144,8 +144,18 @@ headEl.addEventListener("keydown", (e) => e.stopPropagation());
 // 実際の操作部品・変更ファイル行・結果表示だけを除外する。
 const collapseExclusions = "button, select, input, textarea, a, .agent-file-row, #git-msg";
 const consumeSelectionDrag = trackSelectionDrag(panelEl);
+// 押した要素がポーリングの再描画（変更一覧の作り直し）で消えると、click は共通祖先
+// （#git-changes-list など除外外の要素）に届き、チップを押しただけで帯が開閉してしまう。
+// 押下時点の要素でも除外判定し、押下後に DOM から外れていたら開閉しない。
+let pressTarget: Element | null = null;
+panelEl.addEventListener("pointerdown", (e) => {
+  pressTarget = e.target instanceof Element ? e.target : null;
+});
 panelEl.addEventListener("click", (e) => {
   const selectedByThisDrag = consumeSelectionDrag();
+  const pressed = pressTarget;
+  pressTarget = null;
+  if (!pressed || !pressed.isConnected || pressed.closest(collapseExclusions)) return;
   const target = e.target;
   if (!(target instanceof Element) || target.closest(collapseExclusions)) return;
   if (selectedByThisDrag) return; // 今回のドラッグで文字を選んだ直後だけはたたまない
