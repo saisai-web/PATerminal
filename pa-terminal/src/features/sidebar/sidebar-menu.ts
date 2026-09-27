@@ -26,7 +26,7 @@ import {
 } from "./sidebar-selection";
 import { renderSidebar } from "./sidebar";
 import { openPromptHistory } from "../history/prompt-history";
-import { attachLocationFlyout, osFolderPickLabel, pickFolderFromOs } from "./new-session-location";
+import { attachRootCreate } from "./new-session-location";
 import { isArchiveSessionStatusFilterActive } from "./session-status-filter";
 import { collapsedGroups, groups, workspaces } from "../../workspace/state";
 import {
@@ -267,21 +267,6 @@ export function openGroupMenu(
   showCtxMenu(menu, x, y);
 }
 
-/** 「Finderから開く…」の直接項目。サブメニューを経由せず OS のフォルダ選択を開き、
-    選んだフォルダで onPick を呼ぶ。ダイアログでメニューが閉じても Promise は解決する */
-function buildOpenFromOsItem(onPick: (cwd: string) => void): HTMLButtonElement {
-  const item = document.createElement("button");
-  item.textContent = osFolderPickLabel();
-  item.title = t("loc.pickTitle");
-  item.onclick = () => {
-    closeGroupMenu();
-    void pickFolderFromOs().then((cwd) => {
-      if (cwd) onPick(cwd);
-    });
-  };
-  return item;
-}
-
 /** グループ見出しの右クリックメニュー。
     新規セッションはそのグループへ、新規グループは子階層へ、いずれも見出し直下の行へ
     クイック作成する。表示中セッションや選択中セッションは挿入位置に使わない。
@@ -299,23 +284,13 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
   const session = document.createElement("button");
   session.textContent = t("ctx.createSession");
   session.title = t("ctx.createSessionInGroupTitle");
-  session.onclick = () => {
-    closeGroupMenu();
-    // 見出しが作成先を明示しているので、表示中セッションは配置基準にしない。
-    void quickCreateWorkspace({ group: group.id, after: null, at: 0 });
-  };
-  // カーソルを当てると場所フライアウト。配置はクリック時と同じで cwd だけ差し替える
-  attachLocationFlyout(
+  // 押すとルート（ホーム）に即作成する。作業フォルダーへはパスバーから移る。
+  // 見出しが作成先を明示しているので、表示中セッションは配置基準にしない。
+  attachRootCreate(
     session,
-    (cwd) => {
-      closeGroupMenu();
-      void quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd });
-    },
-    { submenu: true },
+    (cwd) => quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd }),
+    { menuItem: true },
   );
-  const finder = buildOpenFromOsItem((cwd) => {
-    void quickCreateWorkspace({ group: group.id, after: null, at: 0, cwd });
-  });
 
   const child = document.createElement("button");
   child.textContent = t("ctx.createGroup");
@@ -387,7 +362,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
       scheduleSave();
     })();
   };
-  menu.append(session, finder, child, createSep, renameBtn, dissolve, sep, closeAll);
+  menu.append(session, child, createSep, renameBtn, dissolve, sep, closeAll);
   showCtxMenu(menu, x, y);
 }
 
@@ -402,24 +377,14 @@ export function openListCtxMenu(x: number, y: number, at?: number) {
   const session = document.createElement("button");
   session.textContent = t("ctx.createSession");
   session.title = t("ctx.createSessionTitle");
-  session.onclick = () => {
-    closeGroupMenu();
-    // Whole は保存上の group ID を持たないため、after: null で「トップレベル」を
-    // 明示する。これが無いと active セッションの group へ補完されてしまう。
-    void quickCreateWorkspace(at === undefined ? undefined : { after: null, at });
-  };
-  // カーソルを当てると場所フライアウト。配置はクリック時と同じで cwd だけ差し替える
-  attachLocationFlyout(
+  // 押すとルート（ホーム）に即作成する。作業フォルダーへはパスバーから移る。
+  // Whole は保存上の group ID を持たないため、after: null で「トップレベル」を
+  // 明示する。これが無いと active セッションの group へ補完されてしまう。
+  attachRootCreate(
     session,
-    (cwd) => {
-      closeGroupMenu();
-      void quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd });
-    },
-    { submenu: true },
+    (cwd) => quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd }),
+    { menuItem: true },
   );
-  const finder = buildOpenFromOsItem((cwd) => {
-    void quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd });
-  });
   const group = document.createElement("button");
   group.textContent = t("ctx.createGroup");
   group.title = t("ctx.createGroupTitle");
@@ -427,7 +392,7 @@ export function openListCtxMenu(x: number, y: number, at?: number) {
     closeGroupMenu();
     createGroup(nextGroupName(), undefined, at);
   };
-  menu.append(session, finder, group);
+  menu.append(session, group);
   showCtxMenu(menu, x, y);
 }
 

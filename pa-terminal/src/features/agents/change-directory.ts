@@ -17,11 +17,6 @@ let beforeReplace: (pane: Pane) => void = () => {};
 
 export function initDirectoryChange(opts: { beforeReplace: (pane: Pane) => void }) {
   beforeReplace = opts.beforeReplace;
-  document.querySelector<HTMLButtonElement>("#pane-change-directory")!.onclick = () => {
-    const id = getFocusedId();
-    const pane = id ? panes.get(id) : undefined;
-    if (pane) openDirectoryChange(pane);
-  };
   // Delegate to the grid so restored and newly split panes get the same action.
   // Resolve the clicked pane explicitly, including keyboard activation in a
   // pane that was not previously focused.

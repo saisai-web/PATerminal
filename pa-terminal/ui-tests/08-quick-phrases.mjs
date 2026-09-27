@@ -30,12 +30,15 @@ check("quick phrase inserts without Enter",
   `writes=${JSON.stringify(phraseWrites)}`);
 check("inserting quick phrase closes overlay", await page.locator("#quick-phrases-overlay").isHidden());
 
-// 定型文バーは変更ストリップ（ファイル変更）の1つ上の帯として出る
+// 定型文バーはターミナル（#grid）のすぐ上の帯として出る（変更ストリップは廃止）
 check("quick phrase bar visible once a phrase exists",
   await page.locator("#quick-phrase-bar").isVisible());
-const barIsAboveChanges = await page.evaluate(() =>
-  document.querySelector("#quick-phrase-bar")?.nextElementSibling?.id === "agent-panel");
-check("quick phrase bar sits directly above the file changes strip", barIsAboveChanges);
+const barIsAboveGrid = await page.evaluate(() => {
+  let el = document.querySelector("#quick-phrase-bar")?.nextElementSibling;
+  while (el && el.getClientRects().length === 0) el = el.nextElementSibling;
+  return el?.id === "grid";
+});
+check("quick phrase bar sits directly above the terminals", barIsAboveGrid);
 
 // バーのチップは オーバーレイを開かずにそのまま入力できる（Enter は送らない）
 const barWriteStart = await page.evaluate(() => window.__ptyWrites.length);

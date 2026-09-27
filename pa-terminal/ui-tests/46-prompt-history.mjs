@@ -74,7 +74,7 @@ await page.waitForTimeout(400);
 
 const open = page.locator("#prompt-history-open");
 check("prompt history toolbar button has an accessible label",
-  (await open.getAttribute("aria-label")) === "入力履歴" && (await open.textContent()).trim() === "");
+  (await open.getAttribute("aria-label")) === "入力履歴" && (await open.textContent()).trim() === "入力履歴");
 await open.click();
 const overlay = page.locator("#prompt-history-overlay");
 check("toolbar button opens the prompt history dialog", await overlay.isVisible());

@@ -9,7 +9,6 @@ import { renderPullRequestDiffBody } from "./diff-overlay";
 import type { CommitDiff } from "./diff-overlay";
 import { copyText } from "../../shared/clipboard";
 import { getLang, t } from "../../i18n";
-import { getActiveTab } from "./git-panel";
 import { statusEl } from "./git-log";
 import { getIssueRoot } from "./issues-tab";
 import { getPrListPrs } from "./pr-tab";
@@ -17,7 +16,7 @@ import { openWorktreeDialogForPr } from "./pr-worktree";
 import { isWorktreeDialogOpen } from "./worktree-dialog";
 import type { GitLog, PrInfo, PrSummary } from "./git-panel-types";
 
-const prBtn = document.querySelector<HTMLButtonElement>("#exp-git-pr")!;
+const prBtn = document.querySelector<HTMLButtonElement>("#gw-pr")!;
 
 let curKey: string | null = null; // `${root}\0${branch}`。PR 照会の同一性キー
 let prBusy = false;
@@ -69,7 +68,7 @@ export function prStateLabel(state: string | null | undefined): string {
 
 export function renderPrBadge(): void {
   const pr = prInfo;
-  if (getActiveTab() !== "branch" || !pr?.found || pr.number === null) {
+  if (!pr?.found || pr.number === null) {
     prBtn.hidden = true;
     return;
   }

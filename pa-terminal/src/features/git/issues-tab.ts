@@ -8,7 +8,7 @@
 import { WORKSPACE_NOTE_MAX_LENGTH } from "../../workspace/note";
 import { invoke } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
-import { getDeps, getActiveTab, renderWorktreesTab } from "./git-panel";
+import { getActiveView, getDeps, renderWorktreesView } from "./git-window";
 import { isActionBusy, runGitAction } from "./git-actions";
 import { formatDate, statusEl } from "./git-log";
 import { fetchPrList, fetchPrListIfStale, renderPrList, resetPrList } from "./pr-tab";
@@ -25,7 +25,7 @@ import { createWorktreeProgress, worktreeResultMessage } from "./worktree-progre
 import type { WorktreeBranch, WorktreeBranches, WorktreeLocation, WorktreeResult } from "./worktree";
 import type { GitLog, IssueBranchLink, IssueInfo, IssueList, IssueSummary } from "./git-panel-types";
 
-const issuesEl = document.querySelector<HTMLDivElement>("#exp-git-issues")!;
+const issuesEl = document.querySelector<HTMLDivElement>("#gw-issues")!;
 
 let issueRoot: string | null = null;
 let issueListData: IssueList | null = null;
@@ -84,14 +84,14 @@ export function updateIssueTarget(res: GitLog | null): void {
   const root = res?.repo && res.root ? res.root : null;
   if (root === issueRoot) {
     if (
-      getActiveTab() === "issues" &&
+      getActiveView() === "issues" &&
       root &&
       selectedIssueNumber === null &&
       Date.now() - issueListFetchedAt > ISSUE_REFRESH_MS
     ) {
       void fetchIssueList(root);
     }
-    if (getActiveTab() === "prs" && root) {
+    if (getActiveView() === "prs" && root) {
       fetchPrListIfStale(root);
     }
     return;
@@ -109,14 +109,14 @@ export function updateIssueTarget(res: GitLog | null): void {
   issueDefaultBaseRef = "";
   issueBranchesPending = null;
   issueListToken++;
-  if (getActiveTab() === "issues") {
+  if (getActiveView() === "issues") {
     renderIssues();
     if (root) void fetchIssueList(root);
-  } else if (getActiveTab() === "prs") {
+  } else if (getActiveView() === "prs") {
     renderPrList();
     if (root) void fetchPrList(root);
-  } else if (getActiveTab() === "worktrees") {
-    renderWorktreesTab(root);
+  } else if (getActiveView() === "worktrees") {
+    renderWorktreesView(root);
   }
 }
 

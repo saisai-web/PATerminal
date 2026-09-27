@@ -95,6 +95,8 @@ pub fn run() {
             crate::git::branch::git_fetch,
             crate::git::branch::git_pull,
             crate::git::log::git_log,
+            crate::git::refs::git_refs,
+            crate::git::refs::git_checkout_remote,
             // git worktree
             crate::worktree::create::git_worktree_branches,
             crate::worktree::create::git_worktree_create,

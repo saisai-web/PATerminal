@@ -12,36 +12,42 @@ check("sidebar shows 1 session", wsCount0 === 1, `items=${wsCount0}`);
 const sidebarBox0 = await page.locator("#sidebar").boundingBox();
 check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0) - 320) < 2,
   `width=${Math.round(sidebarBox0?.width ?? 0)}px`);
-check("explorer panel closed by default", await page.locator("#explorer").isHidden());
-check("toolbar has no explorer toggle", (await page.locator("#explorer-toggle").count()) === 0);
+check("the old right panel and change strip are gone",
+  (await page.locator("#explorer, #exp-reopen, #agent-panel, #explorer-toggle").count()) === 0);
 check("toolbar has no attachment or auto-enter controls",
   (await page.locator("#attach-image, #attach-file, #auto-enter-toggle, #auto-enter-overlay").count()) === 0);
-check("toolbar controls use icons with accessible names and tooltips",
+check("toolbar controls use icons with a short label, accessible names and tooltips",
   await page.locator("#toolbar button").evaluateAll((buttons) => buttons.every((button) =>
-    button.textContent.trim() === "" && button.querySelector("svg") &&
+    button.querySelector(":scope > svg") &&
+    button.querySelector(".toolbar-label")?.textContent.trim() &&
     button.getAttribute("aria-label")?.trim() && button.title.trim())));
-check("toolbar contains no visible text", (await page.locator("#toolbar").innerText()).trim() === "");
-check("right-side explorer opener is visible by default",
-  await page.locator("#exp-reopen").isVisible() &&
-    (await page.locator("#exp-reopen svg").count()) === 1);
-await page.click("#exp-reopen");
+const toolbarLabels = await page.locator("#toolbar button:visible .toolbar-label").allTextContents();
+check("toolbar labels sit under the icons in toolbar order",
+  JSON.stringify(toolbarLabels) === JSON.stringify(
+    ["右に分割", "下に分割", "セッション分割", "一斉入力", "定型文", "ペア", "入力履歴", "履歴", "Git", "Worktree"]),
+  JSON.stringify(toolbarLabels));
+check("toolbar has a Git button with an icon",
+  await page.locator("#toolbar #git-open").isVisible() &&
+    (await page.locator("#git-open svg").count()) === 1);
+const gridBeforeGit = await page.locator("#grid").boundingBox();
+await page.click("#git-open");
 await page.waitForTimeout(300);
-check("right-side opener opens explorer", await page.locator("#explorer").isVisible());
-// ターミナル下のフッター余白と「新規ペイン/新規セッション」バー:
-// サイドバーの設定ボタン上の線と同じ高さに揃い、境界線が全幅で一直線に通る
+const gridWithGit = await page.locator("#grid").boundingBox();
+check("Git button opens the Git window over the terminals without resizing them",
+  await page.locator("#git-window").isVisible() &&
+    await page.locator("#git-open").getAttribute("aria-expanded") === "true" &&
+    JSON.stringify(gridBeforeGit) === JSON.stringify(gridWithGit),
+  `${JSON.stringify(gridBeforeGit)} → ${JSON.stringify(gridWithGit)}`);
+await page.keyboard.press("Escape");
+check("Escape closes the Git window", await page.locator("#git-window-overlay").isHidden());
+// ターミナル下のフッター余白: サイドバーの設定ボタン上の線と同じ高さに揃う
 const mainFootBox = await page.locator("#main-foot").boundingBox();
 const sideFootBox = await page.locator("#sidebar-foot").boundingBox();
-const expActBox = await page.locator("#exp-actions").boundingBox();
 check("terminal footer aligns with sidebar foot line",
   mainFootBox && sideFootBox &&
     Math.abs(mainFootBox.y - sideFootBox.y) < 1 &&
     Math.abs(mainFootBox.height - sideFootBox.height) < 1,
   `main=${mainFootBox?.y}/${mainFootBox?.height} side=${sideFootBox?.y}/${sideFootBox?.height}`);
-check("explorer actions bar aligns with foot line",
-  expActBox && sideFootBox &&
-    Math.abs(expActBox.y - sideFootBox.y) < 1 &&
-    Math.abs(expActBox.height - sideFootBox.height) < 1,
-  `actions=${expActBox?.y}/${expActBox?.height} side=${sideFootBox?.y}/${sideFootBox?.height}`);
 
 // 以降の分割・ブロードキャスト回帰テスト用に4ペインへ増やす。
 // 分割は常にレイアウト全体への追加（横 = 全高の右列 / 下 = 全幅の下段）なので、

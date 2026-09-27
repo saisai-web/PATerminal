@@ -22,9 +22,11 @@ await pageFav.addInitScript(() => {
 await pageFav.goto(BASE_URL);
 await pageFav.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
 await pageFav.waitForTimeout(500);
-await pageFav.click("#exp-reopen");
-await pageFav.waitForTimeout(300);
-const favRestored = await pageFav.locator(".exp-fav-row:not(.exp-session-row)").count();
+// お気に入りはパスバーのフォルダーブラウザーのお気に入りメニューに出る
+await pageFav.locator(".workspace-layer:not([hidden]) .pane-pathbar-path").click();
+await pageFav.waitForSelector(".pathbar-pop");
+await pageFav.click(".pathbar-fav-btn");
+const favRestored = await pageFav.locator(".pathbar-fav-row").count();
 check("favorites restored from v3 session", favRestored === 2, `rows=${favRestored}`);
 await pageFav.waitForFunction(() => {
   const raw = window.__savedSession;
@@ -39,10 +41,10 @@ const legacyGroup = legacySaved.groups?.find((g) => g.name === "legacy");
 check("v3 named groups migrate to v5 IDs",
   legacySaved.version === 5 && legacySaved.workspaces.find((w) => w.id === "a")?.group === legacyGroup?.id &&
     legacySaved.collapsedGroups?.includes(legacyGroup?.id));
-await pageFav.locator(".exp-fav-row", { hasText: "tmp" }).click();
+await pageFav.locator(".pathbar-fav-row", { hasText: "tmp" }).click();
 await pageFav.waitForTimeout(300);
-const favRestNav = await pageFav.locator("#exp-path").textContent();
-check("restored favorite navigates", favRestNav === "/tmp", `path="${favRestNav}"`);
+const favRestNav = await pageFav.locator(".pathbar-crumb[aria-current]").textContent();
+check("restored favorite navigates", favRestNav === "tmp", `crumb="${favRestNav}"`);
 await pageFav.close();
 
 }

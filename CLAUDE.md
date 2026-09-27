@@ -68,7 +68,7 @@ Ctrl+Shift+C/V. Also verify changes on actual machines.
 - During dragging, call only `place()`, then refit once after the drag is finalized.
 - `Pane` owns the scroll position policy (`scrollAnchor`): follow the newest output, or stay
   on the history line the user chose. Do not scatter scroll fixes across individual paths for
-  opening or closing Files/the sidebar or redisplaying sessions.
+  collapsing or reopening the sidebar or redisplaying sessions.
 
 Run `ui-tests/31-resize.mjs` after changes, and verify `stty size` and bottom-scroll retention
 on actual machines.

@@ -13,7 +13,7 @@ type IssueCreateDeps = {
 
 const MAX_ATTACHMENTS = 10;
 
-const openBtn = document.querySelector<HTMLButtonElement>("#exp-git-create-issue")!;
+const openBtn = document.querySelector<HTMLButtonElement>("#gw-create-issue")!;
 const overlay = document.querySelector<HTMLDivElement>("#issue-create-overlay")!;
 const panel = document.querySelector<HTMLFormElement>("#issue-create-panel")!;
 const closeBtn = document.querySelector<HTMLButtonElement>("#issue-create-close")!;

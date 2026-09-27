@@ -47,7 +47,8 @@ const DIFF_MAX_LINES = 2000;
 
 // ---- 行単位 LCS diff。共通部分は前後2行だけ残して畳む ----
 
-function diffLineList(oldText: string, newText: string): DiffLine[] {
+/** 共通行も含めた全行の diff（畳む前） */
+function diffAllLines(oldText: string, newText: string): DiffLine[] {
   const a = oldText.length ? oldText.replace(/\n$/, "").split("\n") : [];
   const b = newText.length ? newText.replace(/\n$/, "").split("\n") : [];
   // 共通の先頭・末尾を先に落とす（大きいファイルの小さな変更で DP を避ける）
@@ -89,11 +90,15 @@ function diffLineList(oldText: string, newText: string): DiffLine[] {
     while (j < m) mid.push({ type: "add", text: bm[j++] });
   }
 
-  const all: DiffLine[] = [
+  return [
     ...a.slice(0, pre).map((text): DiffLine => ({ type: "ctx", text })),
     ...mid,
     ...a.slice(a.length - suf).map((text): DiffLine => ({ type: "ctx", text })),
   ];
+}
+
+function diffLineList(oldText: string, newText: string): DiffLine[] {
+  const all = diffAllLines(oldText, newText);
   // 連続する共通行は前後 CONTEXT 行だけ残して「⋯」に畳む
   const CONTEXT = 2;
   const out: DiffLine[] = [];
@@ -379,7 +384,7 @@ export function openFileDiffOverlay(d: FileDiff, adds: number, dels: number): vo
   setHeader(d.path, adds, dels, false);
   diffBodyEl.innerHTML = "";
   diffBodyEl.append(renderFileDiffBody(d));
-  diffOverlay.hidden = false;
+  showDiffOverlay();
 }
 
 export function openCommitDiffOverlay(title: string, d: CommitDiff): void {
@@ -391,7 +396,7 @@ export function openCommitDiffOverlay(title: string, d: CommitDiff): void {
     fileList: t("git.commitFileList"),
     truncated: t("git.commitDiffTruncated"),
   }));
-  diffOverlay.hidden = false;
+  showDiffOverlay();
 }
 
 export function openWorktreeDiffOverlay(d: CommitDiff): void {
@@ -403,7 +408,76 @@ export function openWorktreeDiffOverlay(d: CommitDiff): void {
     fileList: t("agent.changedFileList"),
     truncated: t("agent.changesDiffTruncated"),
   }));
-  diffOverlay.hidden = false;
+  showDiffOverlay();
+}
+
+/** Git ウィンドウのコミット詳細: コミット差分をオーバーレイではなくその場に描く */
+export function renderCommitDiffBody(d: CommitDiff): HTMLDivElement {
+  return renderMultiFileDiffBody(d, {
+    noDiff: t("git.commitNoDiff"),
+    files: (count) => t("git.commitFiles", { n: String(count) }),
+    fileList: t("git.commitFileList"),
+    truncated: t("git.commitDiffTruncated"),
+  });
+}
+
+/** Git ウィンドウのファイルステータス: 1ファイルの差分を行番号付きで描く。
+    共通行は前後 CONTEXT 行だけ残し、間は「⋯ N 行」に畳む */
+export function renderFileDiffCode(d: FileDiff): HTMLDivElement {
+  const code = document.createElement("div");
+  code.className = "commit-file-code";
+  const all = diffAllLines(d.oldText ?? "", d.newText);
+  if (all.length === 0) {
+    appendLine(code, "empty", t("agent.noChangesDiff"));
+    return code;
+  }
+  const CONTEXT = 3;
+  const changed = all.map((l) => l.type !== "ctx");
+  const near = (i: number): boolean => {
+    for (let k = Math.max(0, i - CONTEXT); k <= Math.min(all.length - 1, i + CONTEXT); k++) {
+      if (changed[k]) return true;
+    }
+    return false;
+  };
+  let oldNo = 1;
+  let newNo = 1;
+  let skipped = 0;
+  let shown = 0;
+  const flushSkip = () => {
+    if (skipped === 0) return;
+    appendCommitLine(code, {
+      type: "hunk",
+      text: t("gw.hiddenLines", { n: String(skipped) }),
+      oldLine: null,
+      newLine: null,
+    });
+    skipped = 0;
+  };
+  for (let i = 0; i < all.length; i++) {
+    const l = all[i];
+    if (shown >= DIFF_MAX_LINES) {
+      appendLine(code, "skip", t("agent.diffTruncated", { n: String(all.length - i) }));
+      return code;
+    }
+    if (l.type === "ctx" && !near(i)) {
+      skipped++;
+      oldNo++;
+      newNo++;
+      continue;
+    }
+    flushSkip();
+    appendCommitLine(code, {
+      type: l.type === "skip" ? "ctx" : l.type,
+      text: l.text,
+      oldLine: l.type === "add" ? null : oldNo,
+      newLine: l.type === "del" ? null : newNo,
+    });
+    if (l.type !== "add") oldNo++;
+    if (l.type !== "del") newNo++;
+    shown++;
+  }
+  flushSkip();
+  return code;
 }
 
 /** PR 詳細内でもコミット差分と同じファイルナビ + 行番号付きパッチを使う。 */
@@ -416,8 +490,21 @@ export function renderPullRequestDiffBody(d: CommitDiff): HTMLDivElement {
   });
 }
 
+/** 開く直前にフォーカスしていた要素。閉じたらそこへ戻す（Git ウィンドウの操作を続けられるように） */
+let previousFocus: HTMLElement | null = null;
+
+function showDiffOverlay(): void {
+  if (diffOverlay.hidden) {
+    previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  diffOverlay.hidden = false;
+}
+
 function closeDiffOverlay(): void {
   diffOverlay.hidden = true;
+  const focus = previousFocus;
+  previousFocus = null;
+  if (focus?.isConnected) focus.focus();
 }
 
 diffCloseBtn.onclick = closeDiffOverlay;

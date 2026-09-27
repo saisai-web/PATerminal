@@ -163,6 +163,7 @@ export type SessionV3 = {
     /** 新規セッションの場所フライアウトに出す「最近使った場所」（新しい順） */
     recentDirs?: string[];
     /** ターミナル上部の帯をたたんだ状態。開くまで開かないよう保存する */
+    /** changes は廃止した変更ストリップの開閉（旧データに残るだけで読まない） */
     collapsed?: { changes?: boolean; quickPhrases?: boolean; oneLine?: true };
     /** worktree の作成先と Issue 実行で最後に選んだベースブランチを覚えておく */
     worktree?: {

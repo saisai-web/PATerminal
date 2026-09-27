@@ -43,7 +43,7 @@ const scopeRepoRadio = document.querySelector<HTMLInputElement>("#quick-phrase-s
 const scopeRepoLabel = document.querySelector<HTMLSpanElement>("#quick-phrase-scope-repo-label")!;
 
 let phrases: QuickPhrase[] = [];
-/** いま監視中のリポジトリルート（変更ストリップの git 監視から流し込まれる） */
+/** いま監視中のリポジトリルート（git 監視から流し込まれる） */
 let currentRepo: string | null = null;
 let editingIndex: number | null = null;
 /** 編集中の項目が属するリポジトリ。別リポジトリ専用の定型文も所属を保ったまま直せる */
@@ -61,7 +61,7 @@ let draggingIndex: number | null = null;
     null ならこれまでどおりフォーカス中のターミナルへ入力する。閉じると解除される。 */
 let insertTarget: HTMLInputElement | HTMLTextAreaElement | null = null;
 // 1行表示の状態は session.json に保存する。「一度たたんだら自分で開くまで全展開しない」ため、
-// 変更や再起動で勝手に開かない（変更ストリップと同じ扱い）
+// 変更や再起動で勝手に開かない
 let barCollapsed = true;
 // Cmd/Ctrl+P の自動展開・選択後の自動収納は一時状態。次回起動時の既定値は、ユーザーが
 // 左の開閉操作（または同等の空白クリック）で最後に明示した状態だけを保存する。
@@ -422,7 +422,7 @@ function setBarCollapsed(collapsed: boolean, persistPreference = true) {
     preferredBarCollapsed = collapsed;
     options?.onChange(); // ユーザーが明示した既定状態だけを保存する
   }
-  options?.layout(); // 帯の高さが変わる（変更ストリップと同じ理由で refit 必須）
+  options?.layout(); // 帯の高さが変わる（refit 必須）
 }
 
 /** 起動時の復元用（保存も再レイアウトもせず状態だけ合わせる） */
@@ -435,7 +435,7 @@ export function isQuickPhraseBarCollapsed(): boolean {
   return preferredBarCollapsed;
 }
 
-/** 監視中のリポジトリ（変更ストリップの git ポーリング結果）を受け取る。
+/** 監視中のリポジトリ（git 監視のポーリング結果）を受け取る。
     ここが変わるとバーに出す「リポジトリ専用」の定型文が入れ替わる。 */
 export function setQuickPhraseRepo(root: string | null) {
   if (currentRepo === root) return;
@@ -443,7 +443,7 @@ export function setQuickPhraseRepo(root: string | null) {
   renderQuickPhrasesTexts();
 }
 
-/** 定型文バー（ターミナル上部・変更ストリップのすぐ上）を描き直す。
+/** 定型文バー（ターミナル上部）を描き直す。
     出せるものが 0 件のときは帯ごと隠し、その分ターミナルの高さを返す。 */
 function renderBar() {
   const wasHidden = barEl.hidden;
@@ -595,11 +595,11 @@ export function initQuickPhrases(nextOptions: QuickPhraseOptions) {
   panel.addEventListener("keydown", (e) => {
     if (!overlay.hidden) e.stopPropagation();
   });
-  // 見出し行のボタン操作もターミナル・ショートカットへ流さない（変更ストリップと同じ流儀）
+  // 見出し行のボタン操作もターミナル・ショートカットへ流さない
   barEl.addEventListener("keydown", (e) => {
     if (e.target === barCollapseBtn || e.target === barTitleBtn) e.stopPropagation();
   });
-  // 三角ボタン以外に「帯の空白」クリックでも開閉する（変更ストリップと同じ作り）。
+  // 三角ボタン以外に「帯の空白」クリックでも開閉する。
   // コンテナ要素そのものを踏んだときだけ反応するので、チップ・見出しボタン・ヒントは誤爆しない。
   const barHitAreas: Element[] = [barEl, barHeadEl, barContentEl, barSummaryEl, barListEl];
   const consumeSelectionDrag = trackSelectionDrag(barEl);

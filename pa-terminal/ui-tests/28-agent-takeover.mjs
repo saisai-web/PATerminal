@@ -30,10 +30,10 @@ await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(300);
 
 // ---- 一覧の表示 ----
-check("history is in the focused pane header",
-  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible());
-check("takeover history is the last toolbar button",
-  await page.locator("#toolbar > button").last().getAttribute("id") === "takeover-open");
+check("takeover history sits just before the Git and Worktree buttons at the end of the toolbar",
+  JSON.stringify(await page.locator("#toolbar > button").evaluateAll((buttons) =>
+    buttons.slice(-3).map((button) => button.id))) ===
+    JSON.stringify(["takeover-open", "git-open", "worktree-open"]));
 await page.locator("#takeover-open").click();
 check("toolbar button opens the takeover modal",
   await page.locator("#takeover-panel").isVisible());
@@ -42,7 +42,7 @@ check("toolbar history opens the shared dialog on the conversation tab",
     await page.locator("#session-trash-panel").isHidden());
 check("the toolbar history icon has the accessible label 履歴",
   (await page.locator("#takeover-open").getAttribute("aria-label")) === "履歴" &&
-    (await page.locator("#takeover-open").textContent()).trim() === "");
+    (await page.locator("#takeover-open").textContent()).trim() === "履歴");
 check("the modal is titled 履歴から引き継ぐ",
   (await page.locator("#history-title").textContent()) === "履歴から引き継ぐ");
 check("the modal has a single unified list (no running section)",

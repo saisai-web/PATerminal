@@ -3,10 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 import "@xterm/xterm/css/xterm.css";
 import "./styles.css";
 import { initAgentWatch } from "./features/agents/watch";
-import { initDirectoryChange } from "./features/agents/change-directory";
+import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-directory";
+import { initPathBar } from "./features/agents/path-bar";
+import { pickFolderFromOs } from "./features/sidebar/new-session-location";
+import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
-import { initAgentPanel } from "./features/git/agent-panel";
-import { initGitPanel } from "./features/git/git-panel";
+import { initGitWatch } from "./features/git/git-watch";
+import { closeGitWindow, initGitWindow } from "./features/git/git-window";
 import { initWsGit } from "./features/sidebar/ws-git";
 import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
@@ -19,10 +22,8 @@ import "./terminal/diag";
 import { broadcastWrite, toggleBroadcast } from "./terminal/focus";
 import { initBroadcastDialog, openBroadcastDialog } from "./features/broadcast/broadcast-dialog";
 import {
-  explorerFollow,
-  initExplorer,
-  isExplorerOpen,
-  setExplorerOpen,
+  getExplorerFavorites,
+  toggleExpFavorite,
 } from "./features/explorer/explorer";
 import { layout, scheduleLayout } from "./terminal/layout";
 import { normPath } from "./features/explorer/paths";
@@ -41,6 +42,7 @@ import {
   createWorkspaceBesideActive,
   newSessionCwd,
   onActiveWorkspaceChange,
+  quickCreateWorkspace,
   setActive,
   workspaceCwd,
   updateWorkspaceNote,
@@ -120,6 +122,15 @@ initBroadcastDialog({
 });
 initDropPaths();
 initDirectoryChange({ beforeReplace: notifyPairExit });
+initPathBar({
+  openFile: (path) => void openFileViewer(path),
+  moveTo: (pane, path) => void moveTerminalTo(pane, path),
+  favorites: getExplorerFavorites,
+  toggleFavorite: toggleExpFavorite,
+  focusPane: (pane) => setFocused(pane.id),
+  newSession: (path) => void quickCreateWorkspace({ cwd: path }),
+  pickFolderFromOs,
+});
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。
   insert: (text) => {
@@ -144,6 +155,8 @@ initQuickPhrases({
 });
 initWorktreePrefs({ onChange: scheduleSave });
 const openWorktreeSession = ({ name, cwd, note }: { name: string; cwd: string; note?: string }) => {
+  // Git ウィンドウから作ったときは閉じて、新しいセッションのターミナルを見せる
+  closeGitWindow(false);
   const ws = createWorkspaceBesideActive(name, "default", { cwd });
   updateWorkspaceNote(ws, note);
   if (ws.note) renderSidebar();
@@ -262,9 +275,9 @@ onLicenseChange((s) => {
   renderLockMarks();
 });
 
-// ---- 変更ストリップ（ターミナル上部の git 自動表示） ----
+// ---- git 監視（ツールバーの Git ボタンのバッジと Git ウィンドウ） ----
 
-/** 変更ストリップが監視すべき cwd。フォーカス中ペインのシェルの実 cwd（pty_cwd）を
+/** git 監視が見るべき cwd。フォーカス中ペインのシェルの実 cwd（pty_cwd）を
     優先し、取れない環境（プロセス終了直後・旧バイナリ）は OSC 7 / spec.cwd に
     フォールバックする。OSC 7 はシェル統合が無いと飛ばず cd に追従できないため
     （Windows の PowerShell だけは PEB から cwd を読めないので、pty_spawn 側が
@@ -281,20 +294,16 @@ async function resolveWatchCwd(): Promise<string | null> {
       /* フォールバックへ */
     }
   }
+  // OSC 7 を吐かないシェル（macOS の素の zsh 等）の cd も、ペインバー・パスバー・
+  // サイドバーへ反映する。await 中に閉じられたペインは触らない
+  if (live && pane.alive && panes.get(pane.id) === pane) pane.setCwd(live, { fromPoll: true });
   const p = live ?? pane.cwd ?? pane.spec.cwd;
   if (!p) return null;
-  const n = normPath(p);
-  // エクスプローラーの追従もここに相乗り: OSC 7 が飛ばないシェルでも
-  // 3秒ポーリング + フォーカス移動契機で cd に追従できる。
-  // await 中にフォーカスが移った場合の古い cwd は反映しない
-  if (pane.id === getFocusedId()) explorerFollow(n);
-  return n;
+  return normPath(p);
 }
 
-initExplorer({ createWorkspace: createWorkspaceBesideActive });
-initAgentPanel({ layout: () => layout(), resolveWatchCwd, onCollapseChange: scheduleSave });
-initGitPanel({
-  isExplorerOpen,
+initGitWatch({ resolveWatchCwd });
+initGitWindow({
   createIssueSession: ({ issueNumber, issueTitle, cwd, note }) => {
     const name = `#${issueNumber} ${issueTitle}`;
     openWorktreeSession({ name, cwd, note });
@@ -322,6 +331,10 @@ initWsGit({
         }),
       };
     }),
+  onPaneCwd: (paneId, cwd) => {
+    const pane = panes.get(paneId);
+    if (pane?.alive) pane.setCwd(cwd, { fromPoll: true });
+  },
 });
 
 // ---- 実行中エージェントの検知（復元時の会話再開 + 終了バナー） ----
@@ -373,11 +386,9 @@ initPromptHistory({
 // ドラッグ中は矩形だけ追従し、止まってから1回だけ refit する（TUI へ SIGWINCH を連射しない）
 window.addEventListener("resize", () => scheduleLayout());
 
-// エクスプローラーは起動時デフォルト非表示（右端アイコン / Cmd+E で開く）
 async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
-  setExplorerOpen(false, { save: false });
   // Finder から渡されたフォルダ（起動前の分も含む）は復元が終わってから開く
   flushPendingOpenDirs();
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・

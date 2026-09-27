@@ -12,7 +12,7 @@ import { openPrFromList, prStateClass, prStateLabel } from "./pr-overlay";
 import { openWorktreeDialogForPr } from "./pr-worktree";
 import type { PrList, PrSummary } from "./git-panel-types";
 
-const prsEl = document.querySelector<HTMLDivElement>("#exp-git-prs")!;
+const prsEl = document.querySelector<HTMLDivElement>("#gw-prs")!;
 
 // PR 一覧は「直近に取れた一覧」と「直近の失敗理由」を別に持つ。取得に失敗しても
 // 表示中の一覧を消さない（60秒ごとの自動更新が一瞬の gh 失敗で一覧を潰さないように）
@@ -90,7 +90,7 @@ export async function fetchPrList(root: string): Promise<void> {
 }
 
 /**
- * エクスプローラー下部（画面右下）の PR 一覧だけで使うブランチ表示。
+ * Git ウィンドウの PR 一覧だけで使うブランチ表示。
  * 長いブランチ名で行が右へ膨らむのを防ぐため、上限超えは一律 "branch" と書く。
  * PR オーバーレイ側は実名のまま。
  */

@@ -12,10 +12,6 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.goto(BASE_URL);
 await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(600);
-// このスイートはエクスプローラー開閉の回帰ではなく、従来と同じ3カラムの
-// レイアウト条件で PTY サイズ同期を検証する。
-await page.click("#exp-reopen");
-await page.waitForTimeout(300);
 
 // --- 0. xterm の描画面がスクロールバーのトラックを覆わない ---
 // FitAddon は xterm 自身の padding だけを列数計算から引く。親の padding を
@@ -61,21 +57,21 @@ await pageScroll.addInitScript(() => {
 await pageScroll.goto(BASE_URL);
 await pageScroll.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
 await pageScroll.waitForTimeout(400);
-for (const [button, action] of [["#exp-reopen", "opening"], ["#exp-close", "closing"]]) {
+for (const [button, action] of [["#sidebar-collapse", "collapsing"], ["#sidebar-reopen", "reopening"]]) {
   const before = await pageScroll.locator(
     ".workspace-layer:not([hidden]) .xterm-viewport",
   ).evaluate((el) => {
     el.scrollTop = 0;
     return { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight };
   });
-  check(`${action} Files can reproduce a viewport at the top`,
+  check(`${action} the sidebar can reproduce a viewport at the top`,
     before.top === 0 && before.height > before.client, JSON.stringify(before));
   await pageScroll.locator(button).click();
   await pageScroll.waitForTimeout(200);
   const after = await pageScroll.locator(
     ".workspace-layer:not([hidden]) .xterm-viewport",
   ).evaluate((el) => ({ top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight }));
-  check(`${action} Files keeps the terminal at the latest output`,
+  check(`${action} the sidebar keeps the terminal at the latest output`,
     after.top >= after.height - after.client - 1, JSON.stringify(after));
 }
 await pageScroll.close();
@@ -469,7 +465,9 @@ check("a failed resize is retried until it lands",
 // 新しいグリッドへ流し込まれる
 await page.evaluate(() => { window.__ipcLog.length = 0; });
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(700);
 await page.setViewportSize({ width: 1000, height: 780 });
 await page.waitForTimeout(500);

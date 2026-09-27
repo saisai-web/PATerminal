@@ -135,13 +135,13 @@ const afterOutput = await readRight();
 check("output while reading history does not move the viewport",
   afterOutput.line === scrolledUp.line && afterOutput.baseY === scrolledUp.baseY + 3,
   JSON.stringify(afterOutput));
-await page.click("#exp-reopen"); // 横幅が変わる = layout → refit
+await page.click("#sidebar-collapse"); // 横幅が変わる = layout → refit
 await page.waitForTimeout(300);
 const afterLayout = await readRight();
 check("a layout change while reading history does not jump to the bottom",
   afterLayout.line < afterLayout.baseY && Math.abs(afterLayout.top - afterLayout.expectedTop) <= 1,
   JSON.stringify(afterLayout));
-await page.click("#exp-close");
+await page.click("#sidebar-reopen");
 await page.waitForTimeout(300);
 
 // --- 5. 末尾まで戻せば再び出力へ追従する ---

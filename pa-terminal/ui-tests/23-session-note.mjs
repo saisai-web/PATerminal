@@ -232,7 +232,8 @@ const archived = await page.evaluate(() => JSON.parse(window.__savedSession ?? "
 check("recently-deleted sessions retain their note",
   archived?.deletedWorkspaces?.[0]?.note === "PR #90 のレビュー\nCI 待ち\n確認");
 
-await page.click("#session-trash-open");
+await page.click("#takeover-open");
+await page.click("#history-tab-trash");
 check("recently-deleted dialog shows the session note",
   await page.locator(".session-trash-row .session-trash-note").textContent() ===
     "PR #90 のレビュー\nCI 待ち\n確認");

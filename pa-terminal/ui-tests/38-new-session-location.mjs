@@ -2,10 +2,12 @@ export default async function (ctx) {
 const { browser, check, MOD, BASE_URL } = ctx;
 
 // ============================================================
-// 新規セッションの場所フライアウト（Issue #192）
-// メニューの「セッションを作成」はホバー、検索欄横の + と詳細フォームの場所欄はクリックで
-// ホーム / フォルダ選択 / お気に入り / 最近使った場所 から作成先を選べる。
-// 検索欄横の + には、従来のクリック動作も「表示中ペインと同じ場所」として含める。
+// 新規セッションの作成場所（Issue #192）
+// 検索欄横の +・グループ見出しの +・右クリックの「セッションを作成」は、場所を尋ねずに
+// ルート（ホーム）へ即作成し、作ったペインのパスバーのフォルダーブラウザーを開いた状態で
+// 始める（「ここへ移動」で作業フォルダーへ移る）。
+// 詳細フォーム（Cmd/Ctrl+T）の場所欄だけは、同じブラウザーで場所を選ぶ。
+// セッションのコピーはブラウザーを開かない（worktree からの作成は 19-git-panel で確認）。
 // ============================================================
 
 const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
@@ -31,140 +33,89 @@ await page.waitForTimeout(500);
 
 const spawnCount = () => page.evaluate(() => window.__ptySpawns.length);
 const lastSpawn = () => page.evaluate(() => window.__ptySpawns[window.__ptySpawns.length - 1]);
-const flyout = page.locator("#loc-flyout");
-const flyoutRow = (text) => flyout.locator(".loc-row", { hasText: text });
+const waitSpawn = (n) => page.waitForFunction((n) => window.__ptySpawns.length > n, n, { timeout: 3000 });
+const pop = page.locator(".pathbar-pop");
+/** 開いたブラウザーが、作ったばかりのセッション（表示中・フォーカス中のペイン）のものか */
+const browserOnNewPane = () => page.evaluate(() => {
+  const bar = document.querySelector(".workspace-layer:not([hidden]) .pane.is-focused .pane-pathbar");
+  return bar?.dataset.open === "true" && bar.dataset.cwd === "/home/user";
+});
 
-// --- 検索欄横の + はホバーでは開かず、クリックで場所フライアウトを開く ---
+// --- サイドバーに Finder / エクスプローラーのアイコンボタンは無い ---
+check("the sidebar has no Finder icon buttons",
+  (await page.locator("#ws-new-finder, .ws-group-finder").count()) === 0);
+
+// --- 検索欄横の +: ホバーでは何もせず、クリックでルートに即作成してブラウザーを開く ---
 const before = await spawnCount();
-const initialCwd = "/proj/alpha";
 await page.hover("#ws-new");
 await page.waitForTimeout(250);
-check("hovering + does not open the location flyout", (await flyout.count()) === 0);
-check("hovering + does not create a session", (await spawnCount()) === before);
+check("hovering + does nothing", (await pop.count()) === 0 && (await spawnCount()) === before);
 await page.click("#ws-new");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-check("clicking + opens the location flyout", await flyout.isVisible());
-check("clicking + alone does not create a session", (await spawnCount()) === before);
-check("+ flyout includes the old default action and every location entry",
-  (await flyoutRow("表示中ペインと同じ場所").count()) === 1 &&
-  (await flyoutRow("ホーム").count()) === 1 &&
-  (await flyoutRow("Finderから開く…").count()) === 1 &&
-  (await flyoutRow("recent1").count()) === 1 &&
-  (await flyoutRow("recent2").count()) === 1 &&
-  (await flyoutRow("fav1").count()) === 1);
-const sectionHeads = await flyout.locator(".loc-head").allTextContents();
-check("flyout shows favorites above recent locations",
-  JSON.stringify(sectionHeads) === JSON.stringify(["お気に入り", "最近使った場所"]),
-  JSON.stringify(sectionHeads));
-
-// --- 先頭行は従来の + と同じく、表示中ペインの場所で即時作成する ---
-await flyoutRow("表示中ペインと同じ場所").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, before, { timeout: 3000 });
-check("the default row runs the old + action at the current pane's directory",
-  (await lastSpawn()).cwd === initialCwd, JSON.stringify(await lastSpawn()));
-check("flyout closes after picking", (await flyout.count()) === 0);
-
-// --- ホームを選ぶと home ディレクトリで即時作成 ---
-const beforeHome = await spawnCount();
-await page.click("#ws-new");
-await flyoutRow("ホーム").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeHome, { timeout: 3000 });
-check("picking Home from + creates at the home directory",
+await waitSpawn(before);
+check("+ creates a session at the root (home) right away",
   (await lastSpawn()).cwd === "/home/user", JSON.stringify(await lastSpawn()));
+await pop.waitFor({ timeout: 3000 });
+check("the new session starts with its folder browser open for moving",
+  await browserOnNewPane() &&
+    (await page.locator(".pathbar-pop.is-pick").count()) === 0 &&
+    (await pop.locator(".pathbar-action.is-primary span").textContent()) === "ここへ移動");
+check("the browser has the filter focused", await page.evaluate(() =>
+  document.activeElement === document.querySelector(".pathbar-filter input")));
 
-// --- フォルダ選択（OS ダイアログ）で選んだパスに作成 ---
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/dir"; });
-const beforeBrowse = await spawnCount();
-await page.click("#ws-new");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("Finderから開く…").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeBrowse, { timeout: 3000 });
-check("browse creates a session at the picked directory",
-  (await lastSpawn()).cwd === "/picked/dir", JSON.stringify(await lastSpawn()));
+// --- そのまま「ここへ移動」で、作ったシェルが作業フォルダーへ cd する ---
+await pop.locator(".pathbar-row", { hasText: "proj" }).click();
+await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "proj");
+const newPaneId = (await lastSpawn()).id;
+await pop.locator(".pathbar-action.is-primary").click();
+await page.waitForFunction((id) =>
+  window.__ptyWrites.some((w) => w.id === id && w.data === "cd '/home/user/proj'\r"), newPaneId);
+check("Move here cds the new session to the chosen folder", (await pop.count()) === 0);
 
-// --- 作成した場所は「最近使った場所」の先頭に入る ---
+// --- Esc で閉じればホームのまま使える ---
+const beforeEsc = await spawnCount();
 await page.click("#ws-new");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-const recentTexts = await flyout.locator(".loc-row .loc-name").allTextContents();
-check("picked directory is recorded as the newest recent location",
-  recentTexts.includes("dir"), recentTexts.join(","));
+await waitSpawn(beforeEsc);
+await pop.waitFor({ timeout: 3000 });
 await page.keyboard.press("Escape");
-await page.waitForTimeout(100);
-check("Escape closes the flyout", (await flyout.count()) === 0);
+check("Escape keeps the new session at home and returns focus to it",
+  (await pop.count()) === 0 && await page.evaluate(() =>
+    document.activeElement?.classList.contains("xterm-helper-textarea")));
 
-// --- 検索欄横の「Finderから開く」ボタンは、フライアウトを介さず OS のフォルダ選択を開く ---
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/top"; window.__dialogOpenCalls = []; });
-const beforeTopFinder = await spawnCount();
-check("top Finder button carries the unified label",
-  (await page.getAttribute("#ws-new-finder", "title")) === "Finderから開く…");
-await page.click("#ws-new-finder");
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeTopFinder, { timeout: 3000 });
-check("top Finder button opens the OS folder dialog",
-  (await page.evaluate(() => window.__dialogOpenCalls.length)) === 1 &&
-  (await page.evaluate(() => window.__dialogOpenCalls[0]?.directory)) === true);
-check("top Finder button creates at the picked directory",
-  (await lastSpawn()).cwd === "/picked/top", JSON.stringify(await lastSpawn()));
-check("top Finder button does not open the location flyout", (await flyout.count()) === 0);
-
-// --- キャンセル（null）では何も作らない ---
-await page.evaluate(() => { window.__mockPickedDirectory = null; });
-const beforeCancel = await spawnCount();
-await page.click("#ws-new-finder");
-await page.waitForTimeout(300);
-check("cancelling the OS dialog creates nothing", (await spawnCount()) === beforeCancel);
-
-// --- グループ見出し / Whole 枠のアイコンボタンと、メニューの直接項目 ---
-// （最近使った場所は 8 件までなので、後続の recent1 / recent2 を押し出さないよう新規パスは 2 つに抑える）
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/grp"; });
+// --- グループ見出しの右クリック / + の「セッションを作成」: そのグループにルートで即作成 ---
 const groupHead = page.locator('.ws-group[data-group-id="g"]');
-check("group header shows the Finder icon button next to +",
-  (await groupHead.locator(".ws-group-finder").count()) === 1 &&
-  (await groupHead.locator(".ws-group-finder").getAttribute("aria-label")) === "Finderから開く…" &&
-  (await groupHead.locator(".ws-group-finder svg").count()) === 1);
-const beforeGroupBtn = await spawnCount();
-await groupHead.locator(".ws-group-finder").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeGroupBtn, { timeout: 3000 });
-check("group header Finder button creates at the picked directory",
-  (await lastSpawn()).cwd === "/picked/grp", JSON.stringify(await lastSpawn()));
-check("group header Finder button creates inside that group",
-  (await page.locator('.ws-group-members .ws-item', { hasText: "grp" }).count()) === 1);
-check("group stays expanded after clicking the Finder button",
-  !(await page.locator('.ws-group[data-group-id="g"] + .ws-group-members').isHidden()));
-
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/dir"; });
-const wholeFinder = page.locator(".ws-whole-head .ws-group-finder");
-check("Whole header shows the Finder icon button", (await wholeFinder.count()) === 1);
-const beforeWhole = await spawnCount();
-await wholeFinder.click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeWhole, { timeout: 3000 });
-check("Whole Finder button creates at the picked directory",
-  (await lastSpawn()).cwd === "/picked/dir", JSON.stringify(await lastSpawn()));
-// クイック作成なので名前は自動採番のまま（フライアウトの各行と同じ）。先頭に置かれて表示中になる
-const wholeFirst = page.locator(".ws-whole-members > .ws-item").first();
-check("Whole Finder button creates at the top of the list and shows it",
-  (await wholeFirst.evaluate((el) => el.classList.contains("is-active"))) &&
-  /^Session \d+$/.test((await wholeFirst.locator(".ws-name").textContent()) ?? ""),
-  await wholeFirst.evaluate((el) => `${el.className} / ${el.querySelector(".ws-name")?.textContent}`));
-
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/grp"; });
+const membersBefore = await page.locator(".ws-group-members .ws-item").count();
+const beforeGroup = await spawnCount();
 await groupHead.click({ button: "right" });
 await page.waitForSelector("#ctx-menu", { timeout: 3000 });
-const finderItem = page.locator("#ctx-menu > button", { hasText: "Finderから開く…" });
-check("group header menu has a direct Finder item (no submenu arrow)",
-  (await finderItem.count()) === 1 &&
-  !(await finderItem.evaluate((el) => el.classList.contains("ctx-has-sub"))));
-const beforeMenu = await spawnCount();
-await finderItem.click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeMenu, { timeout: 3000 });
-check("group menu Finder item creates at the picked directory in that group",
-  (await lastSpawn()).cwd === "/picked/grp" &&
-  (await page.locator('.ws-group-members .ws-item', { hasText: "grp" }).count()) === 2,
+const createItem = page.locator("#ctx-menu > button", { hasText: "セッションを作成" });
+check("group menu offers only session creation (no submenu or Finder item)",
+  (await createItem.count()) === 1 &&
+  (await createItem.locator(".ctx-sub-arrow").count()) === 0 &&
+  (await page.locator("#ctx-menu > button", { hasText: "Finder" }).count()) === 0);
+await createItem.hover();
+await page.waitForTimeout(250);
+check("hovering the menu item creates nothing", (await spawnCount()) === beforeGroup);
+await createItem.click();
+await waitSpawn(beforeGroup);
+await pop.waitFor({ timeout: 3000 });
+check("group menu creates at home inside that group and opens the browser",
+  (await lastSpawn()).cwd === "/home/user" &&
+  (await page.locator(".ws-group-members .ws-item").count()) === membersBefore + 1 &&
+  (await page.locator("#ctx-menu").count()) === 0 && await browserOnNewPane(),
   JSON.stringify(await lastSpawn()));
-check("group menu closed after the Finder item", (await page.locator("#ctx-menu").count()) === 0);
+await page.keyboard.press("Escape");
 
-await page.evaluate(() => { window.__mockPickedDirectory = "/picked/top"; });
-// 一覧が伸びて余白が無くなっても成立するよう、余白相当の contextmenu を一覧要素に直接送る
-// （Playwright の dispatchEvent は contextmenu を MouseEvent にしないので座標付きで自前生成）
+await groupHead.locator(".ws-group-create").click();
+await page.waitForSelector("#ctx-menu", { timeout: 3000 });
+const beforeGroupPlus = await spawnCount();
+await page.locator("#ctx-menu > button", { hasText: "セッションを作成" }).click();
+await waitSpawn(beforeGroupPlus);
+await pop.waitFor({ timeout: 3000 });
+check("group + menu creates at home and opens the browser",
+  (await lastSpawn()).cwd === "/home/user" && await browserOnNewPane());
+await page.keyboard.press("Escape");
+
+// --- サイドバー余白の右クリックも同じ ---
 await page.evaluate(() => {
   const list = document.querySelector("#ws-list");
   const r = list.getBoundingClientRect();
@@ -173,44 +124,51 @@ await page.evaluate(() => {
   }));
 });
 await page.waitForSelector("#ctx-menu", { timeout: 3000 });
-const blankFinderItem = page.locator("#ctx-menu > button", { hasText: "Finderから開く…" });
-check("sidebar blank-area menu has a direct Finder item", (await blankFinderItem.count()) === 1);
+check("sidebar blank-area menu has create but no Finder item",
+  (await page.locator("#ctx-menu > button", { hasText: "セッションを作成" }).count()) === 1 &&
+  (await page.locator("#ctx-menu > button", { hasText: "Finder" }).count()) === 0);
 const beforeBlank = await spawnCount();
-await blankFinderItem.click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeBlank, { timeout: 3000 });
-check("blank-area Finder item creates at the picked directory",
-  (await lastSpawn()).cwd === "/picked/top", JSON.stringify(await lastSpawn()));
+await page.locator("#ctx-menu > button", { hasText: "セッションを作成" }).click();
+await waitSpawn(beforeBlank);
+await pop.waitFor({ timeout: 3000 });
+check("blank-area create uses home and opens the browser",
+  (await lastSpawn()).cwd === "/home/user" && await browserOnNewPane());
+await page.keyboard.press("Escape");
 
-// --- グループ見出しメニューの「セッションを作成 ▸」から場所を選ぶ ---
-const beforeGroup = await spawnCount();
-await page.locator('.ws-group[data-group-id="g"]').click({ button: "right" });
+// --- セッションのコピーは場所が決まっているので、ブラウザーを開かない ---
+const beforeDup = await spawnCount();
+await page.locator(".ws-item.is-active").click({ button: "right" });
 await page.waitForSelector("#ctx-menu", { timeout: 3000 });
-const createItem = page.locator("#ctx-menu button.ctx-has-sub", { hasText: "セッションを作成" });
-check("menu item shows the submenu arrow",
-  (await createItem.locator(".ctx-sub-arrow").count()) === 1);
-await createItem.hover();
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("fav1").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeGroup, { timeout: 3000 });
-check("picking a favorite from the group menu creates at that path",
-  (await lastSpawn()).cwd === "/proj/fav1", JSON.stringify(await lastSpawn()));
-check("group menu closed after picking", (await page.locator("#ctx-menu").count()) === 0);
+await page.locator("#ctx-menu button", { hasText: "セッションをコピー" }).first().click();
+await waitSpawn(beforeDup);
+await page.waitForTimeout(200);
+check("duplicating a session does not open the folder browser", (await pop.count()) === 0);
 
-// --- 詳細フォーム（Cmd/Ctrl+T）の場所欄 ---
+// --- 詳細フォーム（Cmd/Ctrl+T）の場所欄だけは、ブラウザーで場所を選ぶ ---
 await page.keyboard.press(`${MOD}+KeyT`);
 await page.waitForSelector("#ws-new-form:not([hidden])", { timeout: 3000 });
 check("form location defaults to the current pane's directory",
   (await page.locator("#ws-new-loc").textContent()) === "表示中ペインと同じ場所");
 await page.click("#ws-new-loc");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("recent2").click();
-check("picking in the form only updates the location field",
-  (await page.locator("#ws-new-loc").textContent()) === "/proj/recent2");
+const picker = page.locator(".pathbar-pop.is-pick");
+await picker.waitFor({ timeout: 3000 });
+check("form: the browser only chooses the folder",
+  (await picker.locator(".pathbar-action.is-primary span").textContent()) === "このフォルダーを選択");
+await page.keyboard.press("Escape");
+check("form: Escape closes only the browser",
+  (await pop.count()) === 0 && await page.locator("#ws-new-form").isVisible());
+await page.click("#ws-new-loc");
+await picker.locator(".pathbar-side-item", { hasText: "recent2" }).click();
+await picker.locator(".pathbar-action.is-primary").click();
+check("choosing in the form only updates the location field",
+  (await page.locator("#ws-new-loc").textContent()) === "/proj/recent2" &&
+  await page.locator("#ws-new-form").isVisible());
 const beforeForm = await spawnCount();
 await page.locator("#ws-new-shells button").first().click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeForm, { timeout: 3000 });
-check("form creates the session at the picked location",
-  (await lastSpawn()).cwd === "/proj/recent2", JSON.stringify(await lastSpawn()));
+await waitSpawn(beforeForm);
+check("form creates the session at the chosen location without opening the browser",
+  (await lastSpawn()).cwd === "/proj/recent2" && (await pop.count()) === 0,
+  JSON.stringify(await lastSpawn()));
 
 // --- フォームを開き直すと場所欄は既定に戻る ---
 await page.keyboard.press(`${MOD}+KeyT`);
@@ -218,20 +176,6 @@ await page.waitForSelector("#ws-new-form:not([hidden])", { timeout: 3000 });
 check("reopening the form resets the location to the default",
   (await page.locator("#ws-new-loc").textContent()) === "表示中ペインと同じ場所");
 await page.keyboard.press("Escape");
-
-// --- エクスプローラー右下の「新規セッション」にも同じフライアウト ---
-const beforeExp = await spawnCount();
-await page.click("#exp-reopen");
-await page.waitForTimeout(300);
-await page.mouse.move(640, 400);
-await page.hover("#exp-new-session");
-await page.waitForSelector("#loc-flyout", { timeout: 3000 });
-await flyoutRow("recent1").click();
-await page.waitForFunction((n) => window.__ptySpawns.length > n, beforeExp, { timeout: 3000 });
-check("explorer new-session button creates at the picked path",
-  (await lastSpawn()).cwd === "/proj/recent1", JSON.stringify(await lastSpawn()));
-check("explorer-created session is named after the picked folder",
-  (await page.locator(".ws-item", { hasText: "recent1" }).count()) >= 1);
 
 await page.close();
 }

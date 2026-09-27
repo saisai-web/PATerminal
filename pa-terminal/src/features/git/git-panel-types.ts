@@ -1,7 +1,18 @@
 // エクスプローラー下部の git セクションで使う Rust コマンド / gh CLI のレスポンス型。
 // 型だけを集めたモジュールなので、実行時のコードは一切持たない。
 
-export type GitCommit = { hash: string; time: number; author: string; refs: string; subject: string };
+export type GitCommit = {
+  /** 短縮ハッシュ（表示と git_commit_diff / git_reset_to_commit の引数） */
+  hash: string;
+  /** 完全ハッシュと親。コミットグラフのレーン計算にだけ使う（古い応答では欠けうる） */
+  id?: string;
+  parents?: string[];
+  time: number;
+  author: string;
+  /** %D の生文字列（"HEAD -> refs/heads/main, tag: refs/tags/v1" 等） */
+  refs: string;
+  subject: string;
+};
 export type GitLog = {
   repo: boolean;
   root: string | null;

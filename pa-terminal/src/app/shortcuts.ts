@@ -1,4 +1,4 @@
-import { isExplorerOpen, setExplorerOpen } from "../features/explorer/explorer";
+import { toggleGitWindow } from "../features/git/git-window";
 import { toggleBroadcast } from "../terminal/focus";
 import { startQuickPhraseSelection } from "../features/quick-phrases/quick-phrases";
 import {
@@ -68,10 +68,10 @@ window.addEventListener("keydown", (e) => {
       openNewSessionForm();
       return;
     }
-    // エクスプローラー開閉。macOS の Ctrl+E は readline の行末移動なので奪わない（⌘E のみ）
+    // Git ウィンドウ開閉。macOS の Ctrl+E は readline の行末移動なので奪わない（⌘E のみ）
     if (e.code === "KeyE" && (getHostOs() !== "macos" || e.metaKey)) {
       e.preventDefault();
-      setExplorerOpen(!isExplorerOpen());
+      toggleGitWindow();
       return;
     }
     // サイドバー開閉。macOS の Ctrl+B は readline の1文字戻りなので奪わない（⌘B のみ）

@@ -351,6 +351,9 @@ export function renderBroadcastUi(ws: Workspace) {
       ? t("toolbar.broadcastOnN", { n: String(n + 1) })
       : t("toolbar.broadcastOn");
   broadcastBtn.setAttribute("aria-label", label);
+  // ボタン下の短いラベルは「一斉入力 / 一斉入力中」だけ（送信先数は aria-label と title に出す）
+  const shortLabel = broadcastBtn.querySelector<HTMLElement>(".toolbar-label");
+  if (shortLabel) shortLabel.textContent = t(ws.broadcast ? "toolbar.broadcastOn" : "toolbar.broadcast");
   broadcastBtn.title = ws.broadcast
     ? `${label}: ${t("toolbar.broadcastOffTitle")}`
     : t("toolbar.broadcastTitle");

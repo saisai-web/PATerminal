@@ -123,33 +123,25 @@ await page.waitForTimeout(200);
 check("quick phrases open the purchase modal", await overlayVisible());
 await closeOverlay();
 
-// --- 定型文バーと変更ストリップは表示ごと止まる ---
+// --- 定型文バーは表示ごと止まり、Git ウィンドウは 🔒 付きの入口から購入案内になる ---
 check("quick phrase bar is hidden while locked",
   await page.locator("#quick-phrase-bar").isHidden());
-check("change strip is hidden while locked",
-  await page.locator("#agent-panel").isHidden());
-
-// --- ゴミ箱: モーダルは開けるが復元だけロック ---
-await page.click("#session-trash-open");
-await page.waitForSelector("#history-overlay:not([hidden])", { timeout: 3000 });
-check("trash entry selects the recently-deleted tab while locked",
-  (await page.locator("#history-tab-trash").getAttribute("aria-selected")) === "true");
-await page.click("#history-tab-takeover");
+check("Git button shows the lock mark and hides the change count while locked",
+  await page.locator("#git-open").evaluate((el) => el.classList.contains("is-locked")) &&
+    await page.locator("#git-open-badge").isHidden());
+await page.click("#git-open");
 await page.waitForTimeout(200);
-check("locked conversation tab opens the purchase modal and keeps trash selected",
-  await overlayVisible() &&
-    (await page.locator("#history-tab-trash").getAttribute("aria-selected")) === "true");
+check("Git button opens the purchase modal instead of the Git window",
+  await overlayVisible() && await page.locator("#git-window-overlay").isHidden());
 await closeOverlay();
-check("trash restore button shows the lock mark",
-  (await page.locator(".session-trash-restore.is-locked").count()) === 1);
-await page.click(".session-trash-restore");
+check("toolbar Worktree button stays clickable with the lock mark",
+  await page.locator("#worktree-open").isEnabled() &&
+    await page.locator("#worktree-open").evaluate((el) => el.classList.contains("is-locked")));
+await page.click("#worktree-open");
 await page.waitForTimeout(200);
-check("trash restore opens the purchase modal", await overlayVisible());
-check("locked restore does not bring the session back",
-  (await page.locator('.ws-item').count()) === 3);
+check("toolbar Worktree button opens the purchase modal instead of the worktree modal",
+  await overlayVisible() && await page.locator("#worktree-overlay").isHidden());
 await closeOverlay();
-await page.keyboard.press("Escape");
-await page.waitForTimeout(150);
 
 // --- 購入ボタンはチェックアウト URL を開く ---
 await page.click("#broadcast");

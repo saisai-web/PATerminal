@@ -54,7 +54,7 @@ if (!w.__TAURI_INTERNALS__) {
     "/tmp": [],
     "/tmp/pair-project": [],
   };
-  // Windows を装うテストでは既定ルートが "C:/" になる（paths.ts の fsDefaultRoot）。
+  // Windows を装うテストではドライブ配下（"C:/" 以下）のパスを使う。
   // ドライブルート配下にも同じ形の枝を用意して、Windows 分岐を実際に踏めるようにする
   if (w.__mockHostOs === "windows") {
     Object.assign(mockFsTree, {
@@ -537,7 +537,7 @@ if (!w.__TAURI_INTERNALS__) {
         }
         case "git_log": {
           // テストから window.__mockGitLog で注入。既定は「リポジトリ外」。
-          // 呼び出し履歴（cwd）はエクスプローラー下部 git セクションの追従検証用
+          // 呼び出し履歴（cwd）は Git ウィンドウの履歴の追従検証用
           if (!Array.isArray(w.__gitLogCalls)) w.__gitLogCalls = [];
           (w.__gitLogCalls as unknown[]).push(args.cwd);
           return (
@@ -772,8 +772,21 @@ if (!w.__TAURI_INTERNALS__) {
           if (r?.error) throw new Error(r.error);
           return r?.out ?? `Switched to branch '${String(args.branch)}' (mock)`;
         }
+        case "git_checkout_remote": {
+          if (!Array.isArray(w.__gitCheckoutRemoteCalls)) w.__gitCheckoutRemoteCalls = [];
+          (w.__gitCheckoutRemoteCalls as unknown[]).push({ root: args.root, branch: args.branch });
+          const r = w.__mockGitCheckoutRemoteResult as { error?: string; out?: string } | undefined;
+          if (r?.error) throw new Error(r.error);
+          return r?.out ?? `Switched to a new branch (mock)`;
+        }
+        case "git_refs": {
+          // テストから window.__mockGitRefs で注入。既定は「ブランチ・タグ無し」
+          if (!Array.isArray(w.__gitRefsCalls)) w.__gitRefsCalls = [];
+          (w.__gitRefsCalls as unknown[]).push(args.root);
+          return (w.__mockGitRefs as object) ?? { head: null, local: [], remote: [], tags: [] };
+        }
         case "git_stash": {
-          // 呼び出し履歴（cwd）はストリップの Stash ボタン検証用
+          // 呼び出し履歴（cwd）は Git ウィンドウの Stash ボタン検証用
           if (!Array.isArray(w.__gitStashCalls)) w.__gitStashCalls = [];
           (w.__gitStashCalls as unknown[]).push(args.cwd);
           const r = w.__mockGitStashResult as { error?: string; out?: string } | undefined;

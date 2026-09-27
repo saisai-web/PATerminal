@@ -1,8 +1,10 @@
 export default async function (ctx) {
-const { browser, check, BASE_URL } = ctx;
+const { browser, check, BASE_URL, MOD } = ctx;
 
 // ============================================================
-// エクスプローラー下部の git セクション（コミット履歴 + PR conversation）
+// Git ウィンドウ（ツールバーの Git ボタン / Cmd+E で開く大きめのモーダル）
+//   ファイルステータス・履歴（コミットグラフ + インライン詳細）・サイドバーのブランチ / タグ・
+//   Issue / PR / Worktree の各ビューと PR バッジ
 // ============================================================
 
 const pageLog = await browser.newPage({ viewport: { width: 1280, height: 820 } });
@@ -11,17 +13,41 @@ await pageLog.context().grantPermissions(["clipboard-read", "clipboard-write"], 
   origin: new URL(BASE_URL).origin,
 });
 await pageLog.addInitScript(() => {
+  // リポジトリ判定とルートは git_changes、現在のブランチは git_branches から来る
+  window.__mockGitChanges = { repo: true, root: "/repo", files: [] };
+  window.__mockGitBranches = {
+    current: "feat/x", upstream: "origin/feat/x", localBranches: ["feat/x", "main"],
+    branches: ["origin/feat/x", "origin/main"], remotes: ["origin"],
+  };
   window.__mockGitLog = {
     repo: true,
     root: "/repo",
     branch: "feat/x",
     detached: false,
+    // 履歴は常に全ブランチ: 現在のブランチに無い fix/other のコミットも並ぶ
     commits: [
-      { hash: "abc1234", time: Math.floor(Date.now() / 1000) - 3600, author: "alice",
-        refs: "HEAD -> feat/x, origin/feat/x", subject: "add thing" },
-      { hash: "def5678", time: Math.floor(Date.now() / 1000) - 86400, author: "bob",
-        refs: "", subject: "initial commit" },
+      { hash: "abc1234", id: "abc1234000", parents: ["def5678000"], time: Math.floor(Date.now() / 1000) - 3600,
+        author: "alice", refs: "HEAD -> refs/heads/feat/x, refs/remotes/origin/feat/x, tag: refs/tags/v1.0",
+        subject: "add thing" },
+      { hash: "fed9876", id: "fed9876000", parents: ["def5678000"], time: Math.floor(Date.now() / 1000) - 7200,
+        author: "carol", refs: "refs/heads/fix/other", subject: "other branch work" },
+      { hash: "def5678", id: "def5678000", parents: [], time: Math.floor(Date.now() / 1000) - 86400,
+        author: "bob", refs: "", subject: "initial commit" },
     ],
+  };
+  const ref = (name, hash, extra = {}) => ({
+    name, hash, upstream: "", ahead: 0, behind: 0, gone: false, worktree: "", ...extra,
+  });
+  window.__mockGitRefs = {
+    head: "feat/x",
+    local: [
+      ref("feat/x", "abc1234", { upstream: "origin/feat/x" }),
+      ref("fix/other", "fed9876"),
+      ref("main", "fed9876"),
+      ref("stale", "0000000"),
+    ],
+    remote: [ref("origin/feat/x", "abc1234"), ref("origin/main", "fed9876")],
+    tags: [ref("v1.0", "abc1234"), ref("v0.9", "def5678")],
   };
   window.__mockGitCommitDiff = {
     patch: "diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,2 +1,3 @@\n-old line\n+new line\n+another line\n context\ndiff --git a/README.md b/README.md\nindex 3333333..4444444 100644\n--- a/README.md\n+++ b/README.md\n@@ -10 +10 @@\n-old docs\n+new docs\n",
@@ -140,102 +166,314 @@ await pageLog.addInitScript(() => {
 });
 await pageLog.goto(BASE_URL);
 await pageLog.waitForSelector(".pane", { timeout: 10000 });
-await pageLog.click("#exp-reopen");
-await pageLog.waitForTimeout(300);
+// git_log へ渡る引数をまるごと記録する（履歴は常に全ブランチ: cwd 以外を渡さない）
+await pageLog.evaluate(() => {
+  const internals = window.__TAURI_INTERNALS__;
+  const invoke = internals.invoke.bind(internals);
+  window.__gitLogArgs = [];
+  internals.invoke = (cmd, args, options) => {
+    if (cmd === "git_log") window.__gitLogArgs.push(args);
+    return invoke(cmd, args, options);
+  };
+});
 await pageLog.locator(".pane .pane-body").first().click();
+await pageLog.waitForTimeout(300);
+const gridBefore = await pageLog.locator(".pane .pane-body").first().boundingBox();
+check("Git window stays closed and fetches no issues / PRs / history until opened",
+  await pageLog.locator("#git-window-overlay").isHidden() &&
+    await pageLog.evaluate(() => (window.__issueListCalls ?? []).length === 0 &&
+      (window.__prListCalls ?? []).length === 0 && window.__gitLogArgs.length === 0));
+await pageLog.locator("#git-open").click();
 let logShown = true;
-await pageLog.waitForSelector("#exp-git:not([hidden])", { timeout: 8000 }).catch(() => { logShown = false; });
-check("explorer git section appears in a repo", logShown);
+await pageLog.waitForSelector("#git-window-overlay:not([hidden]) #git-window", { timeout: 8000 })
+  .catch(() => { logShown = false; });
+check("Git button opens the Git window in a repo", logShown);
 if (logShown) {
-  // タブ見出しは固定ラベル。ブランチ名は title だけに載せる（長い名前でタブ列を押し広げない）
-  const branchText = ((await pageLog.locator("#exp-git-branch").textContent()) ?? "").trim();
-  const branchTitle = (await pageLog.locator("#exp-git-branch").getAttribute("title")) ?? "";
-  check("Branch tab keeps a fixed label and puts the branch name in the tooltip",
-    branchText === "Branch" && !branchText.includes("feat/x") && branchTitle === "feat/x",
-    `label="${branchText}" title="${branchTitle}"`);
-  const rowCount = await pageLog.locator("#exp-git-log .git-commit-row").count();
-  const firstRow = (await pageLog.locator("#exp-git-log .git-commit-row").first().textContent()) ?? "";
+  const ensureGitWindow = async () => {
+    if (await pageLog.locator("#git-window-overlay").isHidden()) await pageLog.locator("#git-open").click();
+    await pageLog.waitForSelector("#git-window-overlay:not([hidden])", { timeout: 3000 });
+  };
+  const windowBox = await pageLog.locator("#git-window").boundingBox();
+  const gridAfter = await pageLog.locator(".pane .pane-body").first().boundingBox();
+  check("Git window is a large dialog that does not resize the terminal grid",
+    await pageLog.locator("#git-window[role=dialog][aria-modal=true]").isVisible() &&
+      Boolean(windowBox && windowBox.width >= 900 && windowBox.height >= 650) &&
+      JSON.stringify(gridBefore) === JSON.stringify(gridAfter) &&
+      await pageLog.locator("#git-open").getAttribute("aria-expanded") === "true",
+    `window=${JSON.stringify(windowBox)} before=${JSON.stringify(gridBefore)} after=${JSON.stringify(gridAfter)}`);
+  // 初めて開いたときはコミット前の変更（ファイルステータス）から見せる
+  const firstView = await pageLog.evaluate(() => ({
+    current: [...document.querySelectorAll("[data-gw-nav][aria-current=page]")].map((b) => b.id),
+    shown: [...document.querySelectorAll("#gw-main .gw-view")].filter((v) => !v.hidden).map((v) => v.id),
+  }));
+  check("first open shows the File status view",
+    JSON.stringify(firstView.current) === JSON.stringify(["gw-nav-status"]) &&
+      JSON.stringify(firstView.shown) === JSON.stringify(["gw-view-status"]) &&
+      await pageLog.locator("#gw-empty").isHidden(),
+    JSON.stringify(firstView));
+  // ヘッダー: リポジトリ名（title はルート）と git_branches の現在ブランチ
+  await pageLog.waitForFunction(() => document.querySelector("#gw-branch")?.textContent === "feat/x", null,
+    { timeout: 3000 }).catch(() => {});
+  check("header shows the repository name and current branch",
+    ((await pageLog.locator("#gw-title").textContent()) ?? "").trim() === "repo" &&
+      await pageLog.locator("#gw-title").getAttribute("title") === "/repo" &&
+      await pageLog.locator("#gw-branch").textContent() === "feat/x" &&
+      await pageLog.locator("#gw-branch").isVisible(),
+    `title="${await pageLog.locator("#gw-title").textContent()}" branch="${await pageLog.locator("#gw-branch").textContent()}"`);
+  const tools = await pageLog.locator("#gw-tools > button").evaluateAll((buttons) =>
+    buttons.map((b) => ({ id: b.id, label: b.textContent?.trim(), svg: !!b.querySelector("svg") })));
+  check("Git window header exposes commit / pull / push / fetch / worktree / stash with icons",
+    tools.map((x) => x.id).join() === "git-commit,git-pull,git-push,git-fetch,git-worktree,git-stash" &&
+      tools.every((x) => x.svg && x.label),
+    JSON.stringify(tools));
+
+  // 開閉: Escape / × / 背景クリック / Cmd+E
+  await pageLog.keyboard.press("Escape");
+  check("Escape closes the Git window",
+    await pageLog.locator("#git-window-overlay").isHidden() &&
+      await pageLog.locator("#git-open").getAttribute("aria-expanded") === "false");
+  await pageLog.locator(".pane .pane-body").first().click();
+  await pageLog.keyboard.press(`${MOD}+e`);
+  const shortcutOpened = await pageLog.locator("#git-window-overlay").isVisible();
+  await pageLog.keyboard.press(`${MOD}+e`);
+  check("Cmd/Ctrl+E toggles the Git window",
+    shortcutOpened && await pageLog.locator("#git-window-overlay").isHidden());
+  await pageLog.locator("#git-open").click();
+  await pageLog.locator("#gw-close").click();
+  check("close button closes the Git window", await pageLog.locator("#git-window-overlay").isHidden());
+  await pageLog.locator("#git-open").click();
+  await pageLog.mouse.click(5, 815);
+  check("clicking the backdrop closes the Git window", await pageLog.locator("#git-window-overlay").isHidden());
+  await pageLog.locator("#git-open").click();
+  await pageLog.waitForSelector("#git-window-overlay:not([hidden])");
+
+  // ---- 履歴ビュー（コミットグラフ）----
+  await pageLog.locator("#gw-nav-history").click();
+  await pageLog.waitForSelector("#gw-log .git-commit-row", { timeout: 3000 });
+  check("History nav shows the history view and marks itself current",
+    await pageLog.locator("#gw-nav-history").getAttribute("aria-current") === "page" &&
+      await pageLog.locator("#gw-view-history").isVisible() &&
+      await pageLog.locator("#gw-view-status").isHidden());
+  const rowCount = await pageLog.locator("#gw-log .git-commit-row").count();
+  const firstRow = (await pageLog.locator("#gw-log .git-commit-row").first().textContent()) ?? "";
   check("commit rows render hash, subject, author",
-    rowCount === 2 && firstRow.includes("abc1234") && firstRow.includes("add thing") && firstRow.includes("alice"),
+    rowCount === 3 && firstRow.includes("abc1234") && firstRow.includes("add thing") && firstRow.includes("alice"),
     `rows=${rowCount} first="${firstRow}"`);
-  const refsText = (await pageLog.locator("#exp-git-log .git-commit-refs").first().textContent()) ?? "";
-  check("commit decorations shown", refsText.includes("origin/feat/x"), `refs="${refsText}"`);
-  // 4タブそれぞれの拡大アイコン → 同じ実DOMを広いモーダルへ移して操作できる
-  const expandButtons = pageLog.locator("#exp-git-tabs .exp-git-expand");
-  check("every Git tab exposes an accessible expanded-view icon",
-    await expandButtons.count() === 4 &&
-      await expandButtons.locator("svg").count() === 4 &&
-      await expandButtons.evaluateAll((buttons) => buttons.every((button) =>
-        button.getAttribute("aria-haspopup") === "dialog" && Boolean(button.getAttribute("aria-label")))),
-    `count=${await expandButtons.count()}`);
-  const expandIconsLeadLabels = await pageLog.locator("#exp-git-tabs .exp-git-tab-item").evaluateAll((items) =>
-    items.every((item) =>
-      item.firstElementChild?.classList.contains("exp-git-expand") &&
-      item.children[1]?.getAttribute("role") === "tab"));
-  check("expanded-view icons sit to the left of every Git tab label", expandIconsLeadLabels);
-  const expandedTabs = [
-    { tab: "branch", content: "#exp-git-log", ready: ".git-commit-row", title: "Branch" },
-    { tab: "issues", content: "#exp-git-issues", ready: ".issue-row", title: "Issue" },
-    { tab: "prs", content: "#exp-git-prs", ready: ".pr-list-row", title: "PR" },
-    { tab: "worktrees", content: "#exp-git-worktrees", ready: ".wt-row", title: "Worktree" },
+  const refChips = await pageLog.locator("#gw-log .git-commit-row").first()
+    .locator(".git-commit-refs .git-ref").evaluateAll((chips) =>
+      chips.map((chip) => ({ cls: chip.className, text: chip.textContent, remote: chip.dataset.remote ?? "" })));
+  check("commit decorations become ref chips (local+remote merged, current first, tag separate)",
+    refChips.length === 2 &&
+      refChips[0].text === "feat/x" && refChips[0].cls.includes("is-current") &&
+      refChips[0].remote === "origin/feat/x" &&
+      refChips[1].text === "v1.0" && refChips[1].cls.includes("git-ref-tag"),
+    JSON.stringify(refChips));
+  check("each commit row draws its graph cell",
+    await pageLog.locator("#gw-log .git-commit-row > .git-graph-cell > svg.git-graph").count() === 3 &&
+      await pageLog.locator("#gw-log .git-commit-row.is-head .graph-dot.is-head").count() === 1);
+  const logArgs = await pageLog.evaluate(() => window.__gitLogArgs);
+  check("history always asks git_log for all branches (only cwd is passed)",
+    logArgs.length > 0 && logArgs.every((a) => JSON.stringify(Object.keys(a ?? {})) === '["cwd"]') &&
+      await pageLog.locator("[id^=exp-git-scope]").count() === 0,
+    JSON.stringify(logArgs.slice(-2)));
+  check("history lists commits from other branches too",
+    ((await pageLog.locator("#gw-log").textContent()) ?? "").includes("other branch work"));
+
+  // 初めて履歴を開いたら HEAD のコミットが選ばれ、詳細がその場に出る
+  await pageLog.waitForSelector("#gw-commit-detail .commit-file-nav-item", { timeout: 3000 }).catch(() => {});
+  const selectedRows = await pageLog.locator("#gw-log .git-commit-row.is-selected").evaluateAll((rows) =>
+    rows.map((r) => ({ id: r.dataset.id, aria: r.getAttribute("aria-selected") })));
+  const headDetail = (await pageLog.locator("#gw-commit-detail .gw-commit-detail-head").textContent()) ?? "";
+  const firstDiffCall = await pageLog.evaluate(() => (window.__gitCommitDiffCalls ?? [])[0]);
+  check("HEAD commit is auto-selected when history first shows",
+    selectedRows.length === 1 && selectedRows[0].id === "abc1234000" && selectedRows[0].aria === "true" &&
+      headDetail.includes("add thing") && headDetail.includes("abc1234000") &&
+      firstDiffCall?.root === "/repo" && firstDiffCall?.hash === "abc1234",
+    `selected=${JSON.stringify(selectedRows)} head="${headDetail}" call=${JSON.stringify(firstDiffCall)}`);
+  // インライン詳細: ファイル一覧と行番号つきのパッチ
+  const detailBody = pageLog.locator("#gw-commit-detail .gw-commit-detail-body");
+  const oldLineNumbers = (await detailBody.locator(".commit-line-no.old").allTextContents()).join(" ");
+  const newLineNumbers = (await detailBody.locator(".commit-line-no.new").allTextContents()).join(" ");
+  check("inline commit detail shows the changed files and a readable patch",
+    await detailBody.locator(".commit-file-nav-item").count() === 2 &&
+      await detailBody.locator(".commit-file").count() === 1 &&
+      ((await detailBody.locator(".commit-file-path").textContent()) ?? "") === "src/app.ts" &&
+      await detailBody.locator(".commit-diff-line.hunk").count() === 1 &&
+      await detailBody.locator(".commit-diff-line.add").count() === 2 &&
+      await detailBody.locator(".commit-diff-line.del").count() === 1 &&
+      oldLineNumbers.includes("1") && newLineNumbers.includes("1"),
+    `text="${(await detailBody.textContent())?.slice(0, 200)}"`);
+  await detailBody.locator(".commit-file-nav-item").nth(1).click();
+  const selectedPatchText = (await detailBody.locator(".commit-patches").textContent()) ?? "";
+  check("inline commit file navigation shows only the selected file patch",
+    await detailBody.locator(".commit-file-nav-item").nth(1).evaluate((el) => el.classList.contains("is-active")) &&
+      ((await detailBody.locator(".commit-file-path").textContent()) ?? "") === "README.md" &&
+      selectedPatchText.includes("new docs") && !selectedPatchText.includes("new line") &&
+      (await detailBody.locator(".commit-line-no.old").allTextContents()).join(" ").includes("10"));
+  // 行クリックは選択 + インライン詳細（差分オーバーレイは開かない）
+  await pageLog.locator("#gw-log .git-commit-row").nth(1).click();
+  await pageLog.waitForFunction(() =>
+    document.querySelector("#gw-commit-detail .gw-commit-detail-head")?.textContent?.includes("other branch work"),
+    null, { timeout: 3000 }).catch(() => {});
+  const clickedDiffCall = await pageLog.evaluate(() => (window.__gitCommitDiffCalls ?? []).at(-1));
+  check("clicking a commit selects it and shows its detail inline instead of an overlay",
+    await pageLog.locator("#gw-log .git-commit-row").nth(1).getAttribute("aria-selected") === "true" &&
+      await pageLog.locator("#gw-log .git-commit-row.is-selected").count() === 1 &&
+      await pageLog.locator("#diff-overlay").isHidden() &&
+      clickedDiffCall?.hash === "fed9876",
+    `call=${JSON.stringify(clickedDiffCall)}`);
+  await pageLog.keyboard.press("ArrowDown");
+  const afterDown = await pageLog.locator("#gw-log .git-commit-row.is-selected").getAttribute("data-id");
+  await pageLog.keyboard.press("ArrowUp");
+  await pageLog.keyboard.press("ArrowUp");
+  const afterUp = await pageLog.locator("#gw-log .git-commit-row.is-selected").getAttribute("data-id");
+  check("arrow keys move the commit selection",
+    afterDown === "def5678000" && afterUp === "abc1234000" &&
+      await pageLog.locator("#git-window-overlay").isVisible(),
+    `down=${afterDown} up=${afterUp}`);
+
+  // 検索: 一致だけを並べ、グラフ列を外す
+  await pageLog.locator("#gw-search").fill("initial");
+  check("search filters commits and drops the graph column",
+    await pageLog.locator("#gw-log .git-commit-row").count() === 1 &&
+      await pageLog.locator("#gw-log svg.git-graph").count() === 0 &&
+      ((await pageLog.locator("#gw-log .git-commit-row").textContent()) ?? "").includes("def5678"));
+  await pageLog.locator("#gw-search").fill("");
+  check("clearing search restores the graph",
+    await pageLog.locator("#gw-log svg.git-graph").count() === 3);
+  await pageLog.locator("#gw-nav-search").click();
+  check("Search nav opens history with the search box focused",
+    await pageLog.locator("#gw-nav-search").getAttribute("aria-current") === "page" &&
+      await pageLog.locator("#gw-view-history").isVisible() &&
+      await pageLog.locator("#gw-search").evaluate((el) => document.activeElement === el));
+
+  // サイドバー: タグ / ブランチをクリックすると履歴でそのコミットへ飛ぶ
+  await pageLog.waitForSelector('#gw-tag-tree .gw-tree-leaf[data-ref="v0.9"]', { timeout: 5000 }).catch(() => {});
+  check("sidebar lists branches, remotes and tags from git_refs",
+    await pageLog.evaluate(() => (window.__gitRefsCalls ?? []).includes("/repo")) &&
+      await pageLog.locator('#gw-branch-tree .gw-tree-leaf[data-ref="feat/x"]').count() === 1 &&
+      await pageLog.locator('#gw-remote-tree .gw-tree-leaf[data-ref="origin/main"]').count() === 1 &&
+      await pageLog.locator("#gw-tag-tree .gw-tree-leaf").count() === 2,
+    `refs=${JSON.stringify(await pageLog.locator("#gw-side .gw-tree-leaf").evaluateAll((els) => els.map((e) => e.dataset.ref)))}`);
+  await pageLog.locator("#gw-nav-status").click();
+  await pageLog.locator('#gw-tag-tree .gw-tree-leaf[data-ref="v0.9"]').click();
+  await pageLog.waitForFunction(() =>
+    document.querySelector("#gw-commit-detail .gw-commit-detail-head")?.textContent?.includes("initial commit"),
+    null, { timeout: 3000 }).catch(() => {});
+  check("clicking a tag in the sidebar reveals the tagged commit in history",
+    await pageLog.locator("#gw-nav-history").getAttribute("aria-current") === "page" &&
+      await pageLog.locator("#gw-view-history").isVisible() &&
+      await pageLog.locator("#gw-log .git-commit-row.is-selected").getAttribute("data-id") === "def5678000" &&
+      ((await pageLog.locator("#gw-commit-detail .gw-commit-detail-head").textContent()) ?? "").includes("initial commit"));
+  await pageLog.locator('#gw-branch-tree .gw-tree-leaf[data-ref="main"]').click();
+  await pageLog.waitForFunction(() =>
+    document.querySelector("#gw-log .git-commit-row.is-selected")?.dataset.id === "fed9876000",
+    null, { timeout: 3000 }).catch(() => {});
+  check("clicking a branch in the sidebar reveals its tip commit",
+    await pageLog.locator("#gw-log .git-commit-row.is-selected").getAttribute("data-id") === "fed9876000");
+  await pageLog.locator('#gw-branch-tree .gw-tree-leaf[data-ref="stale"]').click();
+  await pageLog.waitForTimeout(200);
+  const staleMsg = (await pageLog.locator("#git-toast .git-toast-detail").textContent()) ?? "";
+  check("a ref whose commit is not in the history reports it instead of selecting something else",
+    staleMsg.includes("履歴に含まれていません") &&
+      await pageLog.locator("#gw-log .git-commit-row.is-selected").getAttribute("data-id") === "fed9876000",
+    `msg="${staleMsg}"`);
+
+  // 各ビューが Git ウィンドウの広い領域にその場の内容を出す
+  const liveViews = [
+    { nav: "issues", view: "#gw-view-issues", ready: "#gw-issues .issue-row", title: "Issue", refresh: "Issueを更新" },
+    { nav: "prs", view: "#gw-view-prs", ready: "#gw-prs .pr-list-row", title: "PR", refresh: "PRを更新" },
+    { nav: "worktrees", view: "#gw-view-worktrees", ready: "#gw-worktrees .wt-row", title: "Worktree",
+      refresh: "worktree一覧を更新" },
+    { nav: "history", view: "#gw-view-history", ready: "#gw-log .git-commit-row", title: "History", refresh: "更新" },
   ];
-  for (const expanded of expandedTabs) {
-    await pageLog.locator(`.exp-git-expand[data-git-tab="${expanded.tab}"]`).click();
-    await pageLog.waitForSelector(
-      `#git-panel-modal-body ${expanded.content} ${expanded.ready}`,
-      { timeout: 3000 },
-    );
-    const modalBox = await pageLog.locator("#git-panel-modal").boundingBox();
-    const modalTitle = ((await pageLog.locator("#git-panel-modal-title").textContent()) ?? "").trim();
-    check(`${expanded.title} tab opens its live content in the expanded modal`,
-      await pageLog.locator("#git-panel-modal[role=dialog][aria-modal=true]").isVisible() &&
-        await pageLog.locator(`#git-panel-modal-body > ${expanded.content}`).count() === 1 &&
-        await pageLog.locator("#git-panel-modal-actions #exp-git-refresh").isVisible() &&
-        modalTitle === expanded.title && Boolean(modalBox && modalBox.width >= 900 && modalBox.height >= 650),
-      `title="${modalTitle}" box=${JSON.stringify(modalBox)}`);
-    await pageLog.locator("#git-panel-modal-close").click();
-    check(`${expanded.title} content returns to the compact Git panel when closed`,
-      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
-        await pageLog.locator(`#exp-git > ${expanded.content}`).count() === 1);
+  for (const v of liveViews) {
+    await pageLog.locator(`#gw-nav-${v.nav}`).click();
+    const ready = await pageLog.waitForSelector(v.ready, { timeout: 3000 }).then(() => true, () => false);
+    const viewBox = await pageLog.locator(v.view).boundingBox();
+    const shown = await pageLog.evaluate(() =>
+      [...document.querySelectorAll("#gw-main .gw-view")].filter((el) => !el.hidden).map((el) => el.id));
+    const refreshTitle = await pageLog.locator("#gw-refresh").getAttribute("title");
+    check(`${v.title} nav shows its live content in the large Git window view`,
+      ready && JSON.stringify(shown) === JSON.stringify([v.view.slice(1)]) &&
+        await pageLog.locator(`#gw-nav-${v.nav}`).getAttribute("aria-current") === "page" &&
+        Boolean(viewBox && viewBox.width >= 700 && viewBox.height >= 500) &&
+        refreshTitle === v.refresh,
+      `shown=${JSON.stringify(shown)} box=${JSON.stringify(viewBox)} refresh="${refreshTitle}"`);
   }
-  await pageLog.locator("#exp-git-branch").click();
-  await pageLog.locator('.exp-git-expand[data-git-tab="branch"]').click();
-  await pageLog.locator("#git-panel-modal-body .git-commit-row").first().click();
+
+  // 右クリックメニュー: Escape はメニューだけ閉じる。「変更ファイル」は差分オーバーレイで開く
+  await pageLog.locator("#gw-log .git-commit-row").first().click({ button: "right" });
+  const commitCtxText = (await pageLog.locator("#git-commit-ctx").textContent()) ?? "";
+  check("commit context menu offers changed files and rollback",
+    commitCtxText.includes("変更ファイルの内容を表示") && commitCtxText.includes("このコミットまで巻き戻す"),
+    `menu="${commitCtxText}"`);
+  await pageLog.keyboard.press("Escape");
+  check("Escape closes only the commit context menu",
+    await pageLog.locator("#git-commit-ctx").count() === 0 &&
+      await pageLog.locator("#git-window-overlay").isVisible());
+  await pageLog.locator("#gw-log .git-commit-row").first().click({ button: "right" });
+  await pageLog.locator("#git-commit-ctx button").first().click();
   await pageLog.waitForSelector("#diff-overlay:not([hidden])", { timeout: 3000 });
+  const ctxDiffCall = await pageLog.evaluate(() => (window.__gitCommitDiffCalls ?? []).at(-1));
+  const commitDiffTitle = (await pageLog.locator("#diff-path").textContent()) ?? "";
+  const commitDiffStats = (await pageLog.locator("#diff-stats").textContent()) ?? "";
+  const commitDiffBody = (await pageLog.locator("#diff-body").textContent()) ?? "";
+  const commitPanelBox = await pageLog.locator("#diff-panel").boundingBox();
+  check("context menu changed-files action opens the commit diff overlay",
+    ctxDiffCall?.root === "/repo" && ctxDiffCall?.hash === "abc1234" &&
+      commitDiffTitle.includes("abc1234") && commitDiffTitle.includes("add thing") &&
+      commitDiffStats.includes("+3") && commitDiffStats.includes("-2") &&
+      commitDiffBody.includes("src/app.ts") && commitDiffBody.includes("README.md") &&
+      await pageLog.locator("#diff-body .commit-file-nav-item").count() === 2 &&
+      commitPanelBox?.width > 1100 && commitPanelBox?.height > 700,
+    `call=${JSON.stringify(ctxDiffCall)} title="${commitDiffTitle}" box=${JSON.stringify(commitPanelBox)}`);
   await pageLog.keyboard.press("Escape");
-  check("Escape closes a detail opened over the expanded Git modal without closing the list",
+  check("Escape closes the diff opened over the Git window without closing the window",
     !(await pageLog.locator("#diff-overlay").isVisible()) &&
-      await pageLog.locator("#git-panel-modal").isVisible());
+      await pageLog.locator("#git-window-overlay").isVisible());
+  const focusAfterDiff = await pageLog.evaluate(() => {
+    const el = document.activeElement;
+    return el ? `${el.tagName.toLowerCase()}#${el.id}.${el.className}` : "none";
+  });
   await pageLog.keyboard.press("Escape");
-  check("a second Escape closes the expanded Git modal",
-    !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
-      await pageLog.locator("#exp-git > #exp-git-log").count() === 1);
+  check("a second Escape closes the Git window",
+    await pageLog.locator("#git-window-overlay").isHidden(), `focus after diff close=${focusAfterDiff}`);
+  if (await pageLog.locator("#git-window-overlay").isVisible()) await pageLog.locator("#gw-close").click();
+  await pageLog.locator("#git-open").click();
+  await pageLog.waitForSelector("#git-window-overlay:not([hidden])");
+  check("reopening the Git window keeps the last view",
+    await pageLog.locator("#gw-nav-history").getAttribute("aria-current") === "page" &&
+      await pageLog.locator("#gw-view-history").isVisible());
+
   // Issue タブ → 一覧 → 本文・全コメント
-  await pageLog.locator("#exp-git-issues-tab").click();
-  await pageLog.waitForSelector("#exp-git-issues .issue-row", { timeout: 3000 });
+  await pageLog.locator("#gw-nav-issues").click();
+  await pageLog.waitForSelector("#gw-issues .issue-row", { timeout: 3000 });
   const issueListCall = await pageLog.evaluate(() => (window.__issueListCalls ?? [])[0]);
-  const issueRows = await pageLog.locator("#exp-git-issues .issue-row").count();
-  const issueListText = (await pageLog.locator("#exp-git-issues").textContent()) ?? "";
+  const issueRows = await pageLog.locator("#gw-issues .issue-row").count();
+  const issueListText = (await pageLog.locator("#gw-issues").textContent()) ?? "";
   check("Issue tab lists repository issues",
     issueListCall === "/repo" && issueRows === 2 && issueListText.includes("Fix quoted startup") &&
       issueListText.includes("bug"),
     `root=${issueListCall} rows=${issueRows}`);
   check("closed issues are left out of the Issue tab",
     !issueListText.includes("Closed issue"), `list="${issueListText}"`);
-  const issueAssignees = await pageLog.locator("#exp-git-issues .issue-assignee").allTextContents();
-  const issueLabels = await pageLog.locator("#exp-git-issues .issue-label").allTextContents();
-  const unassignedCount = await pageLog.locator("#exp-git-issues .issue-assignee.is-unassigned").count();
+  const issueAssignees = await pageLog.locator("#gw-issues .issue-assignee").allTextContents();
+  const issueLabels = await pageLog.locator("#gw-issues .issue-label").allTextContents();
+  const unassignedCount = await pageLog.locator("#gw-issues .issue-assignee.is-unassigned").count();
   check("Issue rows show assignees, unassigned status and labels",
     issueAssignees.includes("@alice") && issueAssignees.includes("@bob") &&
       unassignedCount === 1 &&
       issueLabels.includes("bug") && issueLabels.includes("terminal"),
     `assignees=${JSON.stringify(issueAssignees)} unassigned=${unassignedCount} labels=${JSON.stringify(issueLabels)}`);
-  check("PR badge is hidden while Issue tab is active", !(await pageLog.locator("#exp-git-pr").isVisible()));
+  // PR バッジはどのビューでもヘッダーに出る（現在のブランチの PR）
+  await pageLog.waitForSelector("#gw-pr:not([hidden])", { timeout: 8000 }).catch(() => {});
+  check("PR badge stays visible while the Issues view is active", await pageLog.locator("#gw-pr").isVisible());
   // Issue タブの作成ボタン → タイトル・本文・複数添付を1回の GitHub 作成コマンドへ渡す
   check("Issue tab exposes the create action",
-    await pageLog.locator("#exp-git-create-issue").isVisible() &&
-      (await pageLog.locator("#exp-git-create-issue").textContent())?.trim() === "作成");
-  await pageLog.locator("#exp-git-create-issue").click();
+    await pageLog.locator("#gw-create-issue").isVisible() &&
+      (await pageLog.locator("#gw-create-issue").textContent())?.trim() === "作成");
+  await pageLog.locator("#gw-create-issue").click();
   check("Issue create action opens an accessible modal",
     await pageLog.locator("#issue-create-panel[role=dialog][aria-modal=true]").isVisible() &&
       await pageLog.locator("#issue-create-title").evaluate((element) => document.activeElement === element));
@@ -259,13 +497,13 @@ if (logShown) {
   check("Issue create closes the modal and refreshes the Issue list after success",
     !(await pageLog.locator("#issue-create-overlay").isVisible()) &&
       (await pageLog.evaluate(() => (window.__issueListCalls ?? []).length)) >= 2);
-  await pageLog.locator("#exp-git-issues .issue-row").first().click();
+  await pageLog.locator("#gw-issues .issue-row").first().click();
   await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-body", { timeout: 3000 });
   const issueInfoCall = await pageLog.evaluate(() => (window.__issueInfoCalls ?? [])[0]);
   const issueDetailText = (await pageLog.locator("#issue-overlay").textContent()) ?? "";
   check("Issue detail opens in a modal while the list stays intact",
     await pageLog.locator("#issue-panel[role=dialog][aria-modal=true]").isVisible() &&
-      await pageLog.locator("#exp-git-issues .issue-row").count() === 2);
+      await pageLog.locator("#gw-issues .issue-row").count() === 2);
   check("Issue detail shows body, labels and every comment",
     issueInfoCall?.root === "/repo" && issueInfoCall?.number === 42 &&
       issueDetailText.includes("Handle a 'quoted' value") &&
@@ -273,8 +511,10 @@ if (logShown) {
       issueDetailText.includes("Use the whole issue, please."),
     `call=${JSON.stringify(issueInfoCall)}`);
   await pageLog.keyboard.press("Escape");
-  check("Escape closes the Issue detail modal", !(await pageLog.locator("#issue-overlay").isVisible()));
-  await pageLog.locator("#exp-git-issues .issue-row").first().focus();
+  check("Escape closes the Issue detail modal but keeps the Git window open",
+    !(await pageLog.locator("#issue-overlay").isVisible()) &&
+      await pageLog.locator("#git-window-overlay").isVisible());
+  await pageLog.locator("#gw-issues .issue-row").first().focus();
   await pageLog.keyboard.press("Enter");
   await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-body", { timeout: 3000 });
   check("keyboard activation reopens the Issue detail modal", await pageLog.locator("#issue-panel").isVisible());
@@ -320,6 +560,8 @@ if (logShown) {
   const spawnBeforeIssue = await pageLog.evaluate(() => window.__ptySpawns.length);
   await issueActionButtons.click();
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeIssue);
+  check("creating a session from an Issue closes the Git window",
+    await pageLog.locator("#git-window-overlay").isHidden());
   check("Issue without worktree passes the multiline note",
     await pageLog.locator(".ws-item.is-active .ws-note-display").textContent() === "課題メモ\n次の作業");
   const issueSpawn = await pageLog.evaluate(() => window.__ptySpawns.at(-1));
@@ -364,7 +606,7 @@ if (logShown) {
       await pageLog.locator(".issue-worktree-fields input[name^=issue-worktree-inherit][value=yes]").isDisabled() &&
       await pageLog.locator("#issue-worktree-progress").isVisible() &&
       ((await pageLog.locator("#issue-worktree-progress-title").textContent()) ?? "").includes("作成中") &&
-      ((await pageLog.locator("#git-msg").textContent()) ?? "").includes("実行中"));
+      await pageLog.locator("#git-worktree").isDisabled());
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnBeforeWorktree);
   await pageLog.evaluate(() => { window.__mockWorktreeCreateDelay = 0; });
   check("Issue worktree progress overlay disappears once the session is created",
@@ -403,9 +645,11 @@ if (logShown) {
     savedIssueSession?.root?.args === undefined &&
       !(await pageLog.evaluate(() => window.__savedSession.includes("touch /tmp/bad"))));
   await pageLog.locator("#issue-close").click();
+  await ensureGitWindow();
   check("Issue close button returns to the list", !(await pageLog.locator("#issue-overlay").isVisible()) &&
-    await pageLog.locator("#exp-git-issues .issue-row").count() === 2);
-  await pageLog.locator("#exp-git-issues .issue-row").first().click();
+    await pageLog.locator("#gw-nav-issues").getAttribute("aria-current") === "page" &&
+    await pageLog.locator("#gw-issues .issue-row").count() === 2);
+  await pageLog.locator("#gw-issues .issue-row").first().click();
   await pageLog.waitForSelector("#issue-overlay:not([hidden]) .issue-worktree-fields:not([hidden])", { timeout: 3000 });
   check("reopening an Issue keeps worktree mode and starts again from the default branch",
     await pageLog.locator(".issue-worktree-toggle input").isChecked() &&
@@ -413,16 +657,16 @@ if (logShown) {
   await pageLog.locator("#issue-close").click();
 
   // PR タブ → リポジトリのPR一覧 → 本文とコミット差分共通デザインのファイル差分
-  await pageLog.locator("#exp-git-prs-tab").click();
-  await pageLog.waitForSelector("#exp-git-prs .pr-list-row", { timeout: 3000 });
+  await pageLog.locator("#gw-nav-prs").click();
+  await pageLog.waitForSelector("#gw-prs .pr-list-row", { timeout: 3000 });
   const prListCall = await pageLog.evaluate(() => (window.__prListCalls ?? [])[0]);
-  const prListText = (await pageLog.locator("#exp-git-prs").textContent()) ?? "";
+  const prListText = (await pageLog.locator("#gw-prs").textContent()) ?? "";
   check("PR tab lists repository pull requests next to Branch and Issue",
-    prListCall === "/repo" && await pageLog.locator("#exp-git-prs .pr-list-row").count() === 2 &&
+    prListCall === "/repo" && await pageLog.locator("#gw-prs .pr-list-row").count() === 2 &&
       prListText.includes("Add thing") && prListText.includes("feat/x") && prListText.includes("main") &&
       prListText.includes("Open"),
     `root=${prListCall} list="${prListText}"`);
-  const prListStateLayout = await pageLog.locator("#exp-git-prs .pr-list-row").first().evaluate((row) => {
+  const prListStateLayout = await pageLog.locator("#gw-prs .pr-list-row").first().evaluate((row) => {
     const state = row.querySelector(".pr-list-state");
     const rowBox = row.getBoundingClientRect();
     const stateBox = state.getBoundingClientRect();
@@ -430,14 +674,15 @@ if (logShown) {
       text: state.textContent,
       width: stateBox.width,
       rightGap: rowBox.right - stateBox.right,
+      padRight: parseFloat(getComputedStyle(row).paddingRight),
       justifySelf: getComputedStyle(state).justifySelf,
     };
   });
   check("PR Open label is compact and aligned at the right edge",
     prListStateLayout.text === "Open" && prListStateLayout.width < 32 &&
-      prListStateLayout.rightGap <= 5 && prListStateLayout.justifySelf === "end",
+      prListStateLayout.rightGap <= prListStateLayout.padRight + 1 && prListStateLayout.justifySelf === "end",
     `layout=${JSON.stringify(prListStateLayout)}`);
-  const prListTitleLayout = await pageLog.locator("#exp-git-prs .pr-list-row").first().evaluate((row) => {
+  const prListTitleLayout = await pageLog.locator("#gw-prs .pr-list-row").first().evaluate((row) => {
     const title = row.querySelector(".pr-list-title");
     const meta = row.querySelector(".pr-list-meta");
     const rowBox = row.getBoundingClientRect();
@@ -463,9 +708,9 @@ if (logShown) {
       !prListText.includes("Shipped change") && !prListText.includes("#3") &&
       !prListText.includes("マージ済み") && !prListText.includes("クローズ"),
     `list="${prListText}"`);
-  check("PR badge is hidden while PR tab is active", !(await pageLog.locator("#exp-git-pr").isVisible()));
-  const prBranchTexts = await pageLog.locator("#exp-git-prs .pr-list-branches").allTextContents();
-  const prBranchTitle = await pageLog.locator("#exp-git-prs .pr-list-branches").nth(1).getAttribute("title");
+  check("PR badge stays visible while the PRs view is active", await pageLog.locator("#gw-pr").isVisible());
+  const prBranchTexts = await pageLog.locator("#gw-prs .pr-list-branches").allTextContents();
+  const prBranchTitle = await pageLog.locator("#gw-prs .pr-list-branches").nth(1).getAttribute("title");
   check("long PR branch names collapse to \"branch\" in the list, full names stay in the tooltip",
     prBranchTexts[0] === "feat/x → main" && prBranchTexts[1] === "branch → main" &&
       prBranchTitle === "fix/very-long-branch-name-for-the-list → main",
@@ -482,12 +727,11 @@ if (logShown) {
     };
     window.__mockWorktreeFromPrDelay = 600;
   });
-  await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
   const prDetailCallsBeforeListSession = await pageLog.evaluate(() => (window.__prDetailCalls ?? []).length);
   const prListCallsBeforeListSession = await pageLog.evaluate(() => (window.__prListCalls ?? []).length);
   const prWorktreeCallsBeforeListSession = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
   const spawnsBeforeListSession = await pageLog.evaluate(() => window.__ptySpawns.length);
-  await pageLog.locator("#git-panel-modal-body .pr-list-row").first().locator(".pr-list-session").click();
+  await pageLog.locator("#gw-prs .pr-list-row").first().locator(".pr-list-session").click();
   await pageLog.waitForSelector("#worktree-overlay:not([hidden])", { timeout: 3000 });
   await pageLog.waitForFunction(() => !document.querySelector("#worktree-submit").disabled, null, { timeout: 3000 });
   const prDialogOptions = await pageLog.locator("#worktree-pr option").allTextContents();
@@ -509,7 +753,7 @@ if (logShown) {
     await pageLog.locator("#worktree-submit").isDisabled() &&
       await pageLog.locator("#worktree-pr").isDisabled() &&
       await pageLog.locator("#worktree-loc input[value=outside]").isDisabled() &&
-      ((await pageLog.locator("#git-msg").textContent()) ?? "").includes("実行中"));
+      await pageLog.locator("#git-worktree").isDisabled());
   await pageLog.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBeforeListSession);
   check("PR session displays the multiline note",
     await pageLog.locator(".ws-item.is-active .ws-note-display").textContent() === "PRメモ\n確認する");
@@ -523,17 +767,17 @@ if (logShown) {
       listPrWorktreeCall?.branch === "feat/x" && listPrWorktreeCall?.directory === ".worktree" &&
       listPrWorktreeCall?.location === "inside" && listPrWorktreeCall?.inherit === false,
     `call=${JSON.stringify(listPrWorktreeCall)}`);
-  check("successful PR creation closes the modal and the expanded list and focuses a named default-shell session",
+  check("successful PR creation closes the modal and the Git window and focuses a named default-shell session",
     await pageLog.locator("#worktree-overlay").isHidden() &&
-      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+      !(await pageLog.locator("#git-window-overlay").isVisible()) &&
       listPrSpawn?.shell === null && listPrSpawn?.cwd === "/repo/.worktree/feat-x" &&
       listPrSpawn?.args === null && listPrSessionName === "#12 Add thing" &&
       await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),
     `spawn=${JSON.stringify(listPrSpawn)} name=${listPrSessionName}`);
 
   // 詳細側は失敗時にモーダルと理由を残し、同じ画面から再実行できる。
-  await pageLog.locator('.exp-git-expand[data-git-tab="prs"]').click();
-  await pageLog.locator("#git-panel-modal-body .pr-list-row").first().click();
+  await ensureGitWindow();
+  await pageLog.locator("#gw-prs .pr-list-row").first().click();
   await pageLog.waitForSelector("#pr-overlay:not([hidden]) #pr-files .commit-file-nav-item", { timeout: 3000 });
   await pageLog.evaluate(() => {
     window.__mockWorktreeFromPrDelay = 0;
@@ -557,7 +801,7 @@ if (logShown) {
   check("failed PR worktree creation keeps modal and detail open, shows the reason, and allows retry",
     await pageLog.locator("#worktree-overlay").isVisible() &&
       await pageLog.locator("#pr-overlay").isVisible() &&
-      await pageLog.locator("#git-panel-overlay").isVisible() &&
+      await pageLog.locator("#git-window-overlay").isVisible() &&
       prSessionFailure.includes("fetch failed for pull/12/head") &&
       await pageLog.locator("#worktree-submit").isEnabled() &&
       await pageLog.evaluate((before) => window.__ptySpawns.length === before, spawnsBeforePrFailure),
@@ -587,14 +831,15 @@ if (logShown) {
       prWorktreeCallsBeforeRetry) &&
       await pageLog.locator("#worktree-overlay").isHidden() &&
       !(await pageLog.locator("#pr-overlay").isVisible()) &&
-      !(await pageLog.locator("#git-panel-overlay").isVisible()) &&
+      !(await pageLog.locator("#git-window-overlay").isVisible()) &&
       reusedPrSpawn?.shell === null && reusedPrSpawn?.cwd === "/existing/feat-x" &&
       reusedPrSpawn?.args === null &&
       ((await pageLog.locator(".ws-item.is-active .ws-name").textContent()) ?? "").trim() === "#12 Add thing",
     `spawn=${JSON.stringify(reusedPrSpawn)}`);
 
   // 既存の詳細・diff 表示検証用に開き直す。
-  await pageLog.locator("#exp-git-prs .pr-list-row").first().click();
+  await ensureGitWindow();
+  await pageLog.locator("#gw-prs .pr-list-row").first().click();
   await pageLog.waitForSelector("#pr-overlay:not([hidden]) #pr-files .commit-file-nav-item", { timeout: 3000 });
   const prDetailCall = await pageLog.evaluate(() => (window.__prDetailCalls ?? [])[0]);
   const prDiffCallFromList = await pageLog.evaluate(() => (window.__prDiffCalls ?? [])[0]);
@@ -610,7 +855,9 @@ if (logShown) {
   check("PR list detail shows the pull request body",
     ((await pageLog.locator("#pr-body").textContent()) ?? "").includes("This PR adds the thing."));
   await pageLog.keyboard.press("Escape");
-  check("Escape closes PR detail opened from the list", !(await pageLog.locator("#pr-overlay").isVisible()));
+  check("Escape closes PR detail opened from the list but keeps the Git window open",
+    !(await pageLog.locator("#pr-overlay").isVisible()) &&
+      await pageLog.locator("#git-window-overlay").isVisible());
 
   // 取得失敗: gh の理由をそのまま出し、直前まで見えていた一覧は消さない
   await pageLog.evaluate(() => {
@@ -620,14 +867,14 @@ if (logShown) {
       error: "gh: To get started with GitHub CLI, please run: gh auth login",
     };
   });
-  await pageLog.locator("#exp-git-refresh").click();
-  await pageLog.waitForSelector("#exp-git-prs .pr-list-error", { timeout: 3000 });
-  const prErrText = (await pageLog.locator("#exp-git-prs .pr-list-error").textContent()) ?? "";
+  await pageLog.locator("#gw-refresh").click();
+  await pageLog.waitForSelector("#gw-prs .pr-list-error", { timeout: 3000 });
+  const prErrText = (await pageLog.locator("#gw-prs .pr-list-error").textContent()) ?? "";
   check("PR list shows the gh failure reason instead of a generic message",
     prErrText.includes("gh auth login") && !prErrText.includes("PRはありません"),
     `err="${prErrText}"`);
   check("failed PR refresh keeps the pull requests already listed",
-    await pageLog.locator("#exp-git-prs .pr-list-row").count() === 2);
+    await pageLog.locator("#gw-prs .pr-list-row").count() === 2);
   // 再試行ボタンで取り直す
   await pageLog.evaluate(() => {
     window.__prListCalls = [];
@@ -643,30 +890,30 @@ if (logShown) {
       ],
     };
   });
-  await pageLog.locator("#exp-git-prs .pr-list-retry").click();
-  await pageLog.waitForSelector("#exp-git-prs .pr-list-error", { state: "detached", timeout: 3000 });
+  await pageLog.locator("#gw-prs .pr-list-retry").click();
+  await pageLog.waitForSelector("#gw-prs .pr-list-error", { state: "detached", timeout: 3000 });
   check("PR list retry button refetches and clears the error",
     (await pageLog.evaluate(() => (window.__prListCalls ?? []).length)) >= 1 &&
-      await pageLog.locator("#exp-git-prs .pr-list-row").count() === 2,
+      await pageLog.locator("#gw-prs .pr-list-row").count() === 2,
     `calls=${await pageLog.evaluate(() => JSON.stringify(window.__prListCalls ?? []))}`);
 
   // Worktree タブ → 同じ一覧を git パネルからも管理できる
-  await pageLog.locator("#exp-git-worktrees-tab").click();
-  await pageLog.waitForSelector("#exp-git-worktrees .wt-row", { timeout: 3000 });
+  await pageLog.locator("#gw-nav-worktrees").click();
+  await pageLog.waitForSelector("#gw-worktrees .wt-row", { timeout: 3000 });
   const panelListCall = await pageLog.evaluate(() => (window.__worktreeListCalls ?? []).at(-1));
-  const panelWtText = (await pageLog.locator("#exp-git-worktrees").textContent()) ?? "";
+  const panelWtText = (await pageLog.locator("#gw-worktrees").textContent()) ?? "";
   check("Worktree tab lists the repository worktrees",
     panelListCall?.root === "/repo"
-      && await pageLog.locator("#exp-git-worktrees .wt-row").count() === 2
+      && await pageLog.locator("#gw-worktrees .wt-row").count() === 2
       && panelWtText.includes("feature/old")
       && panelWtText.includes("/repo/.worktree/feature-old")
-      && await pageLog.locator("#exp-git-worktrees .wt-row").first().locator(".wt-del").count() === 0
-      && await pageLog.locator("#exp-git-worktrees .wt-issue-open").count() === 2
-      && await pageLog.locator("#exp-git-worktrees .wt-session-open").count() === 2,
+      && await pageLog.locator("#gw-worktrees .wt-row").first().locator(".wt-del").count() === 0
+      && await pageLog.locator("#gw-worktrees .wt-issue-open").count() === 2
+      && await pageLog.locator("#gw-worktrees .wt-session-open").count() === 2,
     `call=${JSON.stringify(panelListCall)} text="${panelWtText}"`);
 
   // 各行の Issues の右隣から、その worktree を cwd にした通常セッションを開く
-  const featureWt = pageLog.locator("#exp-git-worktrees .wt-row").nth(1);
+  const featureWt = pageLog.locator("#gw-worktrees .wt-row").nth(1);
   const worktreeActions = await featureWt.locator(":scope > .wt-actions > button").evaluateAll((buttons) =>
     buttons.map((button) => button.className));
   check("worktree row puts the new-session action to the right of Issues",
@@ -685,7 +932,15 @@ if (logShown) {
       && existingWorktreeSessionName === "feature/old",
     `spawn=${JSON.stringify(existingWorktreeSpawn)} name=${existingWorktreeSessionName}`);
 
-  // 作成済み worktree のブランチを、Worktree タブから後で open Issue に紐付ける
+  check("opening a worktree session closes the Git window",
+    await pageLog.locator("#git-window-overlay").isHidden());
+  // ルートに作る「セッションを作成」と違い、場所が決まっているのでフォルダーブラウザーは開かない
+  await pageLog.waitForTimeout(150);
+  check("opening a worktree session does not open the folder browser",
+    (await pageLog.locator(".pathbar-pop").count()) === 0);
+  await ensureGitWindow();
+  await pageLog.waitForSelector("#gw-worktrees .wt-row", { timeout: 3000 });
+  // 作成済み worktree のブランチを、Worktree ビューから後で open Issue に紐付ける
   const issueListCallsBeforeLink = await pageLog.evaluate(() => (window.__issueListCalls ?? []).length);
   await featureWt.locator(".wt-issue-open").click();
   await featureWt.locator(".wt-issue-link select").waitFor({ state: "visible" });
@@ -714,7 +969,7 @@ if (logShown) {
       && worktreeLinkMessage.includes("#8")
       && worktreeLinkMessage.includes("origin"),
     `call=${JSON.stringify(worktreeLinkCall)} message="${worktreeLinkMessage}"`);
-  await pageLog.locator("#exp-git-refresh").click();
+  await pageLog.locator("#gw-refresh").click();
   await pageLog.waitForTimeout(200);
   const listCallCount = await pageLog.evaluate(() => (window.__worktreeListCalls ?? []).length);
   check("refresh re-fetches the worktree list", listCallCount >= 2, `calls=${listCallCount}`);
@@ -737,15 +992,15 @@ if (logShown) {
       ],
     };
   });
-  await pageLog.locator("#exp-git-refresh").click();
+  await pageLog.locator("#gw-refresh").click();
   await pageLog.waitForFunction(
-    () => document.querySelectorAll("#exp-git-worktrees .wt-row").length === 3,
+    () => document.querySelectorAll("#gw-worktrees .wt-row").length === 3,
     null, { timeout: 3000 });
   const barPlace = await pageLog.evaluate(() => {
-    const list = document.querySelector("#exp-git-worktrees");
+    const list = document.querySelector("#gw-worktrees");
     const bar = list?.querySelector(".wt-bar");
     const firstRow = list?.querySelector(".wt-row");
-    const tabs = document.querySelector("#exp-git-tabs");
+    const tabs = document.querySelector("#gw-view-worktrees .gw-view-head");
     if (!bar || !firstRow || !tabs) return null;
     // 直前に展開した Issue 選択欄で残ったスクロール位置を、配置測定から除外する
     list.scrollTop = 0;
@@ -756,24 +1011,24 @@ if (logShown) {
       checks: list.querySelectorAll(".wt-check").length,
     };
   });
-  check("worktree list puts one bulk bar between the tabs and the rows",
+  check("worktree list puts one bulk bar between the view header and the rows",
     Boolean(barPlace && barPlace.isFirstChild && barPlace.belowTabs && barPlace.aboveRows
       && barPlace.checks === 2),
     `place=${JSON.stringify(barPlace)}`);
-  const bulkDel = pageLog.locator("#exp-git-worktrees .wt-bulk-del");
+  const bulkDel = pageLog.locator("#gw-worktrees .wt-bulk-del");
   check("bulk delete is disabled until something is selected", await bulkDel.isDisabled());
-  await pageLog.locator("#exp-git-worktrees .wt-bar-all input").check();
+  await pageLog.locator("#gw-worktrees .wt-bar-all input").check();
   const bulkLabel = (await bulkDel.textContent()) ?? "";
   check("select all checks every removable worktree and counts them",
-    await pageLog.locator("#exp-git-worktrees .wt-check:checked").count() === 2
+    await pageLog.locator("#gw-worktrees .wt-check:checked").count() === 2
       && bulkLabel.includes("2") && !(await bulkDel.isDisabled()),
     `label="${bulkLabel}"`);
   await bulkDel.click();
   const bulkBeforeConfirm = await pageLog.evaluate(() => (window.__worktreeRemoveCalls ?? []).length);
   check("bulk delete only arms the confirmation",
-    bulkBeforeConfirm === 0 && await pageLog.locator("#exp-git-worktrees .wt-bar .wt-confirm").isVisible(),
+    bulkBeforeConfirm === 0 && await pageLog.locator("#gw-worktrees .wt-bar .wt-confirm").isVisible(),
     `calls=${bulkBeforeConfirm}`);
-  await pageLog.locator("#exp-git-worktrees .wt-bar .wt-yes").click();
+  await pageLog.locator("#gw-worktrees .wt-bar .wt-yes").click();
   await pageLog.waitForTimeout(400);
   const bulkCalls = await pageLog.evaluate(() => window.__worktreeRemoveCalls ?? []);
   check("confirming removes every selected worktree without force",
@@ -789,18 +1044,18 @@ if (logShown) {
       errorUnlessForce: "fatal: contains modified or untracked files",
     };
   });
-  await pageLog.locator("#exp-git-worktrees .wt-bar-all input").check();
-  await pageLog.locator("#exp-git-worktrees .wt-bulk-del").click();
-  await pageLog.locator("#exp-git-worktrees .wt-bar .wt-yes").click();
-  await pageLog.waitForSelector("#exp-git-worktrees .wt-bulk-error:not([hidden])", { timeout: 3000 });
-  const bulkErr = (await pageLog.locator("#exp-git-worktrees .wt-bulk-error").textContent()) ?? "";
+  await pageLog.locator("#gw-worktrees .wt-bar-all input").check();
+  await pageLog.locator("#gw-worktrees .wt-bulk-del").click();
+  await pageLog.locator("#gw-worktrees .wt-bar .wt-yes").click();
+  await pageLog.waitForSelector("#gw-worktrees .wt-bulk-error:not([hidden])", { timeout: 3000 });
+  const bulkErr = (await pageLog.locator("#gw-worktrees .wt-bulk-error").textContent()) ?? "";
   check("a failed bulk removal keeps the failures selected and shows git's reason",
     bulkErr.includes("contains modified or untracked files")
       && bulkErr.includes("/repo/.worktree/feature-two")
-      && await pageLog.locator("#exp-git-worktrees .wt-check:checked").count() === 2
-      && await pageLog.locator("#exp-git-worktrees .wt-bar .wt-force").isVisible(),
+      && await pageLog.locator("#gw-worktrees .wt-check:checked").count() === 2
+      && await pageLog.locator("#gw-worktrees .wt-bar .wt-force").isVisible(),
     `err="${bulkErr}"`);
-  await pageLog.locator("#exp-git-worktrees .wt-bar .wt-force").click();
+  await pageLog.locator("#gw-worktrees .wt-bar .wt-force").click();
   await pageLog.waitForTimeout(400);
   const forcedBulk = await pageLog.evaluate(() =>
     (window.__worktreeRemoveCalls ?? []).filter((c) => c.force === true));
@@ -811,63 +1066,11 @@ if (logShown) {
     `calls=${JSON.stringify(forcedBulk)}`);
   await pageLog.evaluate(() => { window.__mockWorktreeRemoveResult = undefined; });
 
-  // Branch タブへ戻せばコミット履歴と現在ブランチの PR バッジを再表示する
-  await pageLog.locator("#exp-git-branch").click();
-  check("Branch tab restores commit history", await pageLog.locator("#exp-git-log").isVisible());
-  // コミット行クリック → そのコミット全体のファイル差分
-  await pageLog.locator("#exp-git-log .git-commit-row").first().click();
-  await pageLog.waitForSelector("#diff-overlay:not([hidden])", { timeout: 3000 });
-  const commitDiffCall = await pageLog.evaluate(() => (window.__gitCommitDiffCalls ?? [])[0]);
-  const commitDiffTitle = (await pageLog.locator("#diff-path").textContent()) ?? "";
-  const commitDiffStats = (await pageLog.locator("#diff-stats").textContent()) ?? "";
-  const commitDiffBody = (await pageLog.locator("#diff-body").textContent()) ?? "";
-  check("clicking commit requests its diff",
-    commitDiffCall?.root === "/repo" && commitDiffCall?.hash === "abc1234",
-    `call=${JSON.stringify(commitDiffCall)}`);
-  const commitFiles = await pageLog.locator("#diff-body .commit-file").count();
-  const commitNavFiles = await pageLog.locator("#diff-body .commit-file-nav-item").count();
-  const shownCommitPath = (await pageLog.locator("#diff-body .commit-file-path").textContent()) ?? "";
-  const oldLineNumbers = (await pageLog.locator("#diff-body .commit-line-no.old").allTextContents()).join(" ");
-  const newLineNumbers = (await pageLog.locator("#diff-body .commit-line-no.new").allTextContents()).join(" ");
-  const commitPanelBox = await pageLog.locator("#diff-panel").boundingBox();
-  check("commit diff overlay shows title, stats and readable file patches",
-    commitDiffTitle.includes("abc1234") && commitDiffTitle.includes("add thing") &&
-      commitDiffStats.includes("+3") && commitDiffStats.includes("-2") &&
-      commitDiffBody.includes("src/app.ts") && commitDiffBody.includes("README.md") &&
-      commitDiffBody.includes("new line") && shownCommitPath === "src/app.ts" &&
-      commitFiles === 1 && commitNavFiles === 2 &&
-      await pageLog.locator("#diff-body .commit-diff-line.hunk").count() === 1 &&
-      await pageLog.locator("#diff-body .commit-diff-line.add").count() === 2 &&
-      await pageLog.locator("#diff-body .commit-diff-line.del").count() === 1 &&
-      oldLineNumbers.includes("1") && newLineNumbers.includes("1") &&
-      commitPanelBox?.width > 1100 && commitPanelBox?.height > 700,
-    `title="${commitDiffTitle}" stats="${commitDiffStats}"`);
-  await pageLog.locator("#diff-body .commit-file-nav-item").nth(1).click();
-  const selectedCommitPath = (await pageLog.locator("#diff-body .commit-file-path").textContent()) ?? "";
-  const selectedPatchText = (await pageLog.locator("#diff-body .commit-patches").textContent()) ?? "";
-  const selectedOldLineNumbers =
-    (await pageLog.locator("#diff-body .commit-line-no.old").allTextContents()).join(" ");
-  check("commit file navigation shows only the selected file patch",
-    await pageLog.locator("#diff-body .commit-file-nav-item").nth(1).evaluate((el) => el.classList.contains("is-active")) &&
-      selectedCommitPath === "README.md" && selectedPatchText.includes("new docs") &&
-      !selectedPatchText.includes("new line") && selectedOldLineNumbers.includes("10") &&
-      await pageLog.locator("#diff-body .commit-file").count() === 1);
-  await pageLog.keyboard.press("Escape");
-  check("commit diff overlay closes with Escape", !(await pageLog.locator("#diff-overlay").isVisible()));
-  // コミット行右クリック → 変更ファイル表示 / 二段階確認付きの巻き戻し
-  await pageLog.locator("#exp-git-log .git-commit-row").first().click({ button: "right" });
-  const commitCtxText = (await pageLog.locator("#git-commit-ctx").textContent()) ?? "";
-  check("commit context menu offers changed files and rollback",
-    commitCtxText.includes("変更ファイルの内容を表示") && commitCtxText.includes("このコミットまで巻き戻す"),
-    `menu="${commitCtxText}"`);
-  await pageLog.locator("#git-commit-ctx button").first().click();
-  await pageLog.waitForSelector("#diff-overlay:not([hidden])", { timeout: 3000 });
-  const ctxDiffCall = await pageLog.evaluate(() => (window.__gitCommitDiffCalls ?? []).at(-1));
-  check("context menu changed-files action opens the commit diff",
-    ctxDiffCall?.root === "/repo" && ctxDiffCall?.hash === "abc1234");
-  await pageLog.keyboard.press("Escape");
-
-  await pageLog.locator("#exp-git-log .git-commit-row").nth(1).click({ button: "right" });
+  // 履歴へ戻す → 右クリックの巻き戻しは二段階確認
+  await pageLog.locator("#gw-nav-history").click();
+  await pageLog.waitForSelector("#gw-log .git-commit-row", { timeout: 3000 });
+  check("History nav restores commit history", await pageLog.locator("#gw-log").isVisible());
+  await pageLog.locator("#gw-log .git-commit-row").nth(2).click({ button: "right" });
   await pageLog.locator("#git-commit-ctx button.is-danger").click();
   const resetCallsBeforeConfirm = await pageLog.evaluate(() => (window.__gitResetCalls ?? []).length);
   const resetWarning = (await pageLog.locator("#git-commit-ctx").textContent()) ?? "";
@@ -884,15 +1087,15 @@ if (logShown) {
   check("commit context menu closes after rollback", !(await pageLog.locator("#git-commit-ctx").isVisible()));
   // PR バッジ → conversation オーバーレイ
   let prShown = true;
-  await pageLog.waitForSelector("#exp-git-pr:not([hidden])", { timeout: 8000 }).catch(() => { prShown = false; });
+  await pageLog.waitForSelector("#gw-pr:not([hidden])", { timeout: 8000 }).catch(() => { prShown = false; });
   const prCall = await pageLog.evaluate(() => (window.__prCalls ?? [])[0]);
   check("PR badge appears with number",
-    prShown && ((await pageLog.locator("#exp-git-pr").textContent()) ?? "").includes("#12"),
+    prShown && ((await pageLog.locator("#gw-pr").textContent()) ?? "").includes("#12"),
     `call=${JSON.stringify(prCall)}`);
   check("pr_info called with repo root and branch",
     prCall?.root === "/repo" && prCall?.branch === "feat/x", `call=${JSON.stringify(prCall)}`);
   if (prShown) {
-    await pageLog.locator("#exp-git-pr").click();
+    await pageLog.locator("#gw-pr").click();
     await pageLog.waitForSelector("#pr-overlay:not([hidden])", { timeout: 3000 });
     await pageLog.waitForSelector("#pr-files .commit-file-nav-item", { timeout: 3000 });
     const prTitle = (await pageLog.locator("#pr-title").textContent()) ?? "";
@@ -972,7 +1175,8 @@ if (logShown) {
     });
     const currentPrWorktreeCallsBefore = await pageLog.evaluate(() => (window.__worktreeFromPrCalls ?? []).length);
     const currentPrSpawnsBefore = await pageLog.evaluate(() => window.__ptySpawns.length);
-    await pageLog.locator("#exp-git-pr").click();
+    await ensureGitWindow();
+    await pageLog.locator("#gw-pr").click();
     await pageLog.waitForSelector("#pr-overlay:not([hidden])", { timeout: 3000 });
     check("current-branch PR detail enables its session action from PrInfo headRefName",
       await pageLog.locator("#pr-new-session").isEnabled());
@@ -994,6 +1198,7 @@ if (logShown) {
         currentPrWorktreeCall?.number === 12 && currentPrWorktreeCall?.branch === "feat/x" &&
         await pageLog.locator("#worktree-overlay").isHidden() &&
         !(await pageLog.locator("#pr-overlay").isVisible()) &&
+        await pageLog.locator("#git-window-overlay").isHidden() &&
         ((await pageLog.evaluate(() => window.__ptySpawns.at(-1)))?.cwd === "/existing/current-pr") &&
         await pageLog.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")),
       `call=${JSON.stringify(currentPrWorktreeCall)}`);
@@ -1007,34 +1212,37 @@ if (logShown) {
         files: [], comments: [],
       };
       window.__mockGitLog = { ...window.__mockGitLog, branch: "main" };
+      window.__mockGitBranches = { ...window.__mockGitBranches, current: "main" };
     });
+    await ensureGitWindow();
     await pageLog.waitForTimeout(3600);
-    check("PR badge hides when branch has no PR", !(await pageLog.locator("#exp-git-pr").isVisible()));
+    check("PR badge hides when branch has no PR", !(await pageLog.locator("#gw-pr").isVisible()));
   }
-  // スプリッタのドラッグで高さが変わる（エクスプローラー内で完結・上限 80%）
-  const hBefore = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  const handle = await pageLog.locator("#exp-git-resize").boundingBox();
-  if (handle) {
-    await pageLog.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await pageLog.mouse.down();
-    await pageLog.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 60, { steps: 5 });
-    await pageLog.mouse.up();
+  // 監視先はフォーカス中ペインのシェルの実 cwd。cd すれば履歴もその cwd で取り直す
+  if (!(await pageLog.locator("#git-window-overlay").isVisible())) {
+    await pageLog.locator("#git-open").click();
+    await pageLog.waitForSelector("#git-window-overlay:not([hidden])");
   }
-  const hAfter = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  check("splitter drag grows git section", hAfter - hBefore > 40, `h ${Math.round(hBefore)}→${Math.round(hAfter)}`);
-  check("no stuck body.dragging after splitter drag",
-    !(await pageLog.evaluate(() => document.body.classList.contains("dragging"))));
-  // ダブルクリックで既定の高さ（30%）に戻る
-  await pageLog.locator("#exp-git-resize").dblclick();
-  const hReset = await pageLog.evaluate(() => document.querySelector("#exp-git").getBoundingClientRect().height);
-  check("splitter dblclick resets height", Math.abs(hReset - hBefore) < 8, `h=${Math.round(hReset)}`);
-  // リポジトリ外ではセクションごと消える
+  await pageLog.locator("#gw-nav-history").click();
+  await pageLog.evaluate(() => { window.__mockPtyCwd = "/repo/sub"; });
+  await pageLog.locator("#gw-refresh").click();
+  await pageLog.waitForFunction(() => window.__gitLogArgs.at(-1)?.cwd === "/repo/sub", null, { timeout: 5000 })
+    .catch(() => {});
+  check("history follows the focused pane cwd",
+    await pageLog.evaluate(() => window.__gitLogArgs.at(-1)?.cwd) === "/repo/sub",
+    `args=${await pageLog.evaluate(() => JSON.stringify(window.__gitLogArgs.slice(-2)))}`);
+  // リポジトリ外ではビューを全部隠し、その旨を出す
   await pageLog.evaluate(() => {
+    window.__mockGitChanges = { repo: false, root: null, files: [] };
     window.__mockGitLog = { repo: false, root: null, branch: null, detached: false, commits: [] };
   });
   await pageLog.waitForTimeout(3600);
-  check("git section hides outside a repo",
-    !(await pageLog.locator("#exp-git").isVisible()) && !(await pageLog.locator("#exp-git-resize").isVisible()));
+  const emptyText = (await pageLog.locator("#gw-empty").textContent()) ?? "";
+  check("outside a repo the Git window hides every view and says why",
+    await pageLog.locator("#gw-empty").isVisible() && emptyText.includes("Git リポジトリではありません") &&
+      await pageLog.evaluate(() =>
+        [...document.querySelectorAll("#gw-main .gw-view")].every((el) => el.hidden)),
+    `empty="${emptyText}"`);
 }
 await pageLog.close();
 

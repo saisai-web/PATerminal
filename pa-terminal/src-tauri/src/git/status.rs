@@ -48,21 +48,58 @@ pub(crate) async fn git_changes(cwd: String) -> Result<GitChanges, String> {
     let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
 
     let mut files: Vec<GitFile> = Vec::new();
+    // 追加 / 削除 / 変更の区別（A / D / M）。リネームは削除 + 追加として扱う
+    // （"old => new" 形式のパスはコミット対象の指定にそのまま使えないため）
+    let mut kinds: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    if let Ok(o) = run_git(&[
+        "-C",
+        &cwd,
+        "diff",
+        "HEAD",
+        "--name-status",
+        "--no-renames",
+        "--",
+        ".",
+    ]) {
+        if o.status.success() {
+            for line in String::from_utf8_lossy(&o.stdout).lines() {
+                if let Some((kind, p)) = line.split_once('\t') {
+                    let kind = match kind.chars().next() {
+                        Some('A') => "A",
+                        Some('D') => "D",
+                        _ => "M",
+                    };
+                    kinds.insert(p.trim_matches('"').to_string(), kind.into());
+                }
+            }
+        }
+    }
     // HEAD との差分（ステージ済みも含める）。初回コミット前は HEAD が無いのでスキップ。
     // "-- ." で cwd 配下に限定する（リポジトリ全体は見ない）。パス自体はルート相対で返る
-    if let Ok(o) = run_git(&["-C", &cwd, "diff", "HEAD", "--numstat", "--", "."]) {
+    if let Ok(o) = run_git(&[
+        "-C",
+        &cwd,
+        "diff",
+        "HEAD",
+        "--numstat",
+        "--no-renames",
+        "--",
+        ".",
+    ]) {
         if o.status.success() {
             for line in String::from_utf8_lossy(&o.stdout).lines() {
                 let mut it = line.splitn(3, '\t');
                 let (Some(a), Some(d), Some(p)) = (it.next(), it.next(), it.next()) else {
                     continue;
                 };
+                // 非 ASCII パスは "..." で囲まれて返る。表示用に外すだけ（エスケープ解釈まではしない）
+                let path = p.trim_matches('"').to_string();
+                let status = kinds.get(&path).cloned().unwrap_or_else(|| "M".into());
                 files.push(GitFile {
-                    // 非 ASCII パスは "..." で囲まれて返る。表示用に外すだけ（エスケープ解釈まではしない）
-                    path: p.trim_matches('"').to_string(),
+                    path,
                     adds: a.parse().unwrap_or(0), // バイナリは "-" → 0
                     dels: d.parse().unwrap_or(0),
-                    status: "M".into(),
+                    status,
                 });
             }
         }
@@ -218,4 +255,55 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
         adds,
         dels,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::git_changes;
+    use crate::testutil::{test_git, TempRepo};
+    use std::fs;
+
+    #[tokio::test]
+    async fn changes_report_added_deleted_modified_and_untracked_without_renames() {
+        let repo = TempRepo::new();
+        test_git(&repo.0, &["init", "--quiet"]);
+        test_git(&repo.0, &["config", "user.name", "PATerminal Test"]);
+        test_git(
+            &repo.0,
+            &["config", "user.email", "paterminal@example.invalid"],
+        );
+        fs::write(repo.0.join("keep.txt"), "a\n").unwrap();
+        fs::write(repo.0.join("gone.txt"), "b\n").unwrap();
+        fs::write(repo.0.join("moved.txt"), "c\nc\nc\n").unwrap();
+        test_git(&repo.0, &["add", "."]);
+        test_git(&repo.0, &["commit", "--quiet", "-m", "initial"]);
+        fs::write(repo.0.join("keep.txt"), "a2\n").unwrap();
+        fs::remove_file(repo.0.join("gone.txt")).unwrap();
+        test_git(&repo.0, &["mv", "moved.txt", "renamed.txt"]);
+        fs::write(repo.0.join("staged.txt"), "s\n").unwrap();
+        test_git(&repo.0, &["add", "staged.txt"]);
+        fs::write(repo.0.join("new.txt"), "n\n").unwrap();
+
+        let res = git_changes(repo.0.to_string_lossy().into_owned())
+            .await
+            .unwrap();
+        let mut got: Vec<(String, String)> = res
+            .files
+            .iter()
+            .map(|f| (f.path.clone(), f.status.clone()))
+            .collect();
+        got.sort();
+        let want = [
+            ("gone.txt", "D"),
+            ("keep.txt", "M"),
+            ("moved.txt", "D"),
+            ("new.txt", "A"),
+            ("renamed.txt", "A"),
+            ("staged.txt", "A"),
+        ];
+        assert_eq!(
+            got,
+            want.map(|(p, s)| (p.to_string(), s.to_string())).to_vec()
+        );
+    }
 }

@@ -26,8 +26,7 @@
 }
 #sidebar-resize:hover, #sidebar-resize.is-dragging { background: var(--accent); }
 
-/* サイドバーをたたんでいる間だけ左端に出る再オープンタブ。
-   エクスプローラー側の #exp-reopen と左右対称に作る */
+/* サイドバーをたたんでいる間だけ左端に出る再オープンタブ */
 #sidebar-reopen {
   flex: none;
   width: 22px;
@@ -62,7 +61,7 @@
   padding: 4px 8px;
 }
 
-#ws-new, #ws-new-finder {
+#ws-new {
   font: inherit;
   font-size: var(--control-icon-size);
   color: var(--text);
@@ -75,10 +74,7 @@
   padding: 0;
   cursor: pointer;
 }
-#ws-new:hover, #ws-new-finder:hover { border-color: var(--dim); }
-/* + の隣の「Finderから開く」。アイコンのみ。+ と同じ 32px 四方、アイコンは他の主要操作と同じ 20px */
-#ws-new-finder { display: grid; place-items: center; padding: 0; }
-#ws-new-finder svg { width: var(--control-icon-size); height: var(--control-icon-size); }
+#ws-new:hover { border-color: var(--dim); }
 
 #sidebar-collapse {
   font: inherit;
@@ -316,8 +312,7 @@
   min-width: 0;
 }
 .ws-group-count { margin-left: auto; flex: none; }
-.ws-group-create,
-.ws-group-finder {
+.ws-group-create {
   flex: none;
   width: 22px;
   height: 22px;
@@ -333,14 +328,11 @@
   cursor: pointer;
 }
 .ws-group-create:hover,
-.ws-group-create:focus-visible,
-.ws-group-finder:hover,
-.ws-group-finder:focus-visible {
+.ws-group-create:focus-visible {
   color: var(--text);
   border-color: var(--accent);
   outline: none;
 }
-.ws-group-finder svg { width: 13px; height: 13px; }
 .ws-group-members { margin-left: 14px; }
 
 /* --- インライン編集（セッション名 / ペイン名 / グループ名） --- */
@@ -481,59 +473,6 @@
 #ctx-menu .ctx-color-option[data-ws-color="blue"] { --ws-color-value: var(--ws-color-blue); }
 .ws-item[data-ws-color="purple"],
 #ctx-menu .ctx-color-option[data-ws-color="purple"] { --ws-color-value: var(--ws-color-purple); }
-
-/* --- 新規セッションの場所フライアウト（ホーム / フォルダ選択 / お気に入り / 最近） ---
-   ctx-menu の「セッションを作成」・作成ボタンへカーソルを当てると横に出る。
-   ctx-menu 内では JS が position:absolute、単独ボタンでは fixed に切り替える */
-#loc-flyout {
-  z-index: 101; /* ctx-menu(100) のサブメニューとして手前に出す */
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 220px;
-  max-width: 320px;
-  padding: 8px;
-  background: var(--chrome);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  box-shadow: 0 6px 20px var(--shadow);
-}
-#loc-flyout .loc-head {
-  padding: 6px 4px 2px;
-  border-top: 1px solid var(--line);
-  margin-top: 2px;
-  color: var(--dim);
-  font-size: 11px;
-}
-#loc-flyout button.loc-row {
-  font: inherit; color: var(--text); background: transparent; text-align: left;
-  border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; cursor: pointer;
-  display: flex; align-items: baseline; gap: 8px; min-width: 0;
-}
-#loc-flyout button.loc-row:hover,
-#loc-flyout button.loc-row:focus-visible { border-color: var(--accent); }
-#loc-flyout .loc-name {
-  flex: 0 1 auto;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* 右側の親パス文脈。名前より先に縮み、常に1行 + 末尾 … （exp-row-path と同じ流儀） */
-#loc-flyout .loc-path {
-  flex: 1 1 auto;
-  min-width: 0;
-  direction: ltr; /* RTL でもパスは LTR のまま */
-  text-align: right;
-  color: var(--dim);
-  font-size: 11px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* サブメニュー持ちの ctx-menu 項目は右端に ▸ を出す */
-#ctx-menu button.ctx-has-sub {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-#ctx-menu .ctx-sub-arrow { flex: 0 0 auto; color: var(--dim); }
 
 /* 詳細フォームの「場所」欄。既定は「表示中ペインと同じ場所」、選ぶとパスを表示 */
 #ws-new-loc-row { display: flex; align-items: center; gap: 6px; min-width: 0; }

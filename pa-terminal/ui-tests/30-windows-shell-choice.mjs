@@ -13,14 +13,11 @@ await page.goto(BASE_URL);
 await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(600);
 
-// Windows の + も場所フライアウトを開き、既定行を選ぶとネイティブシェルを提示する
+// Windows の + はルート（ホーム）を場所にしてネイティブシェルの選択を提示する
 const initialCount = await page.locator(".ws-item").count();
 await page.click("#ws-new");
-check("Windows + opens the location flyout without creating a session",
-  await page.locator("#loc-flyout").isVisible() &&
-    (await page.locator(".ws-item").count()) === initialCount);
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
 await page.waitForSelector("#ws-new-shells button");
+check("Windows + opens no folder browser", (await page.locator(".pathbar-pop").count()) === 0);
 const choices = await page.locator("#ws-new-shells button").allTextContents();
 check("Windows + default action opens the shell picker without creating a session",
   await page.locator("#ws-new-form").isVisible() &&
@@ -41,7 +38,7 @@ check("Command Prompt choice starts cmd.exe",
 
 // 次の + でも選択でき、PowerShell は Windows PowerShell を明示起動する
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+await page.waitForSelector("#ws-new-shells button");
 await page.fill("#ws-new-name", "PowerShell session");
 await page.getByRole("button", { name: "PowerShell", exact: true }).click();
 await page.waitForTimeout(400);

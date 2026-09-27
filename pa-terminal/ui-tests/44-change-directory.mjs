@@ -14,7 +14,8 @@ export default async function ({ browser, check, BASE_URL }) {
     window.__mockAgentSessionId = id;
   }, { kind, id });
   const open = async (page, path = "/tmp") => {
-    await page.locator("#pane-change-directory").click();
+    // ペインバーのフォルダー移動アイコンは廃止。ペインバーの cwd 表示から開く
+    await page.locator(".pane.is-focused .pane-cwd").click();
     await page.locator("#move-directory-path").fill(path);
   };
   const unchanged = (page) => page.evaluate(() =>
@@ -111,12 +112,14 @@ export default async function ({ browser, check, BASE_URL }) {
 
   const explorer = await createPage();
   await detect(explorer, "codex");
+  // パスバーの「ここへ移動」と同じ経路（moveTerminalTo）
   await explorer.evaluate(async () => {
-    const { terminalCdTo } = await import("/src/features/explorer/explorer-menu.ts");
-    terminalCdTo("/tmp");
+    const { panes } = await import("/src/workspace/state.ts");
+    const { moveTerminalTo } = await import("/src/features/agents/change-directory.ts");
+    await moveTerminalTo([...panes.values()][0], "/tmp");
   });
   await explorer.waitForSelector("#move-directory-panel");
-  check("explorer movement opens the same confirmation instead of sending cd to an AI", await unchanged(explorer));
+  check("path bar movement opens the same confirmation instead of sending cd to an AI", await unchanged(explorer));
   await explorer.keyboard.press("Escape");
   await explorer.close();
 

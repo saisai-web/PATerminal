@@ -3,14 +3,9 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
-import {
-  isAgentPanelCollapsed,
-  setAgentPanelCollapsed,
-} from "../features/git/agent-panel";
 import { MAX_RATIO, MIN_RATIO, PRESETS } from "../shared/constants";
 import {
   getExplorerFavorites,
-  renderExplorerFavs,
   setExplorerFavorites,
 } from "../features/explorer/explorer";
 import { groupById, newGroupId } from "../workspace/groups";
@@ -138,7 +133,6 @@ function serializeAll(): SessionV5 {
       notifications: isNotificationsEnabled(),
       quickPhrases: getQuickPhrases(),
       collapsed: {
-        changes: isAgentPanelCollapsed(),
         quickPhrases: isQuickPhraseBarCollapsed(),
         oneLine: true,
       },
@@ -313,7 +307,6 @@ export async function boot() {
   // oneLine マーカーが無い旧保存データは、以前の既定 false と明示展開を区別できないため
   // 初回だけ1行表示へ移行する。以後はユーザーが展開して保存した false もそのまま尊重する。
   const oneLineBars = savedSettings?.collapsed?.oneLine === true;
-  setAgentPanelCollapsed(oneLineBars ? savedSettings?.collapsed?.changes !== false : true);
   setQuickPhraseBarCollapsed(oneLineBars ? savedSettings?.collapsed?.quickPhrases !== false : true);
   setQuickPhrases(savedSettings?.quickPhrases);
   setRecentDirs(savedSettings?.recentDirs);
@@ -378,7 +371,6 @@ export async function boot() {
           if (validIds.has(id)) collapsedGroups.add(id);
         }
         setExplorerFavorites((v4.explorer?.favorites ?? []).filter((p) => typeof p === "string"));
-        renderExplorerFavs();
         // 表示タブは起動ごとに「すべて」へ戻る。前回アーカイブタブで終了していても、
         // 通常セッションがあるならそれを開き、表示中の端末だけ一覧から消えた状態にしない。
         const savedTarget = workspaces.find((w) => w.id === v4.activeId);
@@ -417,7 +409,6 @@ export async function boot() {
         // エクスプローラーの開閉・隠しファイルは常にデフォルト（表示 + ON）で開くため
         // 復元しない。お気に入りだけは永続データなので復元する
         setExplorerFavorites((v3.explorer?.favorites ?? []).filter((p) => typeof p === "string"));
-        renderExplorerFavs();
         const target = workspaces.find((w) => w.id === v3.activeId) ?? workspaces[0];
         if (target) {
           setActive(target);

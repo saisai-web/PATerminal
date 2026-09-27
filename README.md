@@ -38,7 +38,7 @@ CLI agents working at once, without losing track of any of them.
 - 🧩 **Sessions on one screen** — use **Session split** to choose multiple sessions and arrange them side by side, stacked, or in a grid. Each session keeps its own panes, with matching colored borders in the sidebar and terminal area. Drag sessions from the sidebar onto a terminal’s left, right, top, or bottom edge to add them to the view. Drag the boundaries to resize; the arrangement is restored on restart. Clicking a displayed terminal focuses its session. Opening or creating a session outside the selection shows it alone; selecting any member brings back the saved split with its colors and proportions. Use a tile’s **Show this session only** or **Remove from view** button to change the view while the sessions keep running.
 - 🤝 **Pair mode** — implement × review, cross-review, brainstorm, or build together: two agents pass prompts to each other automatically.
 - 🔁 **Conversations survive restarts** — `claude` and `codex` are detected and reopened with `--resume`, and any past conversation can be handed to a fresh session.
-- 🌿 **Git built in** — changes always visible above the terminal: commit, push, pull, branch, stash — plus PRs, issues, worktrees, and a diff viewer.
+- 🌿 **Git built in** — a Git window one click (or <kbd>⌘E</kbd>) away: file status with line-numbered diffs, a commit graph across every branch, branch checkout from the sidebar, commit, push, pull, fetch, stash — plus PRs, issues, and worktrees.
 - 👀 **Live agent status** — running / waiting / done for every session, with desktop notifications for the ones you're not watching.
 - 📣 **Broadcast & quick phrases** — type once, send to every session at the same time; keep your go-to prompts one click away.
 - 🗂️ **File explorer** — file tree, recursive search, quick edits, trash-safe delete, and drag-and-drop moves, right next to your terminals.
@@ -103,11 +103,16 @@ files are left intact and the failure is logged.
 
 ## 🌿 Git, without leaving the terminal
 
-Your changes are always visible in a strip above the terminal — per-file diffs one click
-away, commit, checkout, push, fetch, pull, and stash built in. The Git panel adds commit
-history with per-commit diffs, pull-request review threads, issues, and worktrees —
-including *create a worktree from a pull request* and *start a session from an issue*.
-(PRs and issues use your own authenticated `gh` CLI.)
+The Git button in the toolbar shows how many files you've changed and opens the Git window
+(<kbd>⌘E</kbd> / <kbd>Ctrl+E</kbd>) for the focused terminal's repository. It starts on
+**File status** — every uncommitted file with a line-numbered diff, checkboxes to pick what
+goes into the commit, and a commit box with optional push. **History** draws a commit graph
+across all local and remote branches and tags, with each commit's files and diff below.
+The sidebar lists branches (grouped into folders), remotes, and tags: click one to jump to
+its commit, double-click to check it out. Pull, push, fetch, stash, pull-request review
+threads, issues, and worktrees live in the same window — including *create a worktree
+from a pull request* and *start a session from an issue*. (PRs and issues use your own
+authenticated `gh` CLI.)
 
 ![Git strip showing changed files with additions and deletions above the terminal](docs/assets/git-strip.png)
 
@@ -159,9 +164,9 @@ PATerminal is proprietary **source-available** software — the source is public
 transparency, review, and personal builds, but it is *not* open source.
 
 - **Official builds** — all features free for 30 days. Afterwards the app soft-locks:
-  sessions, up to two panes per session, the file explorer, and everyday commits keep
+  sessions, up to two panes per session, and the pane folder browser keep
   working for free, while splitting beyond two panes, broadcast, pair mode, quick
-  phrases, conversation takeover, and the branch/issue/PR/worktree tabs require a
+  phrases, conversation takeover, and the Git window require a
   [license](https://paralellterminal.com/pricing). Your data is never deleted.
 - **Self-builds** — the EULA lets an individual build and modify the source for personal,
   non-commercial use. Self-built binaries have no trial and no lock: local features never

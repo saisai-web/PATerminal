@@ -353,9 +353,6 @@
 }
 
 @media (max-width: 720px) {
-  #commit-panel { width: 96vw; height: 92vh; }
-  #commit-body { grid-template-columns: 1fr; grid-template-rows: minmax(180px, 2fr) minmax(260px, 3fr); }
-  #commit-files-section { border-right: 0; border-bottom: 1px solid var(--line); }
   .git-action-field { grid-template-columns: 1fr; gap: 5px; }
 }
 
@@ -365,7 +362,7 @@
   inset-inline-end: 20px;
   bottom: 20px;
   /* Keep modal controls (z-index >= 200) usable after a failed Git operation. */
-  z-index: 190;
+  z-index: 195; /* Git ウィンドウ（180）より手前、前面ダイアログ（200〜）より奥 */
   display: flex;
   align-items: flex-start;
   gap: 12px;

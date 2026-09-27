@@ -1,5 +1,5 @@
-//! ブランチとリモート。変更ストリップの操作バー
-//! （Checkout / Push / Fetch / Pull）とプルモーダルが使う。
+//! ブランチとリモート。Git ウィンドウの操作（Checkout / Push / Fetch / Pull）と
+//! プルモーダルが使う。
 
 use serde::Serialize;
 
@@ -15,7 +15,7 @@ pub(crate) struct GitBranches {
     remotes: Vec<String>,
 }
 
-/// 変更ストリップ用: 現在ブランチ・ローカルブランチ・その upstream・
+/// Git ウィンドウ用: 現在ブランチ・ローカルブランチ・その upstream・
 /// リモートブランチ一覧（"origin/main" 形式）
 #[tauri::command]
 pub(crate) async fn git_branches(root: String) -> Result<GitBranches, String> {

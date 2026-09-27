@@ -2,7 +2,7 @@ export default async function (ctx) {
 const { browser, check, MOD, BASE_URL } = ctx;
 
 // ============================================================
-// 定型文の保存先（汎用 / このリポジトリ専用）と帯のたたみ状態の復元
+// 定型文の保存先（汎用 / このリポジトリ専用）
 // ============================================================
 
 const pageQp = await browser.newPage({ viewport: { width: 1280, height: 820 } });
@@ -36,21 +36,11 @@ await pageQp.addInitScript(() => {
 await pageQp.goto(BASE_URL);
 await pageQp.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
 await pageQp.locator(".pane .pane-body").first().click();
-await pageQp.waitForSelector("#agent-panel:not([hidden])", { timeout: 8000 }).catch(() => {});
+// git 監視がリポジトリを見つけるとツールバーの Git ボタンに変更件数が出る
+await pageQp.waitForSelector("#git-open-badge:not([hidden])", { timeout: 8000 }).catch(() => {});
 await pageQp.waitForTimeout(300);
-
-// 変更があっても、保存された「1行表示」のまま起動する
-const restoredChangeStrip = await pageQp.evaluate(() => ({
-  compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
-  content: Boolean(document.querySelector("#agent-content")?.getClientRects().length),
-  changes: Boolean(document.querySelector("#git-changes")?.getClientRects().length),
-  actions: Boolean(document.querySelector("#git-actions")?.getClientRects().length),
-}));
-check("compact changes strip is restored on boot",
-  restoredChangeStrip.compact === true && restoredChangeStrip.content
-    && !restoredChangeStrip.changes && restoredChangeStrip.actions
-    && (await pageQp.locator("#agent-panel").isVisible()),
-  `state=${JSON.stringify(restoredChangeStrip)}`);
+check("the Git button shows the change count of the watched repository",
+  (await pageQp.locator("#git-open-badge").textContent()) === "1");
 
 const qpChips = () => pageQp.locator(".quick-phrase-chip").allTextContents();
 check("bar shows global phrases and the ones for this repository",
@@ -95,7 +85,7 @@ check("the repository of a phrase is persisted", savedScoped?.repo === "/repo",
 // 別のリポジトリへ移ると、専用の定型文が入れ替わる（汎用は残る）
 await pageQp.evaluate(async () => {
   window.__mockGitChanges = { repo: true, root: "/other", files: [] };
-  const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
+  const { updateGitWatch } = await import("/src/features/git/git-watch.ts");
   updateGitWatch();
 });
 await pageQp.waitForFunction(
@@ -109,7 +99,7 @@ check("moving to another repository swaps the repo-scoped phrases",
   `chips=${JSON.stringify(await qpChips())}`);
 await pageQp.evaluate(async () => {
   window.__mockGitChanges = { repo: false, root: null, files: [] };
-  const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
+  const { updateGitWatch } = await import("/src/features/git/git-watch.ts");
   updateGitWatch();
 });
 await pageQp.waitForFunction(

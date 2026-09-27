@@ -57,24 +57,6 @@ export function explorerParentContext(path: string): { text: string; full: strin
   return { text: compactExplorerPath(full), full };
 }
 
-export function explorerPathContext(text: string, full: string): HTMLSpanElement {
-  const context = document.createElement("span");
-  context.className = "exp-row-path";
-  context.textContent = text;
-  context.title = full;
-  return context;
-}
-
-/** 検索起点からの相対パス（配下ヒットの文脈表示用）。ルート直下は "." を返さない */
-export function relativeFromCwd(parent: string, root: string): string {
-  const base = root.endsWith("/") ? root : `${root}/`;
-  return parent.startsWith(base) ? parent.slice(base.length) : parent;
-}
-
-export function fsDefaultRoot(): string {
-  return getHostOs() === "windows" ? "C:/" : "/";
-}
-
 export type ShellSyntax = "posix" | "powershell" | "cmd";
 
 /** ペインのシェルの構文。spec.shell（明示指定）→ shellKind → ホスト OS の順で決める。
