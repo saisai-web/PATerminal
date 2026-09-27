@@ -68,6 +68,7 @@
           <button id="broadcast" aria-pressed="false" title="キー入力をこのセッション内の全ペインへ同時に送る (Cmd/Ctrl+Shift+B)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.5"/><path d="M16.2 7.8a6 6 0 0 1 0 8.5"/><path d="M4.9 19.1a10 10 0 0 1 0-14.1"/><path d="M19.1 4.9a10 10 0 0 1 0 14.1"/></svg></button>
           <button id="quick-phrases-open" data-i18n-aria-label="quick.toolbar" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="quick.toolbarTitle" title="よく使う定型文を管理・入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11.5H9L5 20v-3.5H4V5z"/><line x1="7.3" y1="9" x2="16.7" y2="9"/><line x1="7.3" y1="12.5" x2="13.5" y2="12.5"/></svg></button>
           <button id="pair-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="pair.toolbarTitle" title="ペアモード: 2つのエージェントペインの間で作業を受け渡します（実装×レビュー / クロスレビュー / ブレスト / ブレスト→共同実装）"><svg class="pair-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7.2" r="3.4"/><path d="M2.2 20.5v-.9a5.3 5.3 0 0 1 5.3-5.3h3a5.3 5.3 0 0 1 5.3 5.3v.9"/><path d="M15.6 4a3.4 3.4 0 0 1 0 6.4"/><path d="M18.6 14.6a5.3 5.3 0 0 1 3.2 4.9v1"/></svg></button>
+          <button id="prompt-history-open" data-i18n-aria-label="prompts.title" aria-haspopup="dialog" aria-expanded="false" aria-controls="prompt-history-panel" data-i18n-title="prompts.toolbarTitle" title="このセッションで claude / codex に送った入力を確認"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3.5 7.5 7.5 12 3.5 16.5"/><line x1="11" y1="7" x2="20.5" y2="7"/><line x1="11" y1="12" x2="20.5" y2="12"/><line x1="11" y1="17" x2="17" y2="17"/></svg></button>
           <button id="takeover-open" data-i18n-aria-label="takeover.toolbar" aria-haspopup="dialog" aria-expanded="false" aria-controls="history-panel" data-i18n-title="takeover.toolbarTitle" title="別のセッションの claude / codex の履歴を引き継ぐ"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><polyline points="3 4.5 3.3 8.8 7.6 8.5"/><polyline points="12 8 12 12.3 15.3 14.3"/></svg></button>
           <span class="spacer"></span>
           <span id="save-state" role="status" aria-live="polite" hidden><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v4m0 4h.01"/></svg></span>
@@ -514,6 +515,30 @@
             <button id="session-trash-clear" type="button" hidden></button>
           </div>
         </section>
+      </div>
+    </div>
+    <div id="prompt-history-overlay" hidden>
+      <div id="prompt-history-panel" role="dialog" aria-modal="true" aria-labelledby="prompt-history-title">
+        <header id="prompt-history-head">
+          <div id="prompt-history-heading">
+            <span id="prompt-history-title" data-i18n="prompts.title">入力履歴</span>
+            <span id="prompt-history-subtitle" data-i18n="prompts.subtitle">claude / codex に送った入力をセッションごとに確認できます</span>
+          </div>
+          <label id="prompt-history-search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+            <input id="prompt-history-search" type="search" spellcheck="false" autocomplete="off" data-i18n-placeholder="prompts.search" placeholder="入力を検索" />
+          </label>
+          <button id="prompt-history-refresh" class="ph-head-btn" type="button" data-i18n-title="prompts.refresh" data-i18n-aria-label="prompts.refresh" title="再読み込み"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+          <button id="prompt-history-close" class="ph-head-btn" type="button" data-i18n-title="prompts.close" data-i18n-aria-label="prompts.close" title="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div id="prompt-history-body">
+          <nav id="prompt-history-sessions" role="tree" data-i18n-aria-label="prompts.sessions"></nav>
+          <section id="prompt-history-main">
+            <div id="prompt-history-summary"></div>
+            <div id="prompt-history-status" aria-live="polite" hidden></div>
+            <div id="prompt-history-timeline"></div>
+          </section>
+        </div>
       </div>
     </div>
     <div id="pair-overlay" class="git-action-overlay" hidden>

@@ -46,10 +46,11 @@ import {
   updateWorkspaceNote,
 } from "./workspace/workspace";
 import { setFocused } from "./terminal/focus";
-import { groupById, groupPath } from "./workspace/groups";
+import { groupById, groupPath, sidebarEntries } from "./workspace/groups";
 import { getDeletedWorkspaces } from "./features/sidebar/session-trash";
 import { initSessionTrash } from "./features/sidebar/session-trash";
 import { initHistoryDialog } from "./features/history/history-dialog";
+import { initPromptHistory } from "./features/history/prompt-history";
 import { initPairMode, nextPairSessionName, notifyPairExit, updatePairStrip } from "./features/pair/pair";
 import { initLicense, onLicenseChange, requireFeature } from "./features/license/license";
 import { renderLockMarks } from "./features/license/lock-marks";
@@ -343,6 +344,25 @@ const takeoverTab = initTakeover({
 initHistoryDialog({
   takeover: takeoverTab,
   trash: sessionTrashTab,
+  focusTerminal: () => {
+    const ws = getActiveWs();
+    const fid = getFocusedId();
+    if (ws && fid) ws.panes.get(fid)?.focus();
+  },
+});
+
+// ---- 入力履歴（セッションごとに claude / codex へ送った入力） ----
+initPromptHistory({
+  targetPane: (ws) => {
+    if (getActiveWs() !== ws) setActive(ws);
+    const fid = getFocusedId();
+    return (fid ? ws.panes.get(fid) : undefined) ?? ws.panes.values().next().value ?? null;
+  },
+  showPane: (ws, paneId) => {
+    setActive(ws);
+    setFocused(paneId);
+  },
+  sidebarEntries,
   focusTerminal: () => {
     const ws = getActiveWs();
     const fid = getFocusedId();

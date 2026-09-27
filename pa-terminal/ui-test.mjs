@@ -48,6 +48,7 @@ import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
 import fileDrop from "./ui-tests/44-file-drop.mjs";
 import sessionView from "./ui-tests/44-session-view.mjs";
 import sessionViewNavigation from "./ui-tests/45-session-view-navigation.mjs";
+import promptHistory from "./ui-tests/46-prompt-history.mjs";
 
 import worktreePreferences from "./ui-tests/43-worktree-preferences.mjs";
 import finderOpen from "./ui-tests/44-finder-open.mjs";
@@ -74,6 +75,7 @@ const independentSuites = [
   ["session-view", sessionView],
   ["session-view-navigation", sessionViewNavigation],
   ["change-directory", changeDirectory],
+  ["prompt-history", promptHistory],
   ["worktree-preferences", worktreePreferences],
   ["restore-v4", restoreV4],
   ["migrate-v2", migrateV2],

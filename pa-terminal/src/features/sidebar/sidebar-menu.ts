@@ -25,6 +25,7 @@ import {
   clearWsSelection,
 } from "./sidebar-selection";
 import { renderSidebar } from "./sidebar";
+import { openPromptHistory } from "../history/prompt-history";
 import { attachLocationFlyout, osFolderPickLabel, pickFolderFromOs } from "./new-session-location";
 import { isArchiveSessionStatusFilterActive } from "./session-status-filter";
 import { collapsedGroups, groups, workspaces } from "../../workspace/state";
@@ -188,6 +189,17 @@ export function openGroupMenu(
       toggleWorkspacePinned(w);
     };
     pinItems.push(pin);
+  }
+  // 入力履歴は「すべて」に出るセッションだけが対象（アーカイブ済みには出さない）
+  if (!multi && !w.archived) {
+    const prompts = document.createElement("button");
+    prompts.textContent = t("prompts.menu");
+    lockClass(prompts);
+    prompts.onclick = () => {
+      closeGroupMenu();
+      openPromptHistory(w);
+    };
+    pinItems.push(prompts);
   }
 
   // 背景色は複数選択にも一括適用できる。混在中はどのスウォッチも未選択で表示する。
