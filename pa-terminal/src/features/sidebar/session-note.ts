@@ -12,6 +12,11 @@ let notePopoverCommit: (() => void) | null = null;
 let notePopoverDiscard: (() => void) | null = null;
 let notePopoverResizeObserver: ResizeObserver | null = null;
 
+/** メモの編集ポップオーバーが開いているか（自動入力が編集中の内容を上書きしないように） */
+export function isNoteEditing(): boolean {
+  return notePopoverEl !== null;
+}
+
 /** discard=true は Escape（編集を取り消して閉じる）。それ以外の閉じ方は確定する */
 function closeNotePopover(discard = false) {
   if (!notePopoverEl) return;

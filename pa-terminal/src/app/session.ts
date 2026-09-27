@@ -106,6 +106,7 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     id: ws.id,
     name: ws.name,
     note: ws.note,
+    noteTouched: ws.noteTouched || undefined,
     pinned: ws.pinned || undefined,
     archived: ws.archived || undefined,
     lastOpAt: ws.lastOpAt,
@@ -238,6 +239,7 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
     const id = workspaces.some((w) => w.id === saved.id) ? undefined : saved.id;
     const ws = createEmptyWorkspace(id, saved.name, saved.shellKind, saved.broadcast);
     ws.note = normalizeWorkspaceNote(saved.note);
+    ws.noteTouched = saved.noteTouched === true || undefined;
     ws.pinned = saved.pinned === true || undefined;
     ws.archived = saved.archived === true || undefined;
     ws.backgroundColor = normalizeWorkspaceBackgroundColor(saved.backgroundColor);
@@ -358,6 +360,7 @@ export async function boot() {
         for (const s of v4.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);
+          ws.noteTouched = s.noteTouched === true || undefined;
           ws.pinned = s.pinned === true || undefined;
           ws.archived = s.archived === true || undefined;
           ws.lastOpAt = Number.isFinite(s.lastOpAt) ? s.lastOpAt : undefined;
