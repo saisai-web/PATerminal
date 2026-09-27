@@ -51,6 +51,7 @@ import { getWorktreePrefs, setWorktreePrefs } from "../features/git/worktree";
 import { getPairDefaultCmds, setPairDefaultCmds } from "../features/pair/pair";
 import { createEmptyWorkspace, setActive } from "../workspace/workspace";
 import { normalizeWorkspaceNote } from "../workspace/note";
+import { normalizeAgentHistory, seedAgentHistory } from "../workspace/agent-history";
 import { getWorkspaceView, restoreWorkspaceView } from "../workspace/view";
 import {
   addDeletedWorkspace,
@@ -109,6 +110,7 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     archived: ws.archived || undefined,
     lastOpAt: ws.lastOpAt,
     backgroundColor: ws.backgroundColor,
+    agentHistory: ws.agentHistory?.length ? ws.agentHistory : undefined,
     group: ws.group,
     sidebarOrder: ws.sidebarOrder,
     shellKind: ws.shellKind,
@@ -220,6 +222,15 @@ function restoreTree(ws: Workspace, node: SerializedNode): TreeNode {
   };
 }
 
+/** 入力履歴の索引を戻す。記録機能より前のデータはペインの再開情報から補う */
+function restoreAgentHistory(
+  ws: Workspace,
+  saved: Pick<SerializedWorkspace, "agentHistory" | "root" | "lastOpAt">,
+): void {
+  ws.agentHistory = normalizeAgentHistory(saved.agentHistory);
+  seedAgentHistory(ws, saved.root, Number.isFinite(saved.lastOpAt) ? saved.lastOpAt! : Date.now());
+}
+
 /** 「最近削除したセッション」から、ペイン構成・表示履歴・再開情報をまとめて戻す。 */
 export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
   try {
@@ -233,6 +244,7 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
     ws.group = groupById(saved.group) ? saved.group : undefined;
     ws.sidebarOrder = Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined;
     ws.root = restoreTree(ws, saved.root);
+    restoreAgentHistory(ws, saved);
 
     // createEmptyWorkspace は末尾へ追加するため、元位置のヒントが有効なら差し戻す
     const from = workspaces.indexOf(ws);
@@ -353,6 +365,7 @@ export async function boot() {
           ws.group = validIds.has(s.group ?? "") ? s.group : undefined;
           ws.sidebarOrder = Number.isFinite(s.sidebarOrder) ? s.sidebarOrder : undefined;
           ws.root = restoreTree(ws, s.root);
+          restoreAgentHistory(ws, s);
         }
         for (const id of v4.collapsedGroups ?? []) {
           if (validIds.has(id)) collapsedGroups.add(id);

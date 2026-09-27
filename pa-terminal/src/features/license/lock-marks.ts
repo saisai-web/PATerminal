@@ -18,6 +18,7 @@ const LOCKED_SELECTORS = [
   "#takeover-open",
   "#git-open",
   "#worktree-open",
+  "#prompt-history-open",
 ];
 
 export function renderLockMarks() {

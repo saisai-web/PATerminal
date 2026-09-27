@@ -28,6 +28,7 @@ import type { PaneAgentInfo } from "../../workspace/types";
 import { isKnownAgent, isValidSessionId, resumeCommandFor } from "./agents";
 import { withTerminalScrollback } from "../../terminal/agent-launch";
 import { syncPathBar } from "./path-bar";
+import { rememberAgentConversation } from "../../workspace/agent-history";
 
 const SWEEP_MS = 5000;
 /** これ未満しか観測していないエージェントの終了にはバナーを出さない
@@ -146,6 +147,7 @@ function apply(pane: Pane, kind: string | null, now: number): void {
         pane.spec.agent = { kind };
         scheduleSave();
       }
+      recordConversation(pane);
       void resolveSessionId(pane);
     } else if (!state.resolved) {
       // 保存ファイルは初回メッセージまで作られないことがある。解決まで再試行
@@ -175,6 +177,13 @@ function apply(pane: Pane, kind: string | null, now: number): void {
     pane.spec.agent = undefined;
     scheduleSave();
   }
+}
+
+/** 実行中の会話をセッションの入力履歴索引へ足す（エージェント終了後も残る） */
+function recordConversation(pane: Pane): void {
+  const agent = pane.spec.agent;
+  if (!agent || !isValidSessionId(agent.sessionId)) return;
+  if (rememberAgentConversation(pane.ws, agent.kind, agent.sessionId)) scheduleSave();
 }
 
 /** 検知時点の cwd からエージェントのセッション ID を解決して spec.agent に足す。
@@ -212,6 +221,7 @@ async function resolveObservedSessionId(pane: Pane, state: WatchState): Promise<
         pane.spec.agent = { kind: state.kind, sessionId: id };
         scheduleSave();
       }
+      recordConversation(pane);
     }
   } catch {
     /* 旧バイナリ等。ID 無し（--continue へ退化）のまま */

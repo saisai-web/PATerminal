@@ -67,6 +67,7 @@ pub fn run() {
             // AI エージェントのセッション再開情報
             crate::agents::agent_session_id,
             crate::agents::list::agent_session_list,
+            crate::agents::prompts::agent_session_prompts,
             crate::agents::signal::agent_signal_init,
             // エクスプローラー / ファイルビューア
             crate::fsops::fs_list,

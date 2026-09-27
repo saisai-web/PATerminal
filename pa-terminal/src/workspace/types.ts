@@ -18,6 +18,15 @@ export type PaneAgentInfo = {
   useCurrentCwd?: boolean;
 };
 
+/** セッションで行われた AI エージェント会話の索引（入力履歴ダイアログ用）。
+    本文は持たず、CLI の保存ファイルを会話 ID で引く（workspace/agent-history.ts）。 */
+export type AgentConversationRef = {
+  kind: string;
+  sessionId: string;
+  /** このセッションで最初に観測した時刻（ms） */
+  seenAt: number;
+};
+
 export type PaneSpec = {
   title?: string;
   shell?: string;
@@ -85,6 +94,8 @@ export type Workspace = {
   lastOpAt?: number;
   /** サイドバー項目のテーマ対応背景色 */
   backgroundColor?: WorkspaceBackgroundColor;
+  /** このセッションで行われた claude / codex の会話（古い順） */
+  agentHistory?: AgentConversationRef[];
   /** 表示上の束ねのみ。WorkspaceGroup.id を保持する */
   group?: string;
   /** 同じ親階層でのサイドバー表示順。未指定の旧データは従来順へフォールバックする */
@@ -117,6 +128,7 @@ export type SerializedWorkspace = {
   /** 最後にアクティブ化した時刻（ms）。再起動後も「最近操作した順」を保つ */
   lastOpAt?: number;
   backgroundColor?: WorkspaceBackgroundColor;
+  agentHistory?: AgentConversationRef[];
   /** WorkspaceGroup.id。復元時にグループが無ければトップレベルへ退避する */
   group?: string;
   /** 同じ親階層でのサイドバー表示順 */
