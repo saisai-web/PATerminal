@@ -134,6 +134,33 @@ export default async function ({ browser, check, BASE_URL }) {
   check("side: choosing a place keeps the browser open without moving the terminal",
     (await page.locator(".pathbar-pop").count()) === 1);
 
+  // 場所列の右端をドラッグすると列だけ広がり、一覧側の幅を残す上限で止まる。幅は次回も残る
+  await page.evaluate(() => localStorage.removeItem("pa.folderBrowserSideWidth"));
+  const sideWidth = () => page.evaluate(() => document.querySelector(".pathbar-side").offsetWidth);
+  const dragSide = async (dx) => {
+    const box = await page.locator(".pathbar-side").boundingBox();
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width + dx, y, { steps: 4 });
+    await page.mouse.up();
+  };
+  check("side: the places column opens at its default width", (await sideWidth()) === 240, String(await sideWidth()));
+  await dragSide(120);
+  check("side: dragging the column edge widens the places column", (await sideWidth()) === 360, String(await sideWidth()));
+  await dragSide(400);
+  check("side: the column stops where the list keeps 280px", (await sideWidth()) === 480, String(await sideWidth()));
+  await dragSide(-400);
+  check("side: the column does not shrink below its minimum", (await sideWidth()) === 140, String(await sideWidth()));
+  await dragSide(160);
+  await page.keyboard.press("Escape");
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-row");
+  check("side: the column width is remembered for the next open", (await sideWidth()) === 300, String(await sideWidth()));
+  const sideBox = await page.locator(".pathbar-side").boundingBox();
+  await page.mouse.dblclick(sideBox.x + sideBox.width, sideBox.y + sideBox.height / 2);
+  check("side: double-clicking the column edge restores the default width", (await sideWidth()) === 240, String(await sideWidth()));
+
   // 右上の角をドラッグすると縮み、大きさは次回も残る。狭いと場所列は隠れる
   const grip = await page.locator(".pathbar-grip.is-xy").boundingBox();
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);

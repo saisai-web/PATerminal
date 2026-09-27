@@ -14,6 +14,7 @@
 // - 他機能の操作は main.ts から callback で受け取り、import の循環を作らない
 // - ブラウザーは既定 760×640 で開き、端のハンドルで大きさを変えられる（localStorage に残す）。
 //   広い間は左に「場所」列（ターミナルのフォルダー・ホーム・お気に入り・最近使った場所）を出す。
+//   「場所」列の幅も右端のハンドルで変えられ、別キーで localStorage に残す。
 //   作成・移動は表示中のフォルダーに対して右下のボタンからだけ行う（行ごとの操作は置かない）
 // - サイドバーの新規セッション入口（場所フライアウト）も openFolderPicker で同じブラウザーを
 //   開き、選んだフォルダーにセッションを作る
@@ -214,6 +215,32 @@ const MIN_W = 420;
 const MIN_H = 260;
 /** これ以上の幅では左に「場所」列（ホーム・お気に入り・最近使った場所）を出す */
 const SIDE_MIN_W = 600;
+// ---- 「場所」列の幅: 右端のハンドルで変えられ、ダブルクリックで既定へ戻す。一覧側は最低
+//      SIDE_LIST_MIN_W を残す（ブラウザーを狭めたときは列の方を詰める。保存値は変えない）
+const SIDE_W_KEY = "pa.folderBrowserSideWidth";
+const DEFAULT_SIDE_W = 240;
+const MIN_SIDE_W = 140;
+const MAX_SIDE_W = 480;
+const SIDE_LIST_MIN_W = 280;
+
+function loadSideWidth(): number {
+  try {
+    const v = JSON.parse(localStorage.getItem(SIDE_W_KEY) ?? "null");
+    if (Number.isFinite(v)) return v;
+  } catch {
+    /* 既定の幅で開く */
+  }
+  return DEFAULT_SIDE_W;
+}
+
+function saveSideWidth(width: number | null) {
+  try {
+    if (width === null) localStorage.removeItem(SIDE_W_KEY);
+    else localStorage.setItem(SIDE_W_KEY, JSON.stringify(width));
+  } catch {
+    /* 保存できなくても今回の表示には影響しない */
+  }
+}
 
 function loadSize(): { w: number; h: number } {
   try {
@@ -276,6 +303,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   let selected = 0;
   let closed = false;
   let size = loadSize();
+  let sideWidth = loadSideWidth();
   /** OS のフォルダ選択を開いている間は、ウィンドウの blur で閉じない */
   let osDialog = false;
 
@@ -301,6 +329,16 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   // ---- 左列: 場所（ターミナルのフォルダー・ホーム）/ お気に入り / 最近使った場所
   const side = document.createElement("div");
   side.className = "pathbar-side";
+  const sideGrip = document.createElement("div");
+  sideGrip.className = "pathbar-side-grip";
+  sideGrip.title = t("pathbar.resize");
+  sideGrip.setAttribute("aria-hidden", "true");
+  sideGrip.addEventListener("pointerdown", startSideResize);
+  sideGrip.addEventListener("dblclick", () => {
+    saveSideWidth(null);
+    sideWidth = DEFAULT_SIDE_W;
+    applySideWidth();
+  });
 
   // ---- 絞り込み
   const filterWrap = document.createElement("div");
@@ -324,7 +362,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   main.append(filterWrap, list);
   const body = document.createElement("div");
   body.className = "pathbar-body";
-  body.append(side, main);
+  body.append(side, sideGrip, main);
 
   // ---- 操作（表示中のフォルダに対して）
   const actions = document.createElement("div");
@@ -640,6 +678,45 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       pop.style.bottom = "";
     }
     pop.classList.toggle("has-side", w >= SIDE_MIN_W);
+    applySideWidth();
+  }
+
+  /** 保存した幅を、一覧側に SIDE_LIST_MIN_W を残す範囲で当てる */
+  function applySideWidth() {
+    const max = Math.min(MAX_SIDE_W, pop.offsetWidth - SIDE_LIST_MIN_W);
+    const w = Math.max(MIN_SIDE_W, Math.min(sideWidth, max));
+    side.style.width = `${w}px`;
+  }
+
+  function startSideResize(down: PointerEvent) {
+    down.preventDefault();
+    try {
+      sideGrip.setPointerCapture(down.pointerId);
+    } catch {
+      /* キャプチャ不可でも move は届く範囲で動く */
+    }
+    const startW = side.offsetWidth;
+    pop.classList.add("is-resizing");
+    closeFavMenu();
+    const move = (e: PointerEvent) => {
+      // 右から左の言語では列が右側に来るので、引く向きを反転する
+      const dx = e.clientX - down.clientX;
+      sideWidth = startW + (getComputedStyle(pop).direction === "rtl" ? -dx : dx);
+      applySideWidth();
+    };
+    const up = () => {
+      sideGrip.removeEventListener("pointermove", move);
+      sideGrip.removeEventListener("pointerup", up);
+      sideGrip.removeEventListener("pointercancel", up);
+      pop.classList.remove("is-resizing");
+      // 上限・下限に収めた後の実寸を残す
+      sideWidth = side.offsetWidth;
+      saveSideWidth(sideWidth);
+      filter.focus();
+    };
+    sideGrip.addEventListener("pointermove", move);
+    sideGrip.addEventListener("pointerup", up);
+    sideGrip.addEventListener("pointercancel", up);
   }
 
   function startResize(down: PointerEvent, axis: "x" | "y" | "xy") {

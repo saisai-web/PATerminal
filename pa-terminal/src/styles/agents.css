@@ -262,13 +262,32 @@
   flex: none;
   flex-direction: column;
   gap: 1px;
-  width: 190px;
+  width: 240px;
   padding: 8px 6px;
   overflow-y: auto;
   background: color-mix(in srgb, var(--pane-bg) 35%, var(--chrome));
   border-right: 1px solid var(--line);
 }
 .pathbar-pop.has-side .pathbar-side { display: flex; }
+/* 「場所」列の幅変更ハンドル: 境界線の上に幅0で置き、当たり判定だけ左右 3px ずつ広げる */
+.pathbar-side-grip {
+  display: none;
+  position: relative;
+  flex: none;
+  width: 0;
+  z-index: 2;
+}
+.pathbar-pop.has-side .pathbar-side-grip { display: block; }
+.pathbar-side-grip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: col-resize;
+}
+.pathbar-side-grip:hover::after { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .pathbar-side-head {
   padding: 10px 8px 4px;
   color: var(--dim);
