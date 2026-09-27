@@ -274,6 +274,8 @@ export const ar: Dict = {
   "pathbar.empty": "هذا المجلد فارغ",
   "pathbar.newSession": "جلسة جديدة",
   "pathbar.newSessionTitle": "بدء جلسة جديدة في هذا المجلد",
+  "pathbar.introTitle": "اختر المجلد الذي تريد فتحه في هذه الطرفية",
+  "pathbar.introHint": "انتقل إلى مجلد واضغط «{move}» لنقل هذه الطرفية إليه.",
   "pathbar.terminalDir": "مجلد الطرفية",
   "pathbar.places": "المواقع",
   "pathbar.chooseHere": "استخدام هذا المجلد",

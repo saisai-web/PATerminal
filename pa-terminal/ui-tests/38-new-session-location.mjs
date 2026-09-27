@@ -61,6 +61,9 @@ check("the new session starts with its folder browser open for moving",
     (await pop.locator(".pathbar-action.is-primary span").textContent()) === "ここへ移動");
 check("the browser has the filter focused", await page.evaluate(() =>
   document.activeElement === document.querySelector(".pathbar-filter input")));
+check("the auto-opened browser tells the user to choose a folder to open",
+  (await pop.locator(".pathbar-intro strong").textContent()) === "ターミナルで開きたいフォルダーを選択してください" &&
+    (await pop.locator(".pathbar-intro span").textContent()).includes("「ここへ移動」"));
 
 // --- そのまま「ここへ移動」で、作ったシェルが作業フォルダーへ cd する ---
 await pop.locator(".pathbar-row", { hasText: "proj" }).click();

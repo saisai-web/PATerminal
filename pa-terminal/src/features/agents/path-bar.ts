@@ -144,21 +144,21 @@ export function syncPathBar(pane: Pane, agent?: string | null): void {
 
 /** そのペインのフォルダーブラウザーを開く（バーのクリックから）。
     ブラウザーはペイン下部のバーに付いて開く */
-function openPathBrowser(pane: Pane): void {
+function openPathBrowser(pane: Pane, intro = false): void {
   syncPathBar(pane);
   const bar = pane.el.querySelector<HTMLDivElement>(":scope > .pane-pathbar");
   const button = bar?.querySelector<HTMLButtonElement>(".pane-pathbar-path");
   const cwd = bar?.dataset.cwd;
   if (!bar || !button || !cwd || bar.dataset.open === "true") return;
   deps?.focusPane(pane);
-  openBrowser(pane, bar, button, cwd);
+  openBrowser(pane, bar, button, cwd, intro);
 }
 
 /** 作成直後のペインでフォルダーブラウザーを開く（ルートに作ったセッションを作業フォルダーへ
-    移すため）。表示・layout が済んでからバーの位置に合わせて開く */
+    移すため）。表示・layout が済んでからバーの位置に合わせて開き、フォルダーを選ぶよう案内を出す */
 export function openPathBrowserAfterCreate(pane: Pane): void {
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (live(pane) && !pane.ws.layer.hidden) openPathBrowser(pane);
+    if (live(pane) && !pane.ws.layer.hidden) openPathBrowser(pane, true);
   }));
 }
 
@@ -198,6 +198,8 @@ type BrowserOpts = {
   pane?: { pane: Pane; bar: HTMLDivElement };
   /** 新規セッションの場所選び: 主ボタンで表示中フォルダーを onPick に渡す */
   pick?: { label: string; onPick: (path: string) => void };
+  /** 作成直後に自動で開いた: 見出しの上に「開きたいフォルダーを選択」の案内を出す */
+  intro?: boolean;
 };
 
 /** 「Finderから選択」の文言（ユーザーの呼び名に合わせて Finder / エクスプローラー） */
@@ -261,12 +263,18 @@ function saveSize(size: { w: number; h: number } | null) {
   }
 }
 
-function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement, start: string) {
+function openBrowser(
+  pane: Pane,
+  bar: HTMLDivElement,
+  anchor: HTMLButtonElement,
+  start: string,
+  intro = false,
+) {
   closeBrowser?.();
   if (!deps || !live(pane)) return;
   bar.dataset.open = "true";
   anchor.setAttribute("aria-expanded", "true");
-  openFolderBrowser({ start, anchor, pane: { pane, bar } }, (refocus) => {
+  openFolderBrowser({ start, anchor, pane: { pane, bar }, intro }, (refocus) => {
     delete bar.dataset.open;
     anchor.setAttribute("aria-expanded", "false");
     if (refocus && live(pane)) deps?.focusPane(pane);
@@ -313,6 +321,18 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   pop.classList.toggle("is-pick", !!opts.pick);
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", opts.pick ? opts.pick.label : t("pathbar.browse"));
+
+  // ---- 作成直後の案内（何をすればいいかを最初に目に入る位置で示す）
+  const intro = opts.intro ? document.createElement("div") : null;
+  if (intro) {
+    intro.className = "pathbar-intro";
+    intro.setAttribute("role", "status");
+    const title = document.createElement("strong");
+    title.textContent = t("pathbar.introTitle");
+    const hint = document.createElement("span");
+    hint.textContent = t("pathbar.introHint", { move: t("pathbar.move") });
+    intro.append(icon("folder", "pathbar-intro-icon"), title, hint);
+  }
 
   // ---- 見出し: 上へ / パンくず / 現在地へ戻る
   const head = document.createElement("div");
@@ -446,6 +466,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     return g;
   });
 
+  if (intro) pop.append(intro);
   pop.append(head, body, actions, ...grips);
   document.body.append(pop);
 

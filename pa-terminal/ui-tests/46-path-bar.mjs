@@ -107,6 +107,8 @@ export default async function ({ browser, check, BASE_URL }) {
   await page.keyboard.press("Backspace");
   await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "~");
   check("browser: Backspace on an empty filter goes up", true);
+  check("browser: opening from the path bar shows no new-session guidance",
+    (await page.locator(".pathbar-intro").count()) === 0);
   check("browser: offers root, copy, favorites, Finder, new session and move actions",
     JSON.stringify(await page.$$eval(".pathbar-action span", (els) => els.map((el) => el.textContent))) ===
       JSON.stringify(["ルート", "コピー", "お気に入り", "Finderから選択", "新規セッション", "ここへ移動"]));

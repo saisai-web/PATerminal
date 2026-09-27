@@ -274,6 +274,8 @@ export const th: Dict = {
   "pathbar.empty": "โฟลเดอร์นี้ว่างเปล่า",
   "pathbar.newSession": "เซสชันใหม่",
   "pathbar.newSessionTitle": "เริ่มเซสชันใหม่ในโฟลเดอร์นี้",
+  "pathbar.introTitle": "เลือกโฟลเดอร์ที่ต้องการเปิดในเทอร์มินัลนี้",
+  "pathbar.introHint": "ไปยังโฟลเดอร์ที่ต้องการแล้วกด “{move}” เพื่อย้ายเทอร์มินัลนี้ไปที่นั่น",
   "pathbar.terminalDir": "โฟลเดอร์ของเทอร์มินัล",
   "pathbar.places": "ตำแหน่ง",
   "pathbar.chooseHere": "ใช้โฟลเดอร์นี้",
