@@ -14,16 +14,9 @@ await page.addInitScript(() => { window.__mockHostOs = "windows"; });
 await page.goto(BASE_URL);
 await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(600);
-await page.click("#exp-reopen");
-await page.waitForTimeout(300);
-
-// --- 右パネルの現在地はドライブ配下のパスを表示する ---
-const expPath = await page.locator("#exp-folder").getAttribute("data-path");
-check("panel follows the pane cwd on a drive letter",
-  expPath === "C:/Users/user", `path=${expPath}`);
-
-// フォルダーブラウザーはドライブルートまで上がれる（Windows は "/" より上に出さない）
-await page.click("#exp-folder");
+// --- パスバーはドライブ配下のパスを表示し、フォルダーブラウザーはドライブルートまで上がれる
+// （Windows は "/" より上に出さない）
+await page.click(".workspace-layer:not([hidden]) .pane-pathbar-path");
 await page.waitForSelector(".pathbar-pop .pathbar-row");
 const upBtn = page.locator(".pathbar-pop-head .pathbar-icon-btn").first();
 await upBtn.click();

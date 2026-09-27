@@ -3,10 +3,6 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
-import {
-  isAgentPanelCollapsed,
-  setAgentPanelCollapsed,
-} from "../features/git/agent-panel";
 import { MAX_RATIO, MIN_RATIO, PRESETS } from "../shared/constants";
 import {
   getExplorerFavorites,
@@ -135,7 +131,6 @@ function serializeAll(): SessionV5 {
       notifications: isNotificationsEnabled(),
       quickPhrases: getQuickPhrases(),
       collapsed: {
-        changes: isAgentPanelCollapsed(),
         quickPhrases: isQuickPhraseBarCollapsed(),
         oneLine: true,
       },
@@ -300,7 +295,6 @@ export async function boot() {
   // oneLine マーカーが無い旧保存データは、以前の既定 false と明示展開を区別できないため
   // 初回だけ1行表示へ移行する。以後はユーザーが展開して保存した false もそのまま尊重する。
   const oneLineBars = savedSettings?.collapsed?.oneLine === true;
-  setAgentPanelCollapsed(oneLineBars ? savedSettings?.collapsed?.changes !== false : true);
   setQuickPhraseBarCollapsed(oneLineBars ? savedSettings?.collapsed?.quickPhrases !== false : true);
   setQuickPhrases(savedSettings?.quickPhrases);
   setRecentDirs(savedSettings?.recentDirs);

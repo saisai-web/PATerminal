@@ -12,8 +12,8 @@ check("sidebar shows 1 session", wsCount0 === 1, `items=${wsCount0}`);
 const sidebarBox0 = await page.locator("#sidebar").boundingBox();
 check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0) - 320) < 2,
   `width=${Math.round(sidebarBox0?.width ?? 0)}px`);
-check("explorer panel closed by default", await page.locator("#explorer").isHidden());
-check("toolbar has no explorer toggle", (await page.locator("#explorer-toggle").count()) === 0);
+check("the old right panel and change strip are gone",
+  (await page.locator("#explorer, #exp-reopen, #agent-panel, #explorer-toggle").count()) === 0);
 check("toolbar has no attachment or auto-enter controls",
   (await page.locator("#attach-image, #attach-file, #auto-enter-toggle, #auto-enter-overlay").count()) === 0);
 check("toolbar controls use icons with accessible names and tooltips",
@@ -21,12 +21,20 @@ check("toolbar controls use icons with accessible names and tooltips",
     button.textContent.trim() === "" && button.querySelector("svg") &&
     button.getAttribute("aria-label")?.trim() && button.title.trim())));
 check("toolbar contains no visible text", (await page.locator("#toolbar").innerText()).trim() === "");
-check("right-side explorer opener is visible by default",
-  await page.locator("#exp-reopen").isVisible() &&
-    (await page.locator("#exp-reopen svg").count()) === 1);
-await page.click("#exp-reopen");
+check("toolbar has a Git button with an icon",
+  await page.locator("#toolbar #git-open").isVisible() &&
+    (await page.locator("#git-open svg").count()) === 1);
+const gridBeforeGit = await page.locator("#grid").boundingBox();
+await page.click("#git-open");
 await page.waitForTimeout(300);
-check("right-side opener opens explorer", await page.locator("#explorer").isVisible());
+const gridWithGit = await page.locator("#grid").boundingBox();
+check("Git button opens the Git window over the terminals without resizing them",
+  await page.locator("#git-window").isVisible() &&
+    await page.locator("#git-open").getAttribute("aria-expanded") === "true" &&
+    JSON.stringify(gridBeforeGit) === JSON.stringify(gridWithGit),
+  `${JSON.stringify(gridBeforeGit)} → ${JSON.stringify(gridWithGit)}`);
+await page.keyboard.press("Escape");
+check("Escape closes the Git window", await page.locator("#git-window-overlay").isHidden());
 // ターミナル下のフッター余白: サイドバーの設定ボタン上の線と同じ高さに揃う
 const mainFootBox = await page.locator("#main-foot").boundingBox();
 const sideFootBox = await page.locator("#sidebar-foot").boundingBox();

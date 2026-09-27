@@ -1,5 +1,5 @@
-// worktree まわりの共有部品。作成モーダル（agent-panel）と Issue 実行フォーム・
-// エクスプローラー下部の Worktree タブ（git-panel）から使う。
+// worktree まわりの共有部品。作成モーダル（worktree-dialog）と Issue 実行フォーム・
+// Git ウィンドウの Worktree ビュー（git-window）から使う。
 //
 // - 作成先は「リポジトリ外」（既定・絶対パス / ~ / .. を許可・.gitignore は触らない）と
 //   「リポジトリ配下」（ルートの .gitignore へ自動追記）の2モード。

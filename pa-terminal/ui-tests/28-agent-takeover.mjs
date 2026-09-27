@@ -32,8 +32,9 @@ await page.waitForTimeout(300);
 // ---- 一覧の表示 ----
 check("history is in the focused pane header",
   await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible());
-check("takeover history is the last toolbar button",
-  await page.locator("#toolbar > button").last().getAttribute("id") === "takeover-open");
+check("takeover history sits just before the Git button at the end of the toolbar",
+  JSON.stringify(await page.locator("#toolbar > button").evaluateAll((buttons) =>
+    buttons.slice(-2).map((button) => button.id))) === JSON.stringify(["takeover-open", "git-open"]));
 await page.locator("#takeover-open").click();
 check("toolbar button opens the takeover modal",
   await page.locator("#takeover-panel").isVisible());

@@ -7,15 +7,13 @@
 @import "./styles/toolbar.css";
 @import "./styles/panes.css";
 @import "./styles/quick-phrase-bar.css";
-@import "./styles/agent-panel.css";
 @import "./styles/diff.css";
-@import "./styles/commit-modal.css";
 @import "./styles/git-modals.css";
 @import "./styles/commit-diff.css";
 @import "./styles/pr-overlay.css";
 @import "./styles/file-viewer.css";
-@import "./styles/explorer.css";
 @import "./styles/git-panel.css";
+@import "./styles/git-window.css";
 @import "./styles/settings.css";
 @import "./styles/quick-phrase-modal.css";
 @import "./styles/history-dialog.css";

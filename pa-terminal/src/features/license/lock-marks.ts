@@ -16,14 +16,7 @@ const LOCKED_SELECTORS = [
   "#pair-open",
   "#quick-phrases-open",
   "#takeover-open",
-  "#exp-git-branch",
-  "#exp-git-branch-expand",
-  "#exp-git-issues-tab",
-  "#exp-git-issues-expand",
-  "#exp-git-prs-tab",
-  "#exp-git-prs-expand",
-  "#exp-git-worktrees-tab",
-  "#exp-git-worktrees-expand",
+  "#git-open",
 ];
 
 export function renderLockMarks() {

@@ -4,8 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { updateWsActivity } from "../app/activity";
-import { updateGitWatch } from "../features/git/agent-panel";
-import { explorerFollow, focusedCwd } from "../features/explorer/explorer";
+import { updateGitWatch } from "../features/git/git-watch";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
 import { getActiveWs, panes, setFocusedId, workspaces } from "../workspace/state";
@@ -86,11 +85,7 @@ export function setFocused(id: string) {
     }
     focusedPane.focus();
   }
-  updateGitWatch(); // 変更ストリップの監視先もフォーカス先に即追従（定期ポーリングを待たない）
-  // 右パネルの現在地もフォーカス先の cwd へ。既知なら即時、実 cwd は updateGitWatch
-  // 経由の pty_cwd（resolveWatchCwd）が追って補正する
-  const c = focusedCwd();
-  if (c) explorerFollow(c);
+  updateGitWatch(); // git 監視の対象もフォーカス先に即追従（定期ポーリングを待たない）
 }
 
 /** 一斉入力を開始する。targetIds は自セッション以外の送信先（空ならセッション内で閉じる）。

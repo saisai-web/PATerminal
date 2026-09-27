@@ -28,7 +28,7 @@ type PathBarDeps = {
   openFile: (path: string) => void;
   /** ターミナルをフォルダへ移動する（シェルは cd、エージェントは切り替えダイアログ） */
   moveTo: (pane: Pane, path: string) => void;
-  /** お気に入りフォルダ（エクスプローラーと共有。保存もあちら） */
+  /** お気に入りフォルダ（新規セッションの場所と共有。保存は features/explorer） */
   favorites: () => string[];
   toggleFavorite: (path: string) => void;
   /** ペインをフォーカスする（setFocused） */
@@ -130,9 +130,9 @@ export function syncPathBar(pane: Pane, agent?: string | null): void {
   }
 }
 
-/** そのペインのフォルダーブラウザーを開く（バーのクリックと右パネルの入口から）。
+/** そのペインのフォルダーブラウザーを開く（バーのクリックから）。
     ブラウザーはペイン下部のバーに付いて開く */
-export function openPathBrowser(pane: Pane): void {
+function openPathBrowser(pane: Pane): void {
   syncPathBar(pane);
   const bar = pane.el.querySelector<HTMLDivElement>(":scope > .pane-pathbar");
   const button = bar?.querySelector<HTMLButtonElement>(".pane-pathbar-path");

@@ -860,9 +860,9 @@ export function openNewSessionForm(groupId?: string, cwd?: string) {
   }
   wsNewName.focus();
 }
-// サイドバー（セッション一覧）の開閉。エクスプローラーと同じく、たたんだ分だけ
+// サイドバー（セッション一覧）の開閉。たたんだ分だけ
 // グリッド幅が変わるので layout()（= refit）まで通す。開閉状態は保存しない
-// （エクスプローラーと揃えて、起動時は常に開いた状態にする）
+// （起動時は常に開いた状態にする）
 let sidebarOpen = true;
 
 export function isSidebarOpen(): boolean {
@@ -881,7 +881,7 @@ export function setSidebarOpen(open: boolean) {
 sidebarCollapseBtn.onclick = () => setSidebarOpen(false);
 sidebarReopenBtn.onclick = () => setSidebarOpen(true);
 
-// 右端ハンドルのドラッグで幅を変更。エクスプローラー（#exp-resize）の左右対称で、
+// 右端ハンドルのドラッグで幅を変更。
 // 最小幅よりさらに左へ押し込んで離すとたたむ。ドラッグ中は rAF で place のみ回し、
 // refit は確定時にまとめて行う（ペイン用ディバイダと同じ）。幅は保存しない
 const SIDEBAR_MIN_W = 150;

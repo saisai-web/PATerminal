@@ -58,7 +58,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 import { t, type MsgKey } from "../../i18n";
 import { requireFeature } from "../license/license";
-import { getGitRoot } from "../git/agent-panel";
+import { getGitRoot } from "../git/git-watch";
 import type { WorktreeList } from "../git/worktree";
 import { openQuickPhrasesFor } from "../quick-phrases/quick-phrases";
 import { getActiveWs, getFocusedId, getHostOs, workspaces } from "../../workspace/state";
@@ -500,7 +500,7 @@ function capturePaneTail(pane: Pane): string {
 }
 
 /** ペインのシェル実 cwd（pty_cwd）を優先し、取れなければ OSC 7 / spec.cwd に
-    フォールバックする（変更ストリップ・サイドバー git バッジと同じ解決順） */
+    フォールバックする（git 監視・サイドバー git バッジと同じ解決順） */
 async function resolvePaneCwd(pane: Pane): Promise<string | null> {
   if (pane.alive) {
     try {

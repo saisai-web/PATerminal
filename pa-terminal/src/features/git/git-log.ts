@@ -1,39 +1,61 @@
-// git セクションのコミット履歴（Branch タブ）: git_log の取得と描画、コミット行の
-// 右クリックメニュー（差分表示 / 巻き戻し）。
+// Git ウィンドウの「履歴」ビュー: git_log の取得と、コミットグラフ・ref チップつきの行の描画、
+// 検索、選んだコミットの詳細（変更ファイルと差分）、コミット行の右クリックメニュー
+// （差分表示 / 巻き戻し）。サイドバーのブランチ・タグからは revealCommit で該当行へ飛ぶ。
 //
-// コミット履歴（git_log）は変更ストリップの3秒ポーリング（pollGit）に相乗りする。
+// コミット履歴（git_log）は Git ウィンドウが開いている間だけ git 監視の3秒ポーリングに相乗りする。
 // 色は必ず CSS 変数経由（テーマ切替から漏れるため hex ハードコード禁止）。
 
 import { invoke } from "@tauri-apps/api/core";
-import { openCommitDiffOverlay } from "./diff-overlay";
+import { openCommitDiffOverlay, renderCommitDiffBody } from "./diff-overlay";
 import type { CommitDiff } from "./diff-overlay";
 import { getLang, t } from "../../i18n";
-import { getActiveTab } from "./git-panel";
+import { showGitWindowView } from "./git-window";
+import { showGitMsg } from "./git-actions";
 import { updateIssueTarget } from "./issues-tab";
 import { updatePrTarget } from "./pr-overlay";
 import type { GitCommit, GitLog } from "./git-panel-types";
+import { graphLanes, layoutGraph, renderGraphCell } from "./commit-graph";
 
-const sectionEl = document.querySelector<HTMLDivElement>("#exp-git")!;
-const branchEl = document.querySelector<HTMLButtonElement>("#exp-git-branch")!;
-const branchNameEl = document.querySelector<HTMLDivElement>("#exp-git-branch-name")!;
-const logEl = document.querySelector<HTMLDivElement>("#exp-git-log")!;
+const searchEl = document.querySelector<HTMLInputElement>("#gw-search")!;
+const logEl = document.querySelector<HTMLDivElement>("#gw-log")!;
+const detailEl = document.querySelector<HTMLDivElement>("#gw-commit-detail")!;
+
+/** 行の高さ（px）。グラフの線が行をまたいでつながるよう、CSS の .git-commit-row と揃える */
+const ROW_H = 40;
 
 let logBusy = false;
-let logToken = 0; // 遅れて返った古い応答を捨てる（expListToken と同じ流儀）
-let logSig = ""; // 前回描画のシグネチャ（無駄な再描画を避ける。gitSig と同じ流儀）
-// タブ見出しは固定ラベルなので、現在のブランチ名はタブ行の下の1行に出す。
-// タブ切替でも出し入れするので、最後に取れた表示文字列を持っておく
-let branchLine = "";
+let logToken = 0; // 遅れて返った古い応答を捨てる
+let logSig = ""; // 前回描画のシグネチャ（無駄な再描画を避ける）
+let lastCwd: string | null = null;
+let rerun = false; // 取得中に再要求が来たら、終わった直後にもう一度取る
+let lastLog: GitLog | null = null;
+let query = "";
+/** 詳細を表示中のコミット（完全ハッシュ。古い応答では短縮ハッシュ） */
+let selectedId: string | null = null;
+let detailToken = 0;
+/** 履歴を開いたとき、まだ何も選んでいなければ HEAD を選ぶ */
+let autoSelectHead = true;
+
+const commitKey = (c: GitCommit): string => c.id ?? c.hash;
 
 /** 言語切替時: 次の描画を強制する（シグネチャを捨てる） */
 export function renderGitLogTexts(): void {
   closeCommitMenu();
   logSig = "";
+  if (lastLog) renderGitSection(lastLog);
+  const c = lastLog?.commits.find((x) => commitKey(x) === selectedId);
+  if (c && lastLog?.root) void showCommitDetail(lastLog.root, c);
+  else renderDetailPlaceholder();
 }
 
 export async function pollLog(cwd: string): Promise<void> {
-  if (logBusy) return; // 前回の呼び出しが終わっていなければスキップ
+  lastCwd = cwd;
+  if (logBusy) {
+    rerun = true;
+    return;
+  }
   logBusy = true;
+  rerun = false;
   const token = ++logToken;
   try {
     const res = await invoke<GitLog>("git_log", { cwd }).catch(() => null);
@@ -43,79 +65,335 @@ export async function pollLog(cwd: string): Promise<void> {
     updatePrTarget(res);
   } finally {
     logBusy = false;
+    if (rerun && lastCwd) void pollLog(lastCwd);
   }
 }
 
 export function renderGitSection(res: GitLog | null): void {
-  const show = !!res?.repo;
-  sectionEl.hidden = !show;
-  if (!show) {
+  if (!res?.repo) {
     logSig = "";
-    branchLine = "";
-    renderBranchLine();
+    if (lastLog) {
+      lastLog = null;
+      selectedId = null;
+      autoSelectHead = true;
+      logEl.innerHTML = "";
+      renderDetailPlaceholder();
+    }
     updateIssueTarget(null);
     return;
   }
+  if (lastLog?.root !== res.root) {
+    // 別のリポジトリへ移った: 選択を捨てて HEAD から見せ直す
+    selectedId = null;
+    autoSelectHead = true;
+    renderDetailPlaceholder();
+  }
+  lastLog = res;
   // root も含める。別リポジトリに同じ履歴があってもクリック時の差分取得先を取り違えない。
-  const sig = JSON.stringify([res.root, res.branch, res.commits]);
-  if (sig === logSig) return;
-  closeCommitMenu();
-  logSig = sig;
-  // タブの見出しは他のタブと同じ固定ラベル（"Branch"）。ブランチ名は長いと
-  // タブ列が右へ伸びて Issue / PR / Worktree を押し出すので、title だけに持たせる
-  branchEl.title = res.branch ?? t("git.branchTitle");
-  // 代わりにタブ行の直下・コミット行の上に現在のブランチ名を1行で出す
-  branchLine = res.branch ? (res.detached ? res.branch : `⎇ ${res.branch}`) : "";
-  renderBranchLine();
+  const sig = JSON.stringify([res.root, res.branch, res.commits, query]);
+  if (sig !== logSig) {
+    closeCommitMenu();
+    logSig = sig;
+    renderRows(res);
+  }
+  maybeSelectHead();
+}
+
+function renderRows(res: GitLog): void {
+  const scrollTop = logEl.scrollTop;
   logEl.innerHTML = "";
   if (res.commits.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "git-commit-empty";
-    empty.textContent = t("git.noCommits");
-    logEl.append(empty);
+    logEl.append(emptyRow(t("git.noCommits")));
     return;
   }
-  for (const c of res.commits) {
-    logEl.append(buildCommitRow(res.root!, c));
+  const q = query.trim().toLowerCase();
+  if (q) {
+    // 検索中は間引いた行でグラフの線がつながらないので、グラフ列なしで並べる
+    logEl.classList.add("is-flat");
+    const hits = res.commits.filter((c) =>
+      [c.hash, c.id ?? "", c.subject, c.author, c.refs].some((v) => v.toLowerCase().includes(q)),
+    );
+    if (hits.length === 0) logEl.append(emptyRow(t("git.noMatches")));
+    for (const c of hits) logEl.append(buildCommitRow(res.root!, c, null));
+  } else {
+    logEl.classList.remove("is-flat");
+    const graph = layoutGraph(res.commits.map((c) => ({ id: commitKey(c), parents: c.parents ?? [] })));
+    const lanes = graphLanes(graph);
+    const frag = document.createDocumentFragment();
+    res.commits.forEach((c, i) => {
+      const cell = renderGraphCell(graph[i], lanes, ROW_H, {
+        head: isHeadCommit(c),
+        merge: (c.parents?.length ?? 0) > 1,
+      });
+      frag.append(buildCommitRow(res.root!, c, cell));
+    });
+    logEl.append(frag);
   }
+  logEl.scrollTop = scrollTop; // 3秒ごとの再描画で読んでいる位置を飛ばさない
 }
 
-/** ブランチ名の行は Branch タブのときだけ（Issue/PR/Worktree では出さない） */
-export function renderBranchLine(): void {
-  const show = getActiveTab() === "branch" && !!branchLine;
-  branchNameEl.hidden = !show;
-  branchNameEl.textContent = show ? branchLine : "";
-  branchNameEl.title = show ? branchLine : "";
+function emptyRow(text: string): HTMLDivElement {
+  const empty = document.createElement("div");
+  empty.className = "git-commit-empty";
+  empty.textContent = text;
+  return empty;
 }
 
-function buildCommitRow(root: string, c: GitCommit): HTMLDivElement {
+/** 履歴ビューが表示されたとき */
+export function historyViewShown(): void {
+  maybeSelectHead();
+}
+
+function maybeSelectHead(): void {
+  if (!autoSelectHead || !lastLog?.root || VIEW_HIDDEN()) return;
+  const head = lastLog.commits.find(isHeadCommit) ?? lastLog.commits[0];
+  if (!head) return;
+  autoSelectHead = false;
+  selectCommit(lastLog.root, head, false);
+}
+
+const VIEW_HIDDEN = (): boolean => logEl.closest<HTMLElement>(".gw-view")?.hidden ?? true;
+
+function selectCommit(root: string, c: GitCommit, scroll: boolean): void {
+  selectedId = commitKey(c);
+  autoSelectHead = false;
+  for (const row of logEl.querySelectorAll<HTMLElement>(".git-commit-row")) {
+    const on = row.dataset.id === selectedId;
+    row.classList.toggle("is-selected", on);
+    row.setAttribute("aria-selected", String(on));
+    if (on && scroll) row.scrollIntoView({ block: "center" });
+  }
+  void showCommitDetail(root, c);
+}
+
+/** サイドバーのブランチ・タグ: 先端コミットを履歴で選んで表示する */
+export function revealCommit(hash: string): void {
+  showGitWindowView("history");
+  const c = lastLog?.commits.find((x) => x.hash.startsWith(hash) || (x.id ?? "").startsWith(hash));
+  if (!c || !lastLog?.root) {
+    showGitMsg(t("gw.notInHistory"), "err");
+    return;
+  }
+  if (query) {
+    query = "";
+    searchEl.value = "";
+    renderRows(lastLog);
+    logSig = JSON.stringify([lastLog.root, lastLog.branch, lastLog.commits, query]);
+  }
+  selectCommit(lastLog.root, c, true);
+}
+
+function renderDetailPlaceholder(): void {
+  ++detailToken;
+  detailEl.innerHTML = "";
+  const empty = document.createElement("div");
+  empty.className = "gw-diff-placeholder";
+  empty.textContent = t("gw.selectCommit");
+  detailEl.append(empty);
+}
+
+async function showCommitDetail(root: string, c: GitCommit): Promise<void> {
+  const token = ++detailToken;
+  detailEl.innerHTML = "";
+  detailEl.append(buildDetailHead(c));
+  const body = document.createElement("div");
+  body.className = "gw-commit-detail-body is-loading";
+  detailEl.append(body);
+  const d = await invoke<CommitDiff>("git_commit_diff", { root, hash: c.hash }).catch(() => null);
+  if (token !== detailToken) return; // 取得中に別のコミットを選んだ
+  body.classList.remove("is-loading");
+  if (!d) {
+    body.append(emptyRow(t("git.commitNoDiff")));
+    return;
+  }
+  body.append(renderCommitDiffBody(d));
+}
+
+function buildDetailHead(c: GitCommit): HTMLDivElement {
+  const head = document.createElement("div");
+  head.className = "gw-commit-detail-head";
+  const subject = document.createElement("div");
+  subject.className = "gw-commit-detail-subject";
+  subject.textContent = c.subject;
+  const meta = document.createElement("div");
+  meta.className = "gw-commit-detail-meta";
+  const hash = document.createElement("code");
+  hash.textContent = c.id ?? c.hash;
+  const who = document.createElement("span");
+  who.textContent = c.author;
+  const when = document.createElement("span");
+  when.textContent = c.time
+    ? `${new Date(c.time * 1000).toLocaleString(getLang())} (${relTime(c.time)})`
+    : "";
+  meta.append(hash, who, when);
+  if ((c.parents?.length ?? 0) > 0) {
+    const parents = document.createElement("span");
+    parents.textContent = `${t("gw.parents")}: ${c.parents!.map((p) => p.slice(0, 7)).join(", ")}`;
+    meta.append(parents);
+  }
+  head.append(subject);
+  const refs = buildRefChips(c.refs);
+  if (refs) head.append(refs);
+  head.append(meta);
+  return head;
+}
+
+searchEl.addEventListener("input", () => {
+  query = searchEl.value;
+  if (lastLog) renderGitSection(lastLog);
+});
+// 入力済みの検索欄の Escape は文字だけ消す（ウィンドウは閉じない）
+searchEl.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && searchEl.value) {
+    e.preventDefault();
+    searchEl.value = "";
+    searchEl.dispatchEvent(new Event("input"));
+  }
+});
+
+// ============================================================
+// ref チップ（%D を --decorate=full で受け取り、ローカル / リモート / タグを見分ける）
+// ============================================================
+
+type RefChip = {
+  kind: "branch" | "remote" | "tag" | "detached";
+  name: string;
+  /** HEAD が指しているローカルブランチ */
+  current: boolean;
+  /** 同じコミットに同名のリモート追跡ブランチもある（ローカルとリモートが揃っている） */
+  remote: string | null;
+};
+
+const REMOTE_GUESS = /^(origin|upstream)\//;
+
+export function parseRefs(raw: string): RefChip[] {
+  const chips: RefChip[] = [];
+  const remotes: string[] = [];
+  for (let part of raw.split(",")) {
+    part = part.trim();
+    if (!part) continue;
+    if (part === "HEAD") {
+      chips.push({ kind: "detached", name: "HEAD", current: true, remote: null });
+      continue;
+    }
+    let current = false;
+    if (part.startsWith("HEAD -> ")) {
+      current = true;
+      part = part.slice("HEAD -> ".length);
+    }
+    if (part.startsWith("tag: ")) {
+      chips.push({ kind: "tag", name: part.slice(5).replace(/^refs\/tags\//, ""), current: false, remote: null });
+    } else if (part.startsWith("refs/remotes/")) {
+      const name = part.slice("refs/remotes/".length);
+      if (!name.endsWith("/HEAD")) remotes.push(name); // origin/HEAD は既定ブランチの別名なので出さない
+    } else if (part.startsWith("refs/heads/")) {
+      chips.push({ kind: "branch", name: part.slice("refs/heads/".length), current, remote: null });
+    } else if (!current && REMOTE_GUESS.test(part)) {
+      // 短縮名で届いた場合（古い応答）はよくあるリモート名から推測する
+      if (!part.endsWith("/HEAD")) remotes.push(part);
+    } else {
+      chips.push({ kind: "branch", name: part, current, remote: null });
+    }
+  }
+  // 同名のローカルとリモートは1つのチップにまとめる（狭いパネルで行を埋めないため）
+  for (const r of remotes) {
+    const local = chips.find(
+      (c) => c.kind === "branch" && !c.remote && r.slice(r.indexOf("/") + 1) === c.name,
+    );
+    if (local) local.remote = r;
+    else chips.push({ kind: "remote", name: r, current: false, remote: null });
+  }
+  const order = { detached: 0, branch: 1, remote: 2, tag: 3 };
+  return chips.sort((a, b) => Number(b.current) - Number(a.current) || order[a.kind] - order[b.kind]);
+}
+
+function isHeadCommit(c: GitCommit): boolean {
+  return /(^|,\s*)HEAD(\s|,|$)/.test(c.refs);
+}
+
+const ICONS: Record<RefChip["kind"] | "cloud", string> = {
+  branch: '<circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5" r="1.5"/><path d="M4.5 5v6M11.5 6.5c0 3-7 2.5-7 4.5"/>',
+  remote: '<path d="M4.5 12.5h7a3 3 0 0 0 .4-6 4 4 0 0 0-7.7 1A2.5 2.5 0 0 0 4.5 12.5z"/>',
+  tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.3" cy="5.3" r=".9"/>',
+  detached: '<circle cx="8" cy="8" r="3"/><path d="M8 1.5v3.5M8 11v3.5"/>',
+  cloud: '<path d="M4.5 12.5h7a3 3 0 0 0 .4-6 4 4 0 0 0-7.7 1A2.5 2.5 0 0 0 4.5 12.5z"/>',
+};
+
+function refIcon(kind: keyof typeof ICONS, cls = "git-ref-icon"): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("class", cls);
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = ICONS[kind];
+  return svg;
+}
+
+function buildRefChips(raw: string): HTMLSpanElement | null {
+  const chips = parseRefs(raw);
+  if (chips.length === 0) return null;
+  const wrap = document.createElement("span");
+  wrap.className = "git-commit-refs";
+  for (const c of chips) {
+    const chip = document.createElement("span");
+    chip.className = `git-ref git-ref-${c.kind}${c.current ? " is-current" : ""}`;
+    chip.append(refIcon(c.kind));
+    const label = document.createElement("span");
+    label.className = "git-ref-name";
+    label.textContent = c.name;
+    chip.append(label);
+    if (c.remote) {
+      chip.append(refIcon("cloud", "git-ref-synced"));
+      chip.dataset.remote = c.remote;
+    }
+    chip.title = [c.current ? `HEAD → ${c.name}` : c.name, c.remote].filter(Boolean).join(" · ");
+    wrap.append(chip);
+  }
+  wrap.title = chips.map((c) => [c.name, c.remote].filter(Boolean).join(" · ")).join(", ");
+  return wrap;
+}
+
+function buildCommitRow(root: string, c: GitCommit, graph: SVGSVGElement | null): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "git-commit-row";
+  row.dataset.id = commitKey(c);
+  const selected = commitKey(c) === selectedId;
+  row.classList.toggle("is-selected", selected);
+  row.setAttribute("aria-selected", String(selected));
+  if (isHeadCommit(c)) row.classList.add("is-head");
+  if ((c.parents?.length ?? 0) > 1) row.classList.add("is-merge");
   row.title = t("git.viewCommitDiff", { subject: c.subject });
-  row.role = "button";
+  row.role = "listitem";
   row.tabIndex = 0;
   row.setAttribute("aria-label", row.title);
-  const line1 = document.createElement("div");
-  const hash = document.createElement("span");
-  hash.className = "git-commit-hash";
-  hash.textContent = c.hash;
+  if (graph) {
+    // 狭いパネルではグラフ列をパネル幅の一定割合で切り詰める（本文を残す）
+    const cell = document.createElement("span");
+    cell.className = "git-graph-cell";
+    cell.append(graph);
+    row.append(cell);
+  }
+  // 行の中身は refs / subject / info の3つ。並べ方（件名の前にチップか、2行目にチップか）は
+  // パネル幅に応じて CSS（container query）が決める
+  const body = document.createElement("div");
+  body.className = "git-commit-body";
+  const refs = buildRefChips(c.refs);
+  if (refs) body.append(refs);
+  else body.classList.add("no-refs");
   const subject = document.createElement("span");
   subject.className = "git-commit-subject";
   subject.textContent = c.subject;
-  line1.append(hash, subject);
-  const line2 = document.createElement("div");
-  if (c.refs) {
-    const refs = document.createElement("span");
-    refs.className = "git-commit-refs";
-    refs.textContent = c.refs;
-    line2.append(refs);
-  }
+  const info = document.createElement("span");
+  info.className = "git-commit-info";
+  const hash = document.createElement("span");
+  hash.className = "git-commit-hash";
+  hash.textContent = c.hash;
   const meta = document.createElement("span");
   meta.className = "git-commit-meta";
   meta.textContent = `${c.author} · ${relTime(c.time)}`;
-  line2.append(meta);
-  row.append(line1, line2);
-  row.onclick = () => void openCommitDiff(root, c, row);
+  info.append(hash, meta);
+  body.append(subject, info);
+  row.append(body);
+  row.onclick = () => selectCommit(root, c, false);
   row.oncontextmenu = (e) => {
     e.preventDefault();
     openCommitMenu(root, c, row, e.clientX, e.clientY);
@@ -124,6 +402,15 @@ function buildCommitRow(root: string, c: GitCommit): HTMLDivElement {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       row.click();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = (e.key === "ArrowDown" ? row.nextElementSibling : row.previousElementSibling) as
+        | HTMLElement
+        | null;
+      if (next?.classList.contains("git-commit-row")) {
+        next.focus();
+        next.click();
+      }
     } else if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
       e.preventDefault();
       const box = row.getBoundingClientRect();
@@ -172,6 +459,7 @@ function openCommitMenu(
   closeCommitMenu();
   const menu = document.createElement("div");
   menu.id = "git-commit-ctx";
+  menu.className = "git-ctx-menu";
   menu.role = "menu";
   menu.append(commitMenuTitle(c));
 
@@ -253,9 +541,17 @@ window.addEventListener(
   },
   true,
 );
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeCommitMenu();
-});
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (commitMenuEl && e.key === "Escape") {
+      e.stopPropagation();
+      e.preventDefault(); // Git ウィンドウは閉じない
+      closeCommitMenu();
+    }
+  },
+  true,
+);
 window.addEventListener("blur", closeCommitMenu);
 window.addEventListener("resize", closeCommitMenu);
 

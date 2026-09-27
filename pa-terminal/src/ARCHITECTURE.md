@@ -16,8 +16,8 @@ src/
 │   ├── agents/             running-agent detection, resume banner, and the pane path bar / folder browser
 │   ├── attachments/        file drop handling and terminal path insertion
 │   ├── broadcast/          broadcast target picker for the toolbar toggle
-│   ├── explorer/           right panel (focused folder + git host), favorites, paths, and file viewer
-│   ├── git/                change strip, Git actions, PRs, Issues, and worktrees
+│   ├── explorer/           favorite folders, path helpers, and the file viewer
+│   ├── git/                Git window (file status, commit graph, branch sidebar, actions), PRs, Issues, and worktrees
 │   ├── history/            shared dialog for conversation and deleted-session history
 │   ├── license/            trial/license status, soft-lock gate, lock marks, purchase modal, banners
 │   ├── pair/               pair mode: implementer/reviewer panes handing work to each other

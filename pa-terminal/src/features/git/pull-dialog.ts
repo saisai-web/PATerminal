@@ -3,7 +3,7 @@
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentBranch, getGitRoot } from "./agent-panel";
+import { getCurrentBranch, getGitRoot } from "./git-watch";
 import { getRemoteBranches, getUpstreamBranch, isActionBusy, runGitAction } from "./git-actions";
 
 const pullBtn = document.querySelector<HTMLButtonElement>("#git-pull")!;

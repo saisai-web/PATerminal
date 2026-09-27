@@ -69,6 +69,7 @@
           <button id="quick-phrases-open" data-i18n-aria-label="quick.toolbar" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="quick.toolbarTitle" title="よく使う定型文を管理・入力"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11.5H9L5 20v-3.5H4V5z"/><line x1="7.3" y1="9" x2="16.7" y2="9"/><line x1="7.3" y1="12.5" x2="13.5" y2="12.5"/></svg></button>
           <button id="pair-open" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="pair.toolbarTitle" title="ペアモード: 2つのエージェントペインの間で作業を受け渡します（実装×レビュー / クロスレビュー / ブレスト / ブレスト→共同実装）"><svg class="pair-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7.2" r="3.4"/><path d="M2.2 20.5v-.9a5.3 5.3 0 0 1 5.3-5.3h3a5.3 5.3 0 0 1 5.3 5.3v.9"/><path d="M15.6 4a3.4 3.4 0 0 1 0 6.4"/><path d="M18.6 14.6a5.3 5.3 0 0 1 3.2 4.9v1"/></svg></button>
           <button id="takeover-open" data-i18n-aria-label="takeover.toolbar" aria-haspopup="dialog" aria-expanded="false" aria-controls="history-panel" data-i18n-title="takeover.toolbarTitle" title="別のセッションの claude / codex の履歴を引き継ぐ"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><polyline points="3 4.5 3.3 8.8 7.6 8.5"/><polyline points="12 8 12 12.3 15.3 14.3"/></svg></button>
+          <button id="git-open" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="git-window" data-i18n-title="gw.open" data-i18n-aria-label="gw.open" title="Git (Cmd/Ctrl+E)"><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 7.2v9.6"/><path d="M18 9.2c0 5-12 3.5-12 7.6"/></svg><span id="git-open-badge" aria-hidden="true" hidden></span></button>
           <span class="spacer"></span>
           <span id="save-state" role="status" aria-live="polite" hidden><svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v4m0 4h.01"/></svg></span>
         </div>
@@ -104,37 +105,6 @@
             <span id="quick-phrase-bar-hint" aria-live="polite"><!-- ショートカット / 選択中の操作ヒント --></span>
           </div>
         </div>
-        <!-- 初回起動は定型文バーと同じく1行表示から始める。保存済み設定は boot() が上書きする。 -->
-        <div id="agent-panel" class="is-collapsed" hidden>
-          <div id="agent-head">
-            <button id="agent-collapse" type="button" aria-expanded="false" aria-controls="agent-content" data-i18n-title="agent.expand" title="変更ストリップを開く">▸</button>
-            <button id="agent-title" type="button" data-i18n-title="agent.viewAllChanges" title="すべての変更を一覧表示" disabled>
-              <span id="agent-title-label">ChangeFile</span>
-              <span id="agent-summary" hidden></span>
-            </button>
-          </div>
-          <div id="agent-content">
-            <div id="git-changes" hidden>
-              <div id="git-changes-list"></div>
-            </div>
-            <div id="agent-empty" data-i18n="agent.empty">ターミナルで claude / codex を動かすと、作業フォルダ配下のファイル変更が自動でここに表示されます。</div>
-            <div id="git-actions" hidden>
-              <span id="git-msg" hidden></span>
-              <div id="git-branch-actions" class="git-action-row">
-                <select id="git-local-branch" data-i18n-title="agent.localBranchTitle" title="Local branch to check out"></select>
-                <button id="git-switch-branch" data-i18n="agent.switchBranch" data-i18n-title="agent.switchBranchTitle" title="Check out the selected local branch">Checkout</button>
-                <button id="git-stash" data-i18n="agent.stash" data-i18n-title="agent.stashTitle" title="Stash the changes shown here, including untracked files (git stash push -u)" disabled>Stash</button>
-                <button id="git-worktree" data-i18n="agent.worktree" data-i18n-title="agent.worktreeTitle" title="Choose a base branch and location to create a worktree">Worktree</button>
-              </div>
-              <div id="git-remote-actions" class="git-action-row">
-                <button id="git-commit" data-i18n="agent.commit" data-i18n-title="agent.commitTitle" title="Choose changes and write a commit message" disabled>Commit</button>
-                <button id="git-push" data-i18n="agent.push" data-i18n-title="agent.pushTitle" title="Push the current branch">Push</button>
-                <button id="git-fetch" data-i18n="agent.fetch" data-i18n-title="agent.fetchTitle" title="Fetch updates from all remotes">Fetch</button>
-                <button id="git-pull" data-i18n="agent.pull" data-i18n-title="agent.pullTitle" title="Choose a branch to pull into the current branch">Pull</button>
-              </div>
-            </div>
-          </div>
-        </div>
         <div id="pane-actions" hidden>
           <button id="pane-change-directory" type="button" aria-haspopup="dialog" data-i18n-title="move.title" title="Change working folder">
             <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5h6l2 2h10v13H3V7Z"></path><path d="M8 13h8m-3-3 3 3-3 3"></path></svg>
@@ -149,73 +119,119 @@
         <div id="grid"></div>
         <div id="main-foot"></div>
       </div>
-      <div id="explorer" hidden>
-        <div id="exp-resize" data-i18n-title="exp.resize" title="ドラッグで幅を変更（右へ押し込むと閉じる）"></div>
-        <div id="exp-head">
-          <button id="exp-folder" type="button" aria-haspopup="dialog" disabled>
-            <svg class="exp-folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h4.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z"/></svg>
-            <span id="exp-folder-text">
-              <span id="exp-folder-name"></span>
-              <span id="exp-folder-parent"></span>
-            </span>
-            <span id="exp-folder-open" data-i18n="exp.browse">開く</span>
-          </button>
-          <button id="exp-close" data-i18n-title="exp.close" title="エクスプローラーをたたむ (Cmd/Ctrl+E)">»</button>
-        </div>
-        <div id="exp-git" hidden>
-          <div id="exp-git-head">
-            <div id="exp-git-tabs" role="tablist">
-              <div class="exp-git-tab-item" role="presentation">
-                <button id="exp-git-branch-expand" class="exp-git-expand" type="button" data-git-tab="branch" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
-                </button>
-                <button id="exp-git-branch" class="is-active" role="tab" aria-selected="true" data-i18n="git.branch" title="現在のブランチ">Branch</button>
-              </div>
-              <div class="exp-git-tab-item" role="presentation">
-                <button id="exp-git-issues-expand" class="exp-git-expand" type="button" data-git-tab="issues" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
-                </button>
-                <button id="exp-git-issues-tab" role="tab" aria-selected="false" data-i18n="git.issues" data-i18n-title="git.issuesTitle" title="GitHub Issueを表示">Issues</button>
-              </div>
-              <div class="exp-git-tab-item" role="presentation">
-                <button id="exp-git-prs-expand" class="exp-git-expand" type="button" data-git-tab="prs" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
-                </button>
-                <button id="exp-git-prs-tab" role="tab" aria-selected="false" data-i18n="git.prs" data-i18n-title="git.prsTitle" title="GitHub PRを表示">PR</button>
-              </div>
-              <div class="exp-git-tab-item" role="presentation">
-                <button id="exp-git-worktrees-expand" class="exp-git-expand" type="button" data-git-tab="worktrees" aria-haspopup="dialog" aria-controls="git-panel-modal" aria-expanded="false">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3H3v3.2M9.8 13H13V9.8M3.3 3.3l3.8 3.8M12.7 12.7L8.9 8.9"/></svg>
-                </button>
-                <button id="exp-git-worktrees-tab" role="tab" aria-selected="false" data-i18n="git.worktrees" data-i18n-title="git.worktreesTitle" title="このリポジトリのworktreeを管理">Worktree</button>
-              </div>
-            </div>
-            <button id="exp-git-create-issue" type="button" data-i18n="issue.createAction" data-i18n-title="issue.createTitle" title="GitHub Issueを作成" hidden>作成</button>
-            <button id="exp-git-pr" hidden></button>
-            <button id="exp-git-refresh" data-i18n-title="git.refresh" title="PR情報を更新">⟳</button>
-          </div>
-          <div id="exp-git-branch-name" hidden><!-- 現在のブランチ名は JS が入れる --></div>
-          <div id="exp-git-log"><!-- コミット行は JS が生成 --></div>
-          <div id="exp-git-issues" hidden><!-- Issue 一覧は JS が生成 --></div>
-          <div id="exp-git-prs" hidden><!-- PR 一覧は JS が生成 --></div>
-          <div id="exp-git-worktrees" class="wt-list" hidden><!-- worktree 一覧は JS が生成 --></div>
-        </div>
-        <div id="exp-empty" data-i18n="exp.noRepo">このフォルダーは Git リポジトリではありません</div>
-      </div>
-      <button id="exp-reopen" data-i18n-title="exp.reopen" title="エクスプローラーを開く (Cmd/Ctrl+E)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a1.8 1.8 0 0 1 1.8-1.8h3.6l1.8 2h7.8A1.8 1.8 0 0 1 20.5 9v8a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17V7z"/><path d="m11 10-3 2 3 2"/></svg>
-      </button>
     </div>
-    <div id="git-panel-overlay" hidden>
-      <div id="git-panel-modal" role="dialog" aria-modal="true" aria-labelledby="git-panel-modal-title">
-        <div id="git-panel-modal-head">
-          <span id="git-panel-modal-mark" aria-hidden="true">Git</span>
-          <span id="git-panel-modal-title"></span>
-          <span id="git-panel-modal-root"></span>
-          <div id="git-panel-modal-actions"></div>
-          <button id="git-panel-modal-close" type="button" data-i18n-title="git.closeExpanded" title="拡大表示を閉じる">×</button>
+    <!-- Git ウィンドウ: ツールバーの Git ボタン / Cmd+E で開く。左サイドバー（ワークスペース・
+         ブランチ・リモート・タグ）と、選んだビュー（ファイルステータス・履歴・Issue・PR・Worktree） -->
+    <div id="git-window-overlay" hidden>
+      <div id="git-window" role="dialog" aria-modal="true" aria-labelledby="gw-title">
+        <header id="gw-head">
+          <div id="gw-repo">
+            <span id="gw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 7.2v9.6"/><path d="M18 9.2c0 5-12 3.5-12 7.6"/></svg></span>
+            <div id="gw-repo-text">
+              <span id="gw-title">Git</span>
+              <span id="gw-branch"></span>
+            </div>
+            <button id="gw-pr" type="button" hidden></button>
+          </div>
+          <div id="gw-tools" role="toolbar" data-i18n-aria-label="gw.actions">
+            <button id="git-commit" type="button" class="gw-tool" data-i18n-title="agent.commitTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M3 12h5.5M15.5 12H21"/></svg><span data-i18n="agent.commit"></span></button>
+            <button id="git-pull" type="button" class="gw-tool" data-i18n-title="agent.pullTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg><span data-i18n="agent.pull"></span></button>
+            <button id="git-push" type="button" class="gw-tool" data-i18n-title="agent.pushTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V9"/><path d="M7.5 13.5 12 9l4.5 4.5"/><path d="M5 4h14"/></svg><span data-i18n="agent.push"></span></button>
+            <button id="git-fetch" type="button" class="gw-tool" data-i18n-title="agent.fetchTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/><path d="M12 8.5v6"/><path d="m9.5 12.5 2.5 2.5 2.5-2.5"/></svg><span data-i18n="agent.fetch"></span></button>
+            <button id="git-worktree" type="button" class="gw-tool" data-i18n-title="agent.worktreeTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 7.2v9.6"/><path d="M18 9.2c0 5-12 3.5-12 7.6"/></svg><span data-i18n="agent.worktree"></span></button>
+            <button id="git-stash" type="button" class="gw-tool" data-i18n-title="agent.stashTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 4h18v4H3z"/><path d="M10 12h4"/></svg><span data-i18n="agent.stash"></span></button>
+          </div>
+          <button id="gw-refresh" type="button" class="gw-icon-btn" data-i18n-title="gw.refresh" data-i18n-aria-label="gw.refresh"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg></button>
+          <button id="gw-close" type="button" class="gw-icon-btn" data-i18n-title="gw.close" data-i18n-aria-label="gw.close">×</button>
+        </header>
+        <div id="gw-body">
+          <nav id="gw-side" data-i18n-aria-label="gw.sidebar">
+            <div id="gw-side-scroll">
+              <section class="gw-side-section">
+                <h3 class="gw-side-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="8.5" rx="1"/><path d="M6 14h4M8 11.5V14"/></svg><span data-i18n="gw.workspace"></span></h3>
+              <button id="gw-nav-status" type="button" class="gw-nav" data-gw-nav="status"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4z"/><path d="M9.5 2.5V5H12"/><path d="M6.3 9h3.4M8 7.3v3.4"/></svg><span data-i18n="gw.fileStatus"></span><span id="gw-status-count" class="gw-nav-count" hidden></span></button>
+              <button id="gw-nav-history" type="button" class="gw-nav" data-gw-nav="history"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg><span data-i18n="gw.history"></span></button>
+              <button id="gw-nav-search" type="button" class="gw-nav" data-gw-nav="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><span data-i18n="gw.search"></span></button>
+              <button id="gw-nav-worktrees" type="button" class="gw-nav" data-gw-nav="worktrees"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3.5h4l1.2 1.5H13v7.5H3z"/><path d="M8 8v3M6.5 9.5h3"/></svg><span data-i18n="git.worktrees"></span></button>
+              </section>
+              <section class="gw-side-section">
+                <h3 class="gw-side-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6 13.5v-2.2c0-.8.3-1.3.8-1.6-1.8-.2-3-1-3-2.8 0-.7.3-1.3.7-1.8-.1-.5-.1-1.1.1-1.6 0 0 .7-.1 1.8.7a6 6 0 0 1 3.2 0c1.1-.8 1.8-.7 1.8-.7.2.5.2 1.1.1 1.6.4.5.7 1.1.7 1.8 0 1.8-1.2 2.6-3 2.8.5.3.8.8.8 1.6v2.2"/></svg><span>GitHub</span></h3>
+              <button id="gw-nav-issues" type="button" class="gw-nav" data-gw-nav="issues"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1"/></svg><span data-i18n="git.issues"></span></button>
+              <button id="gw-nav-prs" type="button" class="gw-nav" data-gw-nav="prs"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="12.5" r="1.5"/><path d="M4.5 5v6M11.5 11V6.5A1.5 1.5 0 0 0 10 5H7.5"/><path d="m9 3.5-1.5 1.5L9 6.5"/></svg><span data-i18n="git.prs"></span></button>
+              </section>
+              <section class="gw-side-section" data-gw-refs="local">
+                <h3 class="gw-side-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5" r="1.5"/><path d="M4.5 5v6M11.5 6.5c0 3-7 2.5-7 4.5"/></svg><span data-i18n="gw.branches"></span></h3>
+                <div id="gw-branch-tree" class="gw-tree" role="tree"></div>
+              </section>
+              <section class="gw-side-section" data-gw-refs="remote">
+                <h3 class="gw-side-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6 4 4 0 0 0-7.7 1A2.5 2.5 0 0 0 4.5 12.5z"/></svg><span data-i18n="gw.remotes"></span></h3>
+                <div id="gw-remote-tree" class="gw-tree" role="tree"></div>
+              </section>
+              <section class="gw-side-section" data-gw-refs="tags">
+                <h3 class="gw-side-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.3" cy="5.3" r=".9"/></svg><span data-i18n="gw.tags"></span></h3>
+                <div id="gw-tag-tree" class="gw-tree" role="tree"></div>
+              </section>
+            </div>
+            <input id="gw-side-filter" type="search" spellcheck="false" autocomplete="off" data-i18n-placeholder="gw.filter" />
+          </nav>
+          <main id="gw-main">
+            <div id="gw-empty" hidden></div>
+            <section id="gw-view-status" class="gw-view">
+              <div id="gw-status-left">
+                <div class="gw-pane-head">
+                  <label id="gw-select-all-row">
+                    <input id="commit-select-all" type="checkbox" />
+                    <span data-i18n="agent.commitSelectAll"></span>
+                  </label>
+                  <span id="commit-selection-count" aria-live="polite"></span>
+                  <button id="gw-view-all-diff" type="button" class="gw-link-btn" data-i18n="gw.allChanges"></button>
+                </div>
+                <div id="gw-status-files" role="listbox" data-i18n-aria-label="gw.fileStatus"></div>
+                <div id="gw-commit-box">
+                  <textarea id="commit-message" maxlength="5000" autocomplete="off" spellcheck="false" data-i18n-placeholder="agent.commitMessagePlaceholder" data-i18n-aria-label="agent.commitMessage"></textarea>
+                  <div id="commit-error" role="alert" hidden></div>
+                  <div id="gw-commit-row">
+                    <label id="commit-push-row">
+                      <input id="commit-push-after" type="checkbox" />
+                      <span data-i18n="agent.commitAndPush"></span>
+                    </label>
+                    <span id="commit-shortcut" data-i18n="agent.commitShortcut"></span>
+                    <button id="commit-submit" type="button" data-i18n="agent.commitSelected" disabled></button>
+                  </div>
+                </div>
+              </div>
+              <div id="gw-status-diff">
+                <div id="gw-status-diff-head" hidden>
+                  <span id="gw-status-diff-path"></span>
+                  <span id="gw-status-diff-stats"></span>
+                </div>
+                <div id="gw-status-diff-body"></div>
+              </div>
+            </section>
+            <section id="gw-view-history" class="gw-view" hidden>
+              <div id="gw-history-bar">
+                <input id="gw-search" type="search" spellcheck="false" autocomplete="off" data-i18n-placeholder="git.searchPlaceholder" />
+              </div>
+              <div id="gw-log" role="list"></div>
+              <div id="gw-commit-detail"></div>
+            </section>
+            <section id="gw-view-issues" class="gw-view" hidden>
+              <div class="gw-view-head">
+                <span class="gw-view-title" data-i18n="git.issues"></span>
+                <button id="gw-create-issue" type="button" data-i18n="issue.createAction" data-i18n-title="issue.createTitle" hidden></button>
+              </div>
+              <div id="gw-issues" class="gw-list"></div>
+            </section>
+            <section id="gw-view-prs" class="gw-view" hidden>
+              <div class="gw-view-head"><span class="gw-view-title" data-i18n="git.prs"></span></div>
+              <div id="gw-prs" class="gw-list"></div>
+            </section>
+            <section id="gw-view-worktrees" class="gw-view" hidden>
+              <div class="gw-view-head"><span class="gw-view-title" data-i18n="git.worktrees"></span></div>
+              <div id="gw-worktrees" class="gw-list wt-list"></div>
+            </section>
+          </main>
         </div>
-        <div id="git-panel-modal-body"></div>
       </div>
     </div>
     <div id="diff-overlay" hidden>
@@ -226,41 +242,6 @@
           <button id="diff-close" data-i18n-title="agent.diffClose" title="差分表示を閉じる">×</button>
         </div>
         <div id="diff-body"></div>
-      </div>
-    </div>
-    <div id="commit-overlay" hidden>
-      <div id="commit-panel" role="dialog" aria-modal="true" aria-labelledby="commit-title">
-        <div id="commit-head">
-          <span id="commit-title" data-i18n="agent.commitDialogTitle">変更をコミット</span>
-          <span id="commit-branch"></span>
-          <button id="commit-close" data-i18n-title="agent.commitCancel" title="キャンセル">×</button>
-        </div>
-        <div id="commit-body">
-          <section id="commit-files-section">
-            <div class="commit-section-head">
-              <label id="commit-select-all-row">
-                <input id="commit-select-all" type="checkbox" checked />
-                <span data-i18n="agent.commitSelectAll">すべて選択</span>
-              </label>
-              <span id="commit-selection-count" aria-live="polite"></span>
-            </div>
-            <div id="commit-file-list"></div>
-          </section>
-          <section id="commit-message-section">
-            <label for="commit-message" data-i18n="agent.commitMessage">コミットメッセージ</label>
-            <textarea id="commit-message" maxlength="5000" autocomplete="off" spellcheck="false" data-i18n-placeholder="agent.commitMessagePlaceholder" placeholder="変更内容を入力..."></textarea>
-            <span id="commit-shortcut" data-i18n="agent.commitShortcut">Cmd/Ctrl+Enter でコミット</span>
-            <label id="commit-push-row">
-              <input id="commit-push-after" type="checkbox" />
-              <span data-i18n="agent.commitAndPush">コミット後にPush</span>
-            </label>
-            <div id="commit-error" role="alert" hidden></div>
-          </section>
-        </div>
-        <div id="commit-foot">
-          <button id="commit-cancel" data-i18n="agent.commitCancel">キャンセル</button>
-          <button id="commit-submit" data-i18n="agent.commitSelected" disabled>選択した変更をコミット</button>
-        </div>
       </div>
     </div>
     <div id="pull-overlay" class="git-action-overlay" hidden>

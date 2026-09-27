@@ -11,7 +11,7 @@
 import { generateWorktreeBranchName } from "./worktree-branch-name";
 import { invoke } from "@tauri-apps/api/core";
 import type { PrList, PrSummary } from "./git-panel-types";
-import { getGitRoot } from "./agent-panel";
+import { getGitRoot } from "./git-watch";
 import { isActionBusy, runGitAction } from "./git-actions";
 import { t } from "../../i18n";
 import { isPullDialogOpen } from "./pull-dialog";
@@ -76,8 +76,8 @@ const worktreeProgress = createWorktreeProgress(worktreePanel, "worktree");
 type WorktreeSource = "branch" | "pr";
 
 let worktreeDialogRoot: string | null = null;
-/** 変更ストリップの Worktree ボタンから開いたか（PR 側から開いたときは false） */
-let worktreeFollowsStrip = false;
+/** Git ウィンドウの Worktree ボタンから開いたか（PR 側から開いたときは false） */
+let worktreeFollowsWatch = false;
 let worktreeBeforeOpenSession: (() => void) | null = null;
 let worktreeLoading = false;
 let worktreeLoadToken = 0;
@@ -94,18 +94,18 @@ export function getWorktreeDialogRoot(): string | null {
 }
 
 /**
- * 変更ストリップが見るリポジトリが変わったら、ストリップから開いたモーダルは閉じる
- * （別リポジトリに対して作らせない）。PR 画面から開いたモーダルは Git パネル側の
- * リポジトリに紐づくので、ストリップの root（別ペインの cwd や未検出の null）では閉じない。
+ * git 監視（フォーカス中ペイン）のリポジトリが変わったら、Worktree ボタンから開いたモーダルは
+ * 閉じる（別リポジトリに対して作らせない）。PR 画面から開いたモーダルはその PR の
+ * リポジトリに紐づくので、監視の root（別ペインの cwd や未検出の null）では閉じない。
  */
-export function syncWorktreeDialogWithStrip(stripRoot: string | null): void {
-  if (!isWorktreeDialogOpen() || !worktreeFollowsStrip) return;
-  if (stripRoot !== worktreeDialogRoot) closeWorktreeDialog();
+export function syncWorktreeDialogWithWatch(watchRoot: string | null): void {
+  if (!isWorktreeDialogOpen() || !worktreeFollowsWatch) return;
+  if (watchRoot !== worktreeDialogRoot) closeWorktreeDialog();
 }
 
 /** PR 画面から root を指定して開いたモーダルを、その root の画面が閉じるときに一緒に閉じる */
 export function closeWorktreeDialogForRoot(root: string | null): void {
-  if (!isWorktreeDialogOpen() || worktreeFollowsStrip) return;
+  if (!isWorktreeDialogOpen() || worktreeFollowsWatch) return;
   if (root !== null && root === worktreeDialogRoot) closeWorktreeDialog();
 }
 
@@ -261,7 +261,7 @@ export function updateWorktreeDialog(): void {
 }
 
 type WorktreeDialogOptions = {
-  /** 対象リポジトリ。省略時は変更ストリップが見ているリポジトリ */
+  /** 対象リポジトリ。省略時は git 監視が見ているリポジトリ */
   root?: string;
   /**
    * PR モードで開く。一覧は呼び出し側が持っている open な PR をそのまま使い
@@ -273,7 +273,7 @@ type WorktreeDialogOptions = {
 };
 
 /**
- * Worktree モーダルを開く。変更ストリップの Worktree ボタン、PR 一覧・詳細の
+ * Worktree モーダルを開く。Git ウィンドウの Worktree ボタン、PR 一覧・詳細の
  * 「新規セッション」が共有する。どこから開いてもベースブランチは既定ブランチ、
  * 置き場所ラジオと読み込み中の無効化は同じ画面で出る。
  */
@@ -281,7 +281,7 @@ export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): P
   const root = options.root ?? getGitRoot();
   if (!root || isActionBusy()) return;
   worktreeDialogRoot = root;
-  worktreeFollowsStrip = options.root === undefined;
+  worktreeFollowsWatch = options.root === undefined;
   worktreeBeforeOpenSession = options.beforeOpenSession ?? null;
   worktreeRootEl.textContent = root;
   worktreeBaseSel.innerHTML = "";

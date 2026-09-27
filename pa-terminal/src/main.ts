@@ -7,8 +7,8 @@ import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-di
 import { initPathBar } from "./features/agents/path-bar";
 import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
-import { initAgentPanel } from "./features/git/agent-panel";
-import { initGitPanel } from "./features/git/git-panel";
+import { initGitWatch } from "./features/git/git-watch";
+import { closeGitWindow, initGitWindow } from "./features/git/git-window";
 import { initWsGit } from "./features/sidebar/ws-git";
 import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
@@ -21,10 +21,7 @@ import "./terminal/diag";
 import { broadcastWrite, toggleBroadcast } from "./terminal/focus";
 import { initBroadcastDialog, openBroadcastDialog } from "./features/broadcast/broadcast-dialog";
 import {
-  explorerFollow,
   getExplorerFavorites,
-  isExplorerOpen,
-  setExplorerOpen,
   toggleExpFavorite,
 } from "./features/explorer/explorer";
 import { layout, scheduleLayout } from "./terminal/layout";
@@ -153,6 +150,8 @@ initQuickPhrases({
 });
 initWorktreePrefs({ onChange: scheduleSave });
 const openWorktreeSession = ({ name, cwd, note }: { name: string; cwd: string; note?: string }) => {
+  // Git ウィンドウから作ったときは閉じて、新しいセッションのターミナルを見せる
+  closeGitWindow(false);
   const ws = createWorkspaceBesideActive(name, "default", { cwd });
   updateWorkspaceNote(ws, note);
   if (ws.note) renderSidebar();
@@ -271,9 +270,9 @@ onLicenseChange((s) => {
   renderLockMarks();
 });
 
-// ---- 変更ストリップ（ターミナル上部の git 自動表示） ----
+// ---- git 監視（ツールバーの Git ボタンのバッジと Git ウィンドウ） ----
 
-/** 変更ストリップが監視すべき cwd。フォーカス中ペインのシェルの実 cwd（pty_cwd）を
+/** git 監視が見るべき cwd。フォーカス中ペインのシェルの実 cwd（pty_cwd）を
     優先し、取れない環境（プロセス終了直後・旧バイナリ）は OSC 7 / spec.cwd に
     フォールバックする。OSC 7 はシェル統合が無いと飛ばず cd に追従できないため
     （Windows の PowerShell だけは PEB から cwd を読めないので、pty_spawn 側が
@@ -295,17 +294,11 @@ async function resolveWatchCwd(): Promise<string | null> {
   if (live && pane.alive && panes.get(pane.id) === pane) pane.setCwd(live, { fromPoll: true });
   const p = live ?? pane.cwd ?? pane.spec.cwd;
   if (!p) return null;
-  const n = normPath(p);
-  // エクスプローラーの追従もここに相乗り: OSC 7 が飛ばないシェルでも
-  // 3秒ポーリング + フォーカス移動契機で cd に追従できる。
-  // await 中にフォーカスが移った場合の古い cwd は反映しない
-  if (pane.id === getFocusedId()) explorerFollow(n);
-  return n;
+  return normPath(p);
 }
 
-initAgentPanel({ layout: () => layout(), resolveWatchCwd, onCollapseChange: scheduleSave });
-initGitPanel({
-  isExplorerOpen,
+initGitWatch({ resolveWatchCwd });
+initGitWindow({
   createIssueSession: ({ issueNumber, issueTitle, cwd, note }) => {
     const name = `#${issueNumber} ${issueTitle}`;
     openWorktreeSession({ name, cwd, note });
@@ -369,11 +362,9 @@ initHistoryDialog({
 // ドラッグ中は矩形だけ追従し、止まってから1回だけ refit する（TUI へ SIGWINCH を連射しない）
 window.addEventListener("resize", () => scheduleLayout());
 
-// エクスプローラーは起動時デフォルト非表示（右端アイコン / Cmd+E で開く）
 async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
-  setExplorerOpen(false, { save: false });
   // Finder から渡されたフォルダ（起動前の分も含む）は復元が終わってから開く
   flushPendingOpenDirs();
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・

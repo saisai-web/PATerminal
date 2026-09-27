@@ -121,16 +121,16 @@ export default async function ({ browser, check, BASE_URL }) {
   }, paneIds.a[1]);
   const anchor = await historyLine();
   await layer("d").locator(".pane-body").click();
-  await page.click("#exp-reopen");
+  await page.click("#sidebar-collapse");
   await page.waitForTimeout(300);
-  // The pane must neither snap to the bottom nor to the top. When the row count shrinks
-  // (the toolbar wraps once Files opens) and the restored cursor sits on the last row,
-  // xterm scrolls the buffer by the lost rows, so allow exactly that much drift.
+  // The pane must neither snap to the bottom nor to the top. When the row count changes
+  // with the width and the restored cursor sits on the last row, xterm scrolls the buffer
+  // by the lost rows, so allow exactly that much drift.
   const after = await historyLine();
   const drift = Math.abs(after.viewportY - anchor.viewportY);
-  check("history survives focus changes and opening Files in another session",
+  check("history survives focus changes and collapsing the sidebar in another session",
     drift <= Math.abs(anchor.rows - after.rows) && await sizesMatch());
-  await page.click("#exp-close");
+  await page.click("#sidebar-reopen");
   await page.waitForTimeout(300);
 
   const divider = page.locator("#grid > .workspace-divider.dir-row");

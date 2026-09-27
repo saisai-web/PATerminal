@@ -10,14 +10,13 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { copyText } from "../shared/clipboard";
 import { updateWsActivity } from "../app/activity";
-import { updateGitWatch } from "../features/git/agent-panel";
+import { updateGitWatch } from "../features/git/git-watch";
 import { MIN_FIT_COLS, MIN_FIT_ROWS, SNAPSHOT_LINES } from "../shared/constants";
 import { diag, diagPush } from "./diag";
 import { isLocked } from "../features/license/license";
 import { markSpawned, registerPane, requestResize, unregisterPane } from "./resize";
 import { PaneScrollbar } from "./scrollbar";
 import { withTerminalScrollback } from "./agent-launch";
-import { explorerFollow } from "../features/explorer/explorer";
 import { broadcastWrite, setFocused } from "./focus";
 import { t } from "../i18n";
 import { startInlineEdit } from "../shared/inline-edit";
@@ -638,11 +637,8 @@ export class Pane {
     scheduleSave();
     renderSidebar();
     if (!opts.fromPoll) updateWsGit(); // 非アクティブセッションの cd でもバッジを追従させる
-    // フォーカス中ペインの cd なら git 監視・右パネルの現在地も追従
-    if (this.id === getFocusedId()) {
-      if (!opts.fromPoll) updateGitWatch();
-      explorerFollow(path);
-    }
+    // フォーカス中ペインの cd なら git 監視も追従
+    if (this.id === getFocusedId() && !opts.fromPoll) updateGitWatch();
   }
 
   write(data: string, marksActivity = true) {

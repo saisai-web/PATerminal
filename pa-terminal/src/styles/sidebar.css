@@ -26,8 +26,7 @@
 }
 #sidebar-resize:hover, #sidebar-resize.is-dragging { background: var(--accent); }
 
-/* サイドバーをたたんでいる間だけ左端に出る再オープンタブ。
-   エクスプローラー側の #exp-reopen と左右対称に作る */
+/* サイドバーをたたんでいる間だけ左端に出る再オープンタブ */
 #sidebar-reopen {
   flex: none;
   width: 22px;

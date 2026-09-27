@@ -1,8 +1,10 @@
 export default async function (ctx) {
 const { browser, check, BASE_URL } = ctx;
+const MOD = ctx.MOD ?? "Meta";
 
 // ============================================================
-// 変更ストリップの git 操作（Checkout / Stash / Worktree と Commit / Push / Fetch / Pull）
+// Git ウィンドウの git 操作（Commit / Pull / Push / Fetch / Worktree / Stash と
+// サイドバーのブランチツリーからのチェックアウト、ファイルステータスのコミット欄）
 // ============================================================
 
 const pageGitOps = await browser.newPage({ viewport: { width: 1280, height: 820 } });
@@ -16,12 +18,45 @@ await pageGitOps.addInitScript(() => {
       { path: "src/new.ts", adds: 7, dels: 0, status: "A" },
     ],
   };
+  window.__mockGitFileDiff = { oldText: "one\ntwo\n", newText: "one\nTWO\nthree\n" };
   window.__mockGitBranches = {
     current: "main",
     upstream: "origin/main",
-    localBranches: ["develop", "main"],
-    branches: ["origin/develop", "origin/main"],
+    localBranches: ["develop", "feature/x", "feature/y", "main"],
+    branches: ["origin/develop", "origin/feature/z", "origin/main"],
     remotes: ["origin"],
+  };
+  const ref = (name, hash, extra = {}) => ({
+    name, hash, upstream: "", ahead: 0, behind: 0, gone: false, worktree: "", ...extra,
+  });
+  window.__mockGitRefs = {
+    head: "main",
+    local: [
+      ref("develop", "bbb2222", { upstream: "origin/develop", behind: 2 }),
+      ref("feature/x", "ccc3333", { ahead: 1 }),
+      ref("feature/y", "ddd4444"),
+      ref("main", "aaa1111", { upstream: "origin/main", worktree: "/repo" }),
+    ],
+    remote: [
+      ref("origin/develop", "bbb2222"),
+      ref("origin/feature/z", "eee5555"),
+      ref("origin/main", "aaa1111"),
+    ],
+    tags: [ref("v1.0", "aaa1111")],
+  };
+  // サイドバーの行クリック（履歴で先端コミットを表示）が見つけられる履歴
+  const now = Math.floor(Date.now() / 1000);
+  window.__mockGitLog = {
+    repo: true,
+    root: "/repo",
+    branch: "main",
+    detached: false,
+    commits: [
+      { hash: "aaa1111", id: "aaa1111000", parents: ["bbb2222000"], time: now - 3600,
+        author: "alice", refs: "HEAD -> refs/heads/main, tag: refs/tags/v1.0", subject: "main tip" },
+      { hash: "bbb2222", id: "bbb2222000", parents: [], time: now - 86400,
+        author: "bob", refs: "refs/heads/develop", subject: "develop tip" },
+    ],
   };
   // 作業中は develop。ベースブランチの初期値は現在のブランチではなく既定ブランチ（main）
   window.__mockWorktreeBranches = {
@@ -58,381 +93,420 @@ await pageGitOps.addInitScript(() => {
 await pageGitOps.goto(BASE_URL);
 await pageGitOps.waitForSelector(".pane", { timeout: 10000 });
 await pageGitOps.locator(".pane .pane-body").first().click();
-let gitOpsOpen = true;
-await pageGitOps.waitForSelector("#agent-panel:not([hidden])", { timeout: 8000 }).catch(() => { gitOpsOpen = false; });
-check("git change strip appears in a repo", gitOpsOpen);
-if (gitOpsOpen) {
-  const defaultStrip = await pageGitOps.evaluate(() => {
-    const chips = [...document.querySelectorAll(".agent-file-row")];
-    const changes = document.querySelector("#git-changes");
-    const actions = document.querySelector("#git-actions");
-    const collapseButton = document.querySelector("#agent-collapse");
-    const actionRows = [...document.querySelectorAll("#git-actions .git-action-row")];
-    const actionButtons = [...document.querySelectorAll("#git-remote-actions button")];
-    return {
-      compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
-      collapseButtonExpanded: collapseButton?.getAttribute("aria-expanded"),
-      collapseButtonText: collapseButton?.textContent,
-      changes: Boolean(changes?.getClientRects().length),
-      actions: Boolean(actions?.getClientRects().length),
-      actionCount: document.querySelectorAll("#git-actions button").length,
-      actionRowOverflow: actionRows.map((row) => getComputedStyle(row).overflowX),
-      actionRowTops: actionRows.map((row) => Math.round(row.getBoundingClientRect().top)),
-      actionRowWidths: actionRows.map((row) => Math.round(row.getBoundingClientRect().width)),
-      remoteButtonWidths: actionButtons.map((button) => Math.round(button.getBoundingClientRect().width)),
-      panelHeight: document.querySelector("#agent-panel")?.getBoundingClientRect().height ?? 0,
-      rows: new Set(chips.map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
-    };
-  });
-  check("git changes default to a compact all-changes button",
-    defaultStrip.compact === true
-      && defaultStrip.collapseButtonExpanded === "false" && defaultStrip.collapseButtonText === "▸"
-      && !defaultStrip.changes && defaultStrip.actions
-      && defaultStrip.actionCount === 7 && defaultStrip.rows === 1,
-    `state=${JSON.stringify(defaultStrip)}`);
-  check("compact git hides file chips and keeps commands in two horizontal-scroll rows",
-    defaultStrip.actionRowOverflow.every((value) => value === "auto")
-      && new Set(defaultStrip.actionRowTops).size === 2 && defaultStrip.panelHeight <= 52,
-    `state=${JSON.stringify(defaultStrip)}`);
-  check("compact git buttons form two aligned toolbars",
-    new Set(defaultStrip.actionRowWidths).size === 1
-      && Math.max(...defaultStrip.remoteButtonWidths) - Math.min(...defaultStrip.remoteButtonWidths) <= 1,
-    `state=${JSON.stringify(defaultStrip)}`);
-  await pageGitOps.locator("#agent-collapse").click();
-  await pageGitOps.waitForTimeout(120);
-  // 変更一覧と操作バーは縦積み。操作は用途ごとの2段に分かれる
-  const stripLayout = await pageGitOps.evaluate(() => {
-    const panel = document.querySelector("#agent-panel")?.getBoundingClientRect();
-    const changes = document.querySelector("#git-changes")?.getBoundingClientRect();
-    const actions = document.querySelector("#git-actions")?.getBoundingClientRect();
-    const branchRow = document.querySelector("#git-branch-actions")?.getBoundingClientRect();
-    const remoteRow = document.querySelector("#git-remote-actions")?.getBoundingClientRect();
-    const branchControlTops = [...document.querySelectorAll("#git-branch-actions > *")]
-      .map((el) => Math.round(el.getBoundingClientRect().top));
-    const remoteButtonWidths = [...document.querySelectorAll("#git-remote-actions button")]
-      .map((el) => Math.round(el.getBoundingClientRect().width));
-    return panel && changes && actions && branchRow && remoteRow ? {
-      panelHeight: panel.height,
-      changesTop: changes.top,
-      actionsBottom: actions.bottom,
-      branchBottom: branchRow.bottom,
-      remoteTop: remoteRow.top,
-      actionRowWidths: [Math.round(branchRow.width), Math.round(remoteRow.width)],
-      branchControlTops,
-      remoteButtonWidths,
-    } : null;
-  });
-  check("git actions sit above file changes",
-    Boolean(stripLayout && stripLayout.changesTop >= stripLayout.actionsBottom + 3),
-    `layout=${JSON.stringify(stripLayout)}`);
-  check("git action groups render on separate rows",
-    Boolean(stripLayout && stripLayout.remoteTop >= stripLayout.branchBottom + 3),
-    `height=${stripLayout?.panelHeight}`);
-  check("expanded git actions keep two aligned four-column toolbars",
-    Boolean(stripLayout && new Set(stripLayout.actionRowWidths).size === 1
-      && new Set(stripLayout.branchControlTops).size === 1
-      && Math.max(...stripLayout.remoteButtonWidths) - Math.min(...stripLayout.remoteButtonWidths) <= 1),
-    `layout=${JSON.stringify(stripLayout)}`);
-  check("two-row git strip stays compact",
-    Boolean(stripLayout && stripLayout.panelHeight <= 100),
-    `height=${stripLayout?.panelHeight}`);
-  await pageGitOps.locator("#git-worktree").hover();
-  const gitHoverStyle = await pageGitOps.locator("#git-worktree").evaluate((el) => {
-    const style = getComputedStyle(el);
-    return { color: style.color, borderColor: style.borderColor, boxShadow: style.boxShadow };
-  });
-  check("git controls glow on hover",
-    gitHoverStyle.boxShadow !== "none" && gitHoverStyle.borderColor === gitHoverStyle.color,
-    `style=${JSON.stringify(gitHoverStyle)}`);
-  const collapseHitBox = await pageGitOps.locator("#agent-collapse").boundingBox();
-  check("the change-strip collapse control has a practical hit target",
-    Boolean(collapseHitBox && collapseHitBox.width >= 28 && collapseHitBox.height >= 24),
-    `box=${JSON.stringify(collapseHitBox)}`);
-  // 1つのボタンで変更一覧を1行にし、操作バーを隠す（グリッドの高さも変わる）
-  const gridHeightExpanded = await pageGitOps.evaluate(
-    () => document.querySelector("#grid").getBoundingClientRect().height,
-  );
-  await pageGitOps.locator("#agent-collapse").click();
-  await pageGitOps.waitForTimeout(120);
-  const collapsedStrip = await pageGitOps.evaluate(() => {
-    const shown = (sel) => Boolean(document.querySelector(sel)?.getClientRects().length);
-    return {
-      compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
-      content: shown("#agent-content"),
-      changes: shown("#git-changes"),
-      files: shown("#git-changes-list .agent-file-row"),
-      actions: shown("#git-actions"),
-      title: shown("#agent-title"),
-      summary: document.querySelector("#agent-summary")?.textContent ?? "",
-      titleBox: document.querySelector("#agent-title")?.getBoundingClientRect().toJSON(),
-      actionButtonHeight: document.querySelector("#git-remote-actions button")?.getBoundingClientRect().height ?? 0,
-      gridHeight: document.querySelector("#grid").getBoundingClientRect().height,
-    };
-  });
-  check("collapse hides individual file changes and keeps the diff button with git actions",
-    collapsedStrip.compact === true && collapsedStrip.content && !collapsedStrip.changes
-      && !collapsedStrip.files && collapsedStrip.actions
-      && collapsedStrip.title,
-    `state=${JSON.stringify(collapsedStrip)}`);
-  check("collapsed strip keeps the change summary visible",
-    collapsedStrip.summary.startsWith("ChangeFile")
-      && collapsedStrip.summary.includes("2") && collapsedStrip.summary.includes("+9")
-      && collapsedStrip.summary.includes("-1"),
-    `summary="${collapsedStrip.summary}"`);
-  check("the all-changes button is larger than the compact git controls",
-    collapsedStrip.titleBox?.width >= 110 && collapsedStrip.titleBox?.height >= 34
-      && collapsedStrip.actionButtonHeight < collapsedStrip.titleBox.height / 2,
-    `state=${JSON.stringify(collapsedStrip)}`);
-  await pageGitOps.locator("#agent-title").hover();
-  const changeButtonHover = await pageGitOps.locator("#agent-title").evaluate((el) => {
-    const style = getComputedStyle(el);
-    return { color: style.color, borderColor: style.borderColor, boxShadow: style.boxShadow };
-  });
-  check("the all-changes button glows on hover",
-    changeButtonHover.boxShadow !== "none"
-      && changeButtonHover.borderColor === changeButtonHover.color,
-    `style=${JSON.stringify(changeButtonHover)}`);
-  check("the one-line strip gives the extra height back to the grid",
-    collapsedStrip.gridHeight > gridHeightExpanded,
-    `grid=${collapsedStrip.gridHeight} was=${gridHeightExpanded}`);
-  // たたんだあとに変更ファイルが増えても勝手に全展開しない
+
+const overlay = pageGitOps.locator("#git-window-overlay");
+const openGit = async () => {
+  if (await overlay.isHidden()) await pageGitOps.locator("#git-open").click();
+  await pageGitOps.waitForSelector("#git-window-overlay:not([hidden])", { timeout: 3000 });
+  await pageGitOps.waitForTimeout(150);
+};
+const closeGit = async () => {
+  if (await overlay.isVisible()) await pageGitOps.locator("#gw-close").click();
+  await pageGitOps.waitForSelector("#git-window-overlay", { state: "hidden", timeout: 3000 });
+};
+const openWorktreeModal = async () => {
+  await openGit();
+  await pageGitOps.locator("#git-worktree").click();
+};
+const refreshWatch = async () => {
   await pageGitOps.evaluate(async () => {
+    const { updateGitWatch } = await import("/src/features/git/git-watch.ts");
+    updateGitWatch();
+  });
+  await pageGitOps.waitForTimeout(300);
+};
+const toastDetail = async () =>
+  (await pageGitOps.locator("#git-toast .git-toast-detail").textContent()) ?? "";
+// 結果トーストに期待の文言が出るまで待つ（出なければ最後の状態を返す）
+const waitToast = async (text) => {
+  await pageGitOps.waitForFunction(
+    (t) => {
+      const toast = document.querySelector("#git-toast");
+      return toast && !toast.hidden
+        && (toast.querySelector(".git-toast-detail")?.textContent ?? "").includes(t);
+    },
+    text,
+    { timeout: 3000 },
+  ).catch(() => {});
+  return pageGitOps.evaluate(() => {
+    const toast = document.querySelector("#git-toast");
+    return {
+      visible: Boolean(toast && !toast.hidden),
+      kind: toast?.dataset.kind ?? "",
+      detail: toast?.querySelector(".git-toast-detail")?.textContent ?? "",
+    };
+  });
+};
+const callCount = (name) => pageGitOps.evaluate((n) => (window[n] ?? []).length, name);
+const waitCalls = (name, n) => pageGitOps.waitForFunction(
+  ([k, c]) => (window[k] ?? []).length >= c, [name, n], { timeout: 3000 },
+).catch(() => {});
+
+// ツールバーの Git ボタンは変更ファイル数をバッジで出す
+let badgeShown = true;
+await pageGitOps.waitForFunction(
+  () => document.querySelector("#git-open-badge")?.textContent === "2",
+  undefined,
+  { timeout: 8000 },
+).catch(() => { badgeShown = false; });
+check("Git button badge shows the number of changed files", badgeShown
+  && await pageGitOps.locator("#git-open-badge").isVisible(),
+  `badge=${await pageGitOps.locator("#git-open-badge").textContent()}`);
+
+// Git ウィンドウはターミナルの上に重なるだけで、グリッドを縮めない（resize を起こさない）。
+// 起動直後の fit による resize が落ち着いてから数える
+const countResizes = () => pageGitOps.evaluate(
+  () => (window.__ipcLog ?? []).filter((e) => e.cmd === "pty_resize").length);
+for (let i = 0, last = -1; i < 20; i++) {
+  const n = await countResizes();
+  if (n === last) break;
+  last = n;
+  await pageGitOps.waitForTimeout(250);
+}
+const gridBefore = await pageGitOps.evaluate(() => ({
+  rect: document.querySelector("#grid")?.getBoundingClientRect().toJSON(),
+  resizes: (window.__ipcLog ?? []).filter((e) => e.cmd === "pty_resize").length,
+}));
+await openGit();
+check("Git button opens the Git window", await overlay.isVisible());
+await pageGitOps.waitForTimeout(300);
+const gridAfter = await pageGitOps.evaluate(() => ({
+  rect: document.querySelector("#grid")?.getBoundingClientRect().toJSON(),
+  resizes: (window.__ipcLog ?? []).filter((e) => e.cmd === "pty_resize").length,
+}));
+check("opening the Git window does not resize the terminal grid",
+  JSON.stringify(gridBefore.rect) === JSON.stringify(gridAfter.rect)
+    && gridBefore.resizes === gridAfter.resizes,
+  `before=${JSON.stringify(gridBefore)} after=${JSON.stringify(gridAfter)}`);
+
+if (await overlay.isVisible()) {
+  const head = await pageGitOps.evaluate(() => ({
+    title: document.querySelector("#gw-title")?.textContent,
+    branch: document.querySelector("#gw-branch")?.textContent,
+    statusActive: document.querySelector("#gw-nav-status")?.getAttribute("aria-current"),
+    statusCount: document.querySelector("#gw-status-count")?.textContent,
+    statusView: document.querySelector("#gw-view-status")?.hidden === false,
+    empty: document.querySelector("#gw-empty")?.hidden,
+  }));
+  check("Git window shows the repository, current branch, and File status first",
+    head.title === "repo" && head.branch === "main" && head.statusActive === "page"
+      && head.statusCount === "2" && head.statusView && head.empty === true,
+    `head=${JSON.stringify(head)}`);
+  const toolLabels = await pageGitOps.locator("#gw-tools .gw-tool").allTextContents();
+  check("git action labels are English and ordered in the header",
+    JSON.stringify(toolLabels.map((s) => s.trim()))
+      === JSON.stringify(["Commit", "Pull", "Push", "Fetch", "Worktree", "Stash"]),
+    `labels=${JSON.stringify(toolLabels)}`);
+  const enabledWithChanges = await pageGitOps.evaluate(() =>
+    Object.fromEntries(["commit", "pull", "push", "fetch", "worktree", "stash"].map(
+      (id) => [id, !document.querySelector(`#git-${id}`)?.disabled])));
+  check("every git action is enabled in a repo with changes and remotes",
+    Object.values(enabledWithChanges).every(Boolean), `enabled=${JSON.stringify(enabledWithChanges)}`);
+
+  // 閉じ方: ×・Escape・背景クリック・Cmd/Ctrl+E（開くのも Cmd/Ctrl+E）
+  await pageGitOps.locator("#gw-close").click();
+  check("close button hides the Git window", await overlay.isHidden());
+  await pageGitOps.locator(".pane .xterm-helper-textarea").first().focus();
+  await pageGitOps.keyboard.press(`${MOD}+e`);
+  await pageGitOps.waitForTimeout(200);
+  check("Cmd/Ctrl+E opens the Git window from the terminal", await overlay.isVisible());
+  await pageGitOps.keyboard.press(`${MOD}+e`);
+  await pageGitOps.waitForTimeout(200);
+  check("Cmd/Ctrl+E inside the Git window closes it", await overlay.isHidden());
+  await openGit();
+  await pageGitOps.keyboard.press("Escape");
+  await pageGitOps.waitForTimeout(150);
+  check("Escape closes the Git window", await overlay.isHidden());
+  await openGit();
+  await pageGitOps.mouse.click(5, 5);
+  await pageGitOps.waitForTimeout(150);
+  check("clicking the backdrop closes the Git window", await overlay.isHidden());
+  await openGit();
+
+  // ============================================================
+  // ファイルステータス: 変更ファイル一覧と、選んだファイルの行番号付き差分
+  // ============================================================
+  const rows = await pageGitOps.evaluate(() =>
+    [...document.querySelectorAll("#gw-status-files .gw-file-row")].map((row) => ({
+      path: row.dataset.path,
+      checked: row.querySelector("input[type=checkbox]")?.checked,
+      status: row.querySelector(".gw-file-status")?.textContent,
+      base: row.querySelector(".gw-file-base")?.textContent,
+      dir: row.querySelector(".gw-file-dir")?.textContent,
+      adds: row.querySelector(".agent-file-adds")?.textContent,
+      dels: row.querySelector(".agent-file-dels")?.textContent,
+      selected: row.classList.contains("is-selected"),
+    })));
+  check("File status lists each change with status, name, folder, and line counts",
+    rows.length === 2
+      && rows[0].path === "src/app.ts" && rows[0].status === "M" && rows[0].base === "app.ts"
+      && rows[0].dir === "src" && rows[0].adds === "+2" && rows[0].dels === "-1"
+      && rows[1].path === "src/new.ts" && rows[1].status === "A" && rows[1].adds === "+7",
+    `rows=${JSON.stringify(rows)}`);
+  check("new changes are selected for commit by default", rows.every((r) => r.checked),
+    `rows=${JSON.stringify(rows)}`);
+  await pageGitOps.waitForSelector("#gw-status-diff-body .commit-diff-line", { timeout: 3000 }).catch(() => {});
+  const firstDiff = await pageGitOps.evaluate(() => ({
+    path: document.querySelector("#gw-status-diff-path")?.textContent,
+    lines: document.querySelectorAll("#gw-status-diff-body .commit-diff-line").length,
+  }));
+  check("the first file is selected and its diff is shown",
+    rows[0]?.selected && firstDiff.path === "src/app.ts" && firstDiff.lines > 0,
+    `diff=${JSON.stringify(firstDiff)}`);
+  await pageGitOps.locator('#gw-status-files .gw-file-row[data-path="src/new.ts"] .gw-file-base').click();
+  await pageGitOps.waitForTimeout(200);
+  const secondDiff = await pageGitOps.evaluate(() => ({
+    path: document.querySelector("#gw-status-diff-path")?.textContent,
+    selected: document.querySelector("#gw-status-files .gw-file-row.is-selected")?.dataset.path,
+    checked: document.querySelector('#gw-status-files .gw-file-row[data-path="src/new.ts"] input')?.checked,
+  }));
+  check("clicking a file row shows its diff without toggling its commit checkbox",
+    secondDiff.path === "src/new.ts" && secondDiff.selected === "src/new.ts" && secondDiff.checked === true,
+    `diff=${JSON.stringify(secondDiff)}`);
+
+  // すべての差分: 作業ツリー全体の差分を前面のオーバーレイで開く（Git ウィンドウは残る）
+  await pageGitOps.evaluate(() => {
+    window.__mockGitWorktreeDiff = {
+      patch: "diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n",
+      adds: 1, dels: 1, truncated: false,
+    };
+  });
+  await pageGitOps.locator("#gw-view-all-diff").click();
+  await pageGitOps.waitForSelector("#diff-overlay:not([hidden])", { timeout: 3000 }).catch(() => {});
+  const allDiffCall = await pageGitOps.evaluate(() => (window.__gitWorktreeDiffCalls ?? []).at(-1));
+  check("All changes opens the working-tree diff for the watched cwd",
+    await pageGitOps.locator("#diff-overlay").isVisible() && allDiffCall === "/home/user",
+    `call=${JSON.stringify(allDiffCall)}`);
+  await pageGitOps.keyboard.press("Escape");
+  await pageGitOps.waitForTimeout(150);
+  check("Escape closes only the diff overlay, keeping the Git window",
+    await pageGitOps.locator("#diff-overlay").isHidden() && await overlay.isVisible());
+  await openGit();
+
+  // ============================================================
+  // サイドバーのブランチツリー（ローカル / リモート / タグ）からのチェックアウト
+  // ============================================================
+  await pageGitOps.waitForSelector('#gw-branch-tree .gw-tree-leaf[data-ref="main"]', { timeout: 5000 }).catch(() => {});
+  const tree = await pageGitOps.evaluate(() => ({
+    local: [...document.querySelectorAll("#gw-branch-tree .gw-tree-leaf")].map((r) => r.dataset.ref),
+    folders: [...document.querySelectorAll("#gw-branch-tree .gw-tree-folder")].map((r) => ({
+      name: r.textContent, expanded: r.getAttribute("aria-expanded"),
+    })),
+    current: [...document.querySelectorAll("#gw-branch-tree .gw-tree-leaf.is-current")].map((r) => r.dataset.ref),
+    remote: [...document.querySelectorAll("#gw-remote-tree .gw-tree-leaf")].map((r) => r.dataset.ref),
+    remoteFolders: [...document.querySelectorAll("#gw-remote-tree .gw-tree-folder")].map((r) => ({
+      name: r.textContent, expanded: r.getAttribute("aria-expanded"),
+    })),
+    tags: [...document.querySelectorAll("#gw-tag-tree .gw-tree-leaf")].map((r) => r.dataset.ref),
+  }));
+  check("branch tree groups slash names into collapsed folders and marks the current branch",
+    JSON.stringify(tree.local) === JSON.stringify(["develop", "main"])
+      && JSON.stringify(tree.folders) === JSON.stringify([{ name: "feature", expanded: "false" }])
+      && JSON.stringify(tree.current) === JSON.stringify(["main"]),
+    `tree=${JSON.stringify(tree)}`);
+  check("remote tree opens each remote and lists its branches; tags are listed",
+    JSON.stringify(tree.remote) === JSON.stringify(["origin/develop", "origin/main"])
+      && tree.remoteFolders[0]?.name === "origin" && tree.remoteFolders[0]?.expanded === "true"
+      && tree.remoteFolders[1]?.name === "feature" && tree.remoteFolders[1]?.expanded === "false"
+      && JSON.stringify(tree.tags) === JSON.stringify(["v1.0"]),
+    `tree=${JSON.stringify(tree)}`);
+  await pageGitOps.locator("#gw-branch-tree .gw-tree-folder").first().click();
+  await pageGitOps.waitForTimeout(100);
+  const expandedFolder = await pageGitOps.evaluate(() => ({
+    expanded: document.querySelector("#gw-branch-tree .gw-tree-folder")?.getAttribute("aria-expanded"),
+    leaves: [...document.querySelectorAll("#gw-branch-tree .gw-tree-leaf")].map((r) => ({
+      ref: r.dataset.ref, label: r.querySelector(".gw-tree-name")?.textContent,
+    })),
+  }));
+  check("clicking a folder expands its branches, labelled by their last segment",
+    expandedFolder.expanded === "true"
+      && expandedFolder.leaves.some((l) => l.ref === "feature/x" && l.label === "x")
+      && expandedFolder.leaves.some((l) => l.ref === "feature/y" && l.label === "y"),
+    `folder=${JSON.stringify(expandedFolder)}`);
+  // フィルターは一致するブランチだけを、フォルダーを開いた状態で出す
+  await pageGitOps.locator("#gw-side-filter").fill("feature");
+  await pageGitOps.waitForTimeout(100);
+  const filtered = await pageGitOps.evaluate(() => ({
+    local: [...document.querySelectorAll("#gw-branch-tree .gw-tree-leaf")].map((r) => r.dataset.ref),
+    remote: [...document.querySelectorAll("#gw-remote-tree .gw-tree-leaf")].map((r) => r.dataset.ref),
+  }));
+  check("sidebar filter narrows branches and opens matching folders",
+    JSON.stringify(filtered.local) === JSON.stringify(["feature/x", "feature/y"])
+      && JSON.stringify(filtered.remote) === JSON.stringify(["origin/feature/z"]),
+    `filtered=${JSON.stringify(filtered)}`);
+  await pageGitOps.locator("#gw-side-filter").fill("");
+  await pageGitOps.waitForTimeout(100);
+
+  // クリック: 先端コミットを履歴で表示
+  await pageGitOps.locator('#gw-tag-tree .gw-tree-leaf[data-ref="v1.0"]').click();
+  await pageGitOps.waitForTimeout(200);
+  check("clicking a ref reveals its tip commit in History",
+    (await pageGitOps.locator("#gw-nav-history").getAttribute("aria-current")) === "page"
+      && await pageGitOps.locator("#gw-view-history").isVisible());
+
+  // 現在のブランチはダブルクリックしてもチェックアウトしない
+  await pageGitOps.locator('#gw-branch-tree .gw-tree-leaf[data-ref="main"]').dblclick();
+  await pageGitOps.waitForTimeout(300);
+  check("double-clicking the current branch does not check it out",
+    (await callCount("__gitSwitchBranchCalls")) === 0);
+  // ダブルクリック: ローカルはそのブランチへ切り替える（リポジトリルートで）
+  await pageGitOps.locator('#gw-branch-tree .gw-tree-leaf[data-ref="develop"]').dblclick();
+  await waitCalls("__gitSwitchBranchCalls", 1);
+  const switchCall = await pageGitOps.evaluate(() => (window.__gitSwitchBranchCalls ?? [])[0]);
+  check("double-clicking a local branch invokes git_switch_branch with root and branch",
+    switchCall?.root === "/repo" && switchCall?.branch === "develop", `call=${JSON.stringify(switchCall)}`);
+  const switchToast = await waitToast("Switched to branch 'develop'");
+  check("branch checkout result is shown in the toast",
+    switchToast.visible && switchToast.kind === "ok", `toast=${JSON.stringify(switchToast)}`);
+  // 右クリックメニュー: 現在のブランチの Checkout は押せない
+  await pageGitOps.locator('#gw-branch-tree .gw-tree-leaf[data-ref="main"]').click({ button: "right" });
+  const currentMenu = await pageGitOps.evaluate(() =>
+    [...document.querySelectorAll("#git-ref-ctx button")].map((b) => ({ text: b.textContent, disabled: b.disabled })));
+  check("context menu offers checkout, show in history, and copy; disabled for the current branch",
+    currentMenu.length === 3 && currentMenu[0].text === "チェックアウト" && currentMenu[0].disabled
+      && !currentMenu[1].disabled && !currentMenu[2].disabled,
+    `menu=${JSON.stringify(currentMenu)}`);
+  await pageGitOps.keyboard.press("Escape");
+  await pageGitOps.waitForTimeout(100);
+  check("Escape closes the ref menu but keeps the Git window",
+    (await pageGitOps.locator("#git-ref-ctx").count()) === 0 && await overlay.isVisible());
+  await pageGitOps.locator('#gw-branch-tree .gw-tree-leaf[data-ref="feature/x"]').click({ button: "right" });
+  await pageGitOps.locator("#git-ref-ctx button", { hasText: "チェックアウト" }).click();
+  await waitCalls("__gitSwitchBranchCalls", 2);
+  const menuSwitch = await pageGitOps.evaluate(() => (window.__gitSwitchBranchCalls ?? [])[1]);
+  check("context menu Checkout switches to a nested local branch",
+    menuSwitch?.root === "/repo" && menuSwitch?.branch === "feature/x", `call=${JSON.stringify(menuSwitch)}`);
+  await waitToast("feature/x");
+  // タグはチェックアウト項目を出さない
+  await pageGitOps.locator('#gw-tag-tree .gw-tree-leaf[data-ref="v1.0"]').click({ button: "right" });
+  const tagMenu = await pageGitOps.locator("#git-ref-ctx button").allTextContents();
+  check("tag context menu has no checkout", tagMenu.length === 2 && !tagMenu.includes("チェックアウト"),
+    `menu=${JSON.stringify(tagMenu)}`);
+  await pageGitOps.keyboard.press("Escape");
+  // リモートのダブルクリックは git_checkout_remote（同名ローカルへ / 追跡ブランチ作成）
+  await pageGitOps.locator('#gw-remote-tree .gw-tree-leaf[data-ref="origin/develop"]').dblclick();
+  await waitCalls("__gitCheckoutRemoteCalls", 1);
+  const remoteCall = await pageGitOps.evaluate(() => (window.__gitCheckoutRemoteCalls ?? [])[0]);
+  check("double-clicking a remote branch invokes git_checkout_remote",
+    remoteCall?.root === "/repo" && remoteCall?.branch === "origin/develop", `call=${JSON.stringify(remoteCall)}`);
+  await waitToast("Switched to a new branch");
+
+  // Stash: 監視中の cwd 配下を未追跡ごと退避する
+  await pageGitOps.locator("#git-stash").click();
+  await waitCalls("__gitStashCalls", 1);
+  const stashCwd = await pageGitOps.evaluate(() => (window.__gitStashCalls ?? [])[0]);
+  check("stash invokes git_stash with watched cwd", stashCwd === "/home/user", `cwd=${stashCwd}`);
+  const stashToast = await waitToast("Saved working directory");
+  check("stash result shown in the toast", stashToast.visible && stashToast.kind === "ok",
+    `toast=${JSON.stringify(stashToast)}`);
+
+  // ============================================================
+  // コミット: 上部の Commit はファイルステータスのコミット欄へ移ってメッセージにフォーカス
+  // ============================================================
+  const commitBtn = pageGitOps.locator("#git-commit");
+  check("commit button enables when changes exist", await commitBtn.isEnabled());
+  await commitBtn.click();
+  await pageGitOps.waitForTimeout(200);
+  const afterCommitBtn = await pageGitOps.evaluate(() => ({
+    status: document.querySelector("#gw-nav-status")?.getAttribute("aria-current"),
+    visible: document.querySelector("#gw-view-status")?.hidden === false,
+    focused: document.activeElement?.id,
+    modal: Boolean(document.querySelector("#commit-overlay")),
+  }));
+  check("Commit switches to File status and focuses the message instead of opening a modal",
+    afterCommitBtn.status === "page" && afterCommitBtn.visible
+      && afterCommitBtn.focused === "commit-message" && !afterCommitBtn.modal,
+    `state=${JSON.stringify(afterCommitBtn)}`);
+  const submitCommit = pageGitOps.locator("#commit-submit");
+  const pushAfterCommit = pageGitOps.locator("#commit-push-after");
+  check("commit box offers push after commit when a remote is available",
+    await pushAfterCommit.isVisible() && await pushAfterCommit.isEnabled()
+      && !(await pushAfterCommit.isChecked()));
+  check("commit submit requires a message", await submitCommit.isDisabled());
+  const selectionText = () => pageGitOps.locator("#commit-selection-count").textContent();
+  const allSelectedText = await selectionText();
+  // 全選択チェックでまとめて外す / 入れる
+  await pageGitOps.locator("#commit-select-all").uncheck();
+  const noneChecked = await pageGitOps.locator("#gw-status-files input:checked").count();
+  await pageGitOps.locator("#commit-message").fill("temp");
+  const disabledWithoutFiles = await submitCommit.isDisabled();
+  await pageGitOps.locator("#commit-message").fill("");
+  await pageGitOps.locator("#commit-select-all").check();
+  const allChecked = await pageGitOps.locator("#gw-status-files input:checked").count();
+  check("select all toggles every file and commit needs at least one file",
+    noneChecked === 0 && disabledWithoutFiles && allChecked === 2,
+    `none=${noneChecked} disabled=${disabledWithoutFiles} all=${allChecked}`);
+  await pageGitOps.locator('#gw-status-files .gw-file-row[data-path="src/new.ts"] input').uncheck();
+  const partialText = await selectionText();
+  const selectAllIndeterminate = await pageGitOps.locator("#commit-select-all").evaluate((el) => el.indeterminate);
+  check("unchecking a file updates the selection count and select-all state",
+    partialText !== allSelectedText && partialText.includes("1") && selectAllIndeterminate,
+    `before="${allSelectedText}" after="${partialText}"`);
+  // ポーリングで新しい変更が来たら既定でチェック、外したチェックはそのまま
+  await pageGitOps.evaluate(() => {
     window.__mockGitChanges = {
       ...window.__mockGitChanges,
       files: [...window.__mockGitChanges.files, { path: "src/late.ts", adds: 5, dels: 0, status: "A" }],
     };
-    const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
-    updateGitWatch();
   });
-  await pageGitOps.waitForTimeout(300);
-  const afterNewFile = await pageGitOps.evaluate(() => ({
-    compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
-    summary: document.querySelector("#agent-summary")?.textContent ?? "",
-  }));
-  check("new changed files do not expand the compact strip",
-    afterNewFile.compact === true && afterNewFile.summary.includes("3"),
-    `state=${JSON.stringify(afterNewFile)}`);
-  // 次の起動でも閉じたままにするため、たたんだ状態は session.json に残す
-  await pageGitOps.waitForFunction(
-    () => {
-      try { return JSON.parse(window.__savedSession).settings?.collapsed?.changes === true; }
-      catch { return false; }
-    },
-    undefined,
-    { timeout: 5000 },
-  ).catch(() => {});
-  const savedCollapsed = await pageGitOps.evaluate(
-    () => JSON.parse(window.__savedSession).settings?.collapsed);
-  check("collapsed strip state is persisted", savedCollapsed?.changes === true,
-    `collapsed=${JSON.stringify(savedCollapsed)}`);
-  await pageGitOps.evaluate(async () => {
+  await refreshWatch();
+  const afterNewFile = await pageGitOps.evaluate(() =>
+    Object.fromEntries([...document.querySelectorAll("#gw-status-files .gw-file-row")].map(
+      (row) => [row.dataset.path, row.querySelector("input")?.checked])));
+  check("a newly changed file is checked while an unchecked file stays unchecked across polls",
+    afterNewFile["src/late.ts"] === true && afterNewFile["src/new.ts"] === false
+      && afterNewFile["src/app.ts"] === true
+      && (await pageGitOps.locator("#git-open-badge").textContent()) === "3",
+    `rows=${JSON.stringify(afterNewFile)}`);
+  await pageGitOps.evaluate(() => {
     window.__mockGitChanges = {
       ...window.__mockGitChanges,
       files: window.__mockGitChanges.files.filter((f) => f.path !== "src/late.ts"),
     };
-    const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
-    updateGitWatch();
   });
-  await pageGitOps.waitForTimeout(300);
-  await pageGitOps.locator("#agent-collapse").click();
-  await pageGitOps.waitForTimeout(120);
-  const expandedStrip = await pageGitOps.evaluate(() => ({
-    compact: document.querySelector("#agent-panel")?.classList.contains("is-collapsed"),
-    actions: Boolean(document.querySelector("#git-actions")?.getClientRects().length),
-    changes: Boolean(document.querySelector("#git-changes")?.getClientRects().length),
-    summaryVisible: Boolean(document.querySelector("#agent-summary")?.getClientRects().length),
-    gridHeight: document.querySelector("#grid").getBoundingClientRect().height,
-  }));
-  check("expanding shows all changes and actions",
-    expandedStrip.compact === false && expandedStrip.actions && expandedStrip.changes
-      && expandedStrip.summaryVisible
-      && expandedStrip.gridHeight === gridHeightExpanded,
-    `state=${JSON.stringify(expandedStrip)} was=${gridHeightExpanded}`);
-  // 三角ボタン以外に「帯の空白」クリックでも開閉できる（見出し行・帯そのものが対象）
-  const stripBlankClick = (sel) => pageGitOps.evaluate((s) => {
-    document.querySelector(s).dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  }, sel);
-  const stripCompact = () => pageGitOps.evaluate(() =>
-    document.querySelector("#agent-panel")?.classList.contains("is-collapsed"));
-  // 文字選択のドラッグ直後は開閉しないが、選択が残ったままでも次の通常クリックは効く。
-  // getSelection() の有無だけを見続けると、以後の空白クリックが永久に無視される回帰になる。
-  const selectionClickStates = await pageGitOps.evaluate(() => {
-    const panel = document.querySelector("#agent-panel");
-    const content = document.querySelector("#agent-content");
-    const text = document.querySelector(".agent-file-name")?.firstChild;
-    if (!panel || !content || !text) return null;
-    panel.dispatchEvent(new PointerEvent("pointerdown", {
-      bubbles: true, button: 0, buttons: 1, pointerId: 1, clientX: 10, clientY: 10,
-    }));
-    panel.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true, buttons: 1, pointerId: 1, clientX: 30, clientY: 10,
-    }));
-    const range = document.createRange();
-    range.selectNodeContents(text);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const selectedText = selection?.toString() ?? "";
-    panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const afterDrag = panel.classList.contains("is-collapsed");
-    // The old selection is still present. Pointer movement alone must not make the
-    // next click look like a new text-selection drag.
-    panel.dispatchEvent(new PointerEvent("pointerdown", {
-      bubbles: true, button: 0, buttons: 1, pointerId: 2, clientX: 10, clientY: 10,
-    }));
-    panel.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true, buttons: 1, pointerId: 2, clientX: 30, clientY: 10,
-    }));
-    panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const afterPlainClick = panel.classList.contains("is-collapsed");
-    selection?.removeAllRanges();
-    // Keep the following hit-area checks independent if this regression is present.
-    if (panel.classList.contains("is-collapsed")) {
-      panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    }
-    return { afterDrag, afterPlainClick, selectedText };
-  });
-  check("drag-selecting text does not compact the strip",
-    selectionClickStates?.afterDrag === false && Boolean(selectionClickStates?.selectedText),
-    `state=${JSON.stringify(selectionClickStates)}`);
-  check("a stale text selection does not disable later blank clicks",
-    selectionClickStates?.afterPlainClick === true,
-    `state=${JSON.stringify(selectionClickStates)}`);
-  await stripBlankClick("#agent-panel");
-  await pageGitOps.waitForTimeout(120);
-  check("clicking the blank strip compacts it", (await stripCompact()) === true);
-  await pageGitOps.locator("#agent-summary .agent-file-adds").click();
-  await pageGitOps.waitForTimeout(120);
-  check("clicking the compact change summary opens the all-changes diff without expanding",
-    (await stripCompact()) === true && await pageGitOps.locator("#diff-overlay").isVisible());
-  await pageGitOps.keyboard.press("Escape");
-  // Keep the following head hit-area check independent if the regression above is present.
-  if ((await stripCompact()) === true) {
-    await pageGitOps.locator("#agent-collapse").click();
-    await pageGitOps.waitForTimeout(120);
-  }
-  await stripBlankClick("#agent-panel");
-  await pageGitOps.waitForTimeout(120);
-  await stripBlankClick("#agent-head");
-  await pageGitOps.waitForTimeout(120);
-  check("clicking the compact head expands the strip", (await stripCompact()) === false);
-  // 展開中は操作バーが帯の大半を占めるので、その背景も閉じる対象にする。
-  // 実際の操作部品をクリックしたときだけは閉じない。
-  await stripBlankClick("#git-actions");
-  await pageGitOps.waitForTimeout(80);
-  const actionBackgroundCollapsed = (await stripCompact()) === true;
-  check("clicking the git action background compacts the strip", actionBackgroundCollapsed);
-  if (actionBackgroundCollapsed) {
-    await stripBlankClick("#agent-head");
-    await pageGitOps.waitForTimeout(80);
-  }
-  await stripBlankClick("#git-local-branch");
-  await pageGitOps.waitForTimeout(80);
-  check("clicking a git action control does not compact the strip", (await stripCompact()) === false);
-  // ブランチ名は切替用セレクトだけに表示し、重複した現在ブランチ表示を置かない
-  check("strip does not duplicate the current branch label",
-    await pageGitOps.locator("#git-cur-branch").count() === 0);
-  check("pull branch select is not embedded in the strip",
-    await pageGitOps.locator("#git-branch").count() === 0);
-  const actionLabels = await pageGitOps.locator("#git-actions button").allTextContents();
-  check("git action labels are English and ordered by row",
-    JSON.stringify(actionLabels) === JSON.stringify(["Checkout", "Stash", "Worktree", "Commit", "Push", "Fetch", "Pull"]),
-    `labels=${JSON.stringify(actionLabels)}`);
-  const localOptCount = await pageGitOps.locator("#git-local-branch option").count();
-  const localSelVal = await pageGitOps.locator("#git-local-branch").inputValue();
-  check("local branch select lists branches and selects current",
-    localOptCount === 2 && localSelVal === "main" && await pageGitOps.locator("#git-switch-branch").isDisabled(),
-    `options=${localOptCount} sel=${localSelVal}`);
-  // ターミナル側で checkout されたら、セレクトは現在ブランチへ追従する
-  // （全 worktree はローカルブランチ一覧を共有するので、前の選択を残すとずれ続ける）
-  const setMockBranch = async (current, upstream) => {
-    await pageGitOps.evaluate(async ([cur, up]) => {
-      window.__mockGitBranches = { ...window.__mockGitBranches, current: cur, upstream: up };
-      const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
-      updateGitWatch();
-    }, [current, upstream]);
-    await pageGitOps.waitForTimeout(300);
-  };
-  await setMockBranch("develop", "origin/develop");
-  check("local branch select follows a checkout made outside the app",
-    (await pageGitOps.locator("#git-local-branch").inputValue()) === "develop"
-      && (await pageGitOps.locator("#git-switch-branch").isDisabled()),
-    `sel=${await pageGitOps.locator("#git-local-branch").inputValue()}`);
-  await setMockBranch("main", "origin/main");
-  check("local branch select returns to the current branch",
-    (await pageGitOps.locator("#git-local-branch").inputValue()) === "main");
-  await pageGitOps.locator("#git-local-branch").selectOption("develop");
-  // 選びかけの値は、現在ブランチが変わらないかぎりポーリングで巻き戻さない
-  await pageGitOps.evaluate(async () => {
-    document.querySelector("#git-local-branch").blur();
-    const { updateGitWatch } = await import("/src/features/git/agent-panel.ts");
-    updateGitWatch();
-  });
-  await pageGitOps.waitForTimeout(300);
-  check("a manual branch pick survives polling",
-    (await pageGitOps.locator("#git-local-branch").inputValue()) === "develop");
-  check("branch switch enables for another local branch", await pageGitOps.locator("#git-switch-branch").isEnabled());
-  await pageGitOps.locator("#git-switch-branch").click();
-  await pageGitOps.waitForTimeout(300);
-  const switchCall = await pageGitOps.evaluate(() => (window.__gitSwitchBranchCalls ?? [])[0]);
-  check("branch switch invokes git_switch_branch",
-    switchCall?.root === "/repo" && switchCall?.branch === "develop", `call=${JSON.stringify(switchCall)}`);
-  // Stash: Checkout の隣のボタンから、監視中の cwd 配下を未追跡ごと退避する
-  const stashPlacement = await pageGitOps.evaluate(() => {
-    const row = document.querySelector("#git-branch-actions");
-    return row ? [...row.children].map((el) => el.id) : null;
-  });
-  check("stash button sits next to checkout in the branch row",
-    JSON.stringify(stashPlacement)
-      === JSON.stringify(["git-local-branch", "git-switch-branch", "git-stash", "git-worktree"]),
-    `row=${JSON.stringify(stashPlacement)}`);
-  await pageGitOps.locator("#git-stash").click();
-  await pageGitOps.waitForTimeout(300);
-  const stashCwd = await pageGitOps.evaluate(() => (window.__gitStashCalls ?? [])[0]);
-  check("stash invokes git_stash with watched cwd", stashCwd === "/home/user", `cwd=${stashCwd}`);
-  const stashMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
-  check("stash result message shown", stashMsg.includes("Saved working directory"), `msg="${stashMsg}"`);
-  // コミット: ボタンからモーダルを開き、対象ファイルと複数行メッセージを選べる
-  const commitBtn = pageGitOps.locator("#git-commit");
-  check("commit button enables when changes exist", await commitBtn.isEnabled());
-  await commitBtn.click();
-  check("commit button opens modal", await pageGitOps.locator("#commit-overlay").isVisible());
-  check("commit modal selects every changed file by default",
-    await pageGitOps.locator("#commit-file-list input:checked").count() === 2);
-  const messageBox = await pageGitOps.locator("#commit-message").boundingBox();
-  check("commit modal shows a large message field",
-    Boolean(messageBox && messageBox.width >= 350 && messageBox.height >= 220),
-    `box=${JSON.stringify(messageBox)}`);
-  const submitCommit = pageGitOps.locator("#commit-submit");
-  const pushAfterCommit = pageGitOps.locator("#commit-push-after");
-  check("commit modal offers push after commit when a remote is available",
-    await pushAfterCommit.isVisible() && await pushAfterCommit.isEnabled()
-      && !(await pushAfterCommit.isChecked()));
-  check("commit submit requires a message", await submitCommit.isDisabled());
-  await pageGitOps.locator(".commit-file-choice").nth(1).locator("input").uncheck();
+  await refreshWatch();
   await pageGitOps.locator("#commit-message").fill("feat: add git actions\n\nOnly commit app.ts");
   await pushAfterCommit.check();
   check("commit enables with a selected file and message", await submitCommit.isEnabled());
-  await submitCommit.click();
-  await pageGitOps.waitForTimeout(300);
+  // Cmd/Ctrl+Enter で送信する
+  const pushesBeforeCommit = await callCount("__gitPushCalls");
+  await pageGitOps.locator("#commit-message").press(`${MOD}+Enter`);
+  await waitCalls("__gitCommitCalls", 1);
   const commitCall = await pageGitOps.evaluate(() => (window.__gitCommitCalls ?? [])[0]);
-  check("commit invokes git_commit with watched cwd, message, and selected paths",
+  check("Cmd/Ctrl+Enter commits via git_commit with watched cwd, message, and selected paths",
     commitCall?.cwd === "/home/user"
       && commitCall?.message === "feat: add git actions\n\nOnly commit app.ts"
       && JSON.stringify(commitCall?.paths) === JSON.stringify(["src/app.ts"]),
     `call=${JSON.stringify(commitCall)}`);
+  await waitCalls("__gitPushCalls", pushesBeforeCommit + 1);
   const commitPushCall = await pageGitOps.evaluate(() => (window.__gitPushCalls ?? []).at(-1));
   check("commit with push enabled invokes git_push after the commit",
-    commitPushCall?.root === "/repo", `call=${JSON.stringify(commitPushCall)}`);
-  const commitMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
+    (await callCount("__gitPushCalls")) === pushesBeforeCommit + 1 && commitPushCall?.root === "/repo",
+    `call=${JSON.stringify(commitPushCall)}`);
+  const commitToast = await waitToast("feat: add git actions");
+  await pageGitOps.waitForTimeout(100);
   const clearedMessage = await pageGitOps.locator("#commit-message").inputValue();
-  check("commit result shown, modal closed, and message cleared",
-    commitMsg.includes("feat: add git actions")
-      && await pageGitOps.locator("#commit-overlay").isHidden()
-      && clearedMessage === "",
-    `msg="${commitMsg}" input="${clearedMessage}"`);
+  check("commit result shown, message cleared, and the Git window stays open",
+    commitToast.visible && commitToast.kind === "ok" && commitToast.detail.includes("Everything up-to-date")
+      && clearedMessage === "" && !(await pushAfterCommit.isChecked()) && await overlay.isVisible(),
+    `toast=${JSON.stringify(commitToast)} input="${clearedMessage}"`);
+  // コミット失敗はコミット欄とトーストの両方に出す
+  await pageGitOps.evaluate(() => { window.__mockGitCommitResult = { error: "error: pathspec did not match" }; });
+  await pageGitOps.locator("#commit-message").fill("broken");
+  await submitCommit.click();
+  const commitErrToast = await waitToast("pathspec did not match");
+  const commitErrBox = (await pageGitOps.locator("#commit-error").textContent()) ?? "";
+  check("commit failure shows the error inline and keeps the message",
+    commitErrToast.kind === "err" && commitErrBox.includes("pathspec")
+      && await pageGitOps.locator("#commit-error").isVisible()
+      && (await pageGitOps.locator("#commit-message").inputValue()) === "broken",
+    `toast=${JSON.stringify(commitErrToast)} box="${commitErrBox}"`);
+  await pageGitOps.evaluate(() => { window.__mockGitCommitResult = undefined; });
+  await pageGitOps.locator("#commit-message").fill("");
+
   // Worktree から開くセッションが同じ階層へ入ることを検証するため、表示中セッションを
   // 一時グループで包む（グループ名ではなく安定 ID / DOM 階層で判定する）。
+  await closeGit();
   const worktreeSourceId = await pageGitOps.locator(".ws-item.is-active").getAttribute("data-ws-id");
   const worktreeSource = pageGitOps.locator(`.ws-item[data-ws-id="${worktreeSourceId}"]`);
   await worktreeSource.click({ button: "right" });
@@ -470,7 +544,7 @@ if (gitOpsOpen) {
     `sidebar=${JSON.stringify(sidebarBeforeWorktree)}`);
   const spawnsBeforeWorktree = await pageGitOps.evaluate(() => window.__ptySpawns.length);
   // Worktree: ボタンから作成元・新規ブランチ・格納先を選ぶ。既定はリポジトリ外
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   const defaultDirectory = await pageGitOps.locator("#worktree-directory").inputValue();
   const defaultBase = await pageGitOps.locator("#worktree-base").inputValue();
@@ -506,11 +580,14 @@ if (gitOpsOpen) {
       && worktreeCall?.location === "inside"
       && worktreeCall?.inherit === false,
     `call=${JSON.stringify(worktreeCall)}`);
-  const worktreeMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
+  const worktreeMsg = await toastDetail();
   check("worktree result is shown and the modal closes",
     worktreeMsg.includes("/repo/.worktree/feature-strip-worktree")
       && await pageGitOps.locator("#worktree-overlay").isHidden(),
     `msg=${worktreeMsg}`);
+  // 新しいセッションのターミナルを見せるため、Git ウィンドウも閉じる
+  check("creating a worktree session closes the Git window",
+    await pageGitOps.locator("#git-window-overlay").isHidden());
   const worktreeSpawn = await pageGitOps.evaluate(() => window.__ptySpawns.at(-1));
   const worktreeSession = await pageGitOps.evaluate(({ sourceId, branch }) => {
     const items = [...document.querySelectorAll(".ws-item")];
@@ -542,7 +619,7 @@ if (gitOpsOpen) {
     worktreeSession.sameGroup && worktreeSession.immediatelyAfter,
     `session=${JSON.stringify(worktreeSession)}`);
   // 引き継ぐ / 引き継がないの選択は次回のモーダルにも残る
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   check("worktree modal remembers the inherit choice",
     await pageGitOps.locator("#worktree-inherit input[value=no]").isChecked());
@@ -579,7 +656,7 @@ if (gitOpsOpen) {
     `sidebar=${JSON.stringify(sidebarAfterGroupedWorktree)} view=${JSON.stringify(groupedWorktreeView)}`);
 
   // 引き継ぎ中はフォームの上にローディングを重ね、進捗イベント（worktree:inherit）で件数と対象を出す
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   check("worktree progress overlay is hidden while idle",
     await pageGitOps.locator("#worktree-progress").isHidden());
@@ -615,7 +692,7 @@ if (gitOpsOpen) {
   await pageGitOps.evaluate(() => { window.__mockWorktreeCreateDelay = 0; });
 
   // リポジトリ外モード: ラベル・ヒント・プレビューが切り替わり、location が渡る
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   await pageGitOps.locator("#worktree-loc input[value=outside]").check();
   const outsideLabel = (await pageGitOps.locator("#worktree-directory-label").textContent()) ?? "";
@@ -653,7 +730,7 @@ if (gitOpsOpen) {
     `session=${JSON.stringify(outsideSession)}`);
 
   // 作成先は記憶され、開き直すと前回のモード・パスに戻る
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   const rememberedMode = await pageGitOps.locator("#worktree-loc input[value=outside]").isChecked();
   const rememberedDir = await pageGitOps.locator("#worktree-directory").inputValue();
@@ -721,7 +798,7 @@ if (gitOpsOpen) {
     };
   });
   const prListCallsBeforeOpen = await pageGitOps.evaluate(() => (window.__prListCalls ?? []).length);
-  await pageGitOps.locator("#git-worktree").click();
+  await openWorktreeModal();
   await pageGitOps.waitForSelector("#worktree-overlay:not([hidden])");
   const prListCallsAfterOpen = await pageGitOps.evaluate(() => (window.__prListCalls ?? []).length);
   check("opening the worktree modal does not reach for PRs",
@@ -760,7 +837,8 @@ if (gitOpsOpen) {
   const prSession = await pageGitOps.evaluate(() => ({
     name: document.querySelector(".ws-item.is-active .ws-name")?.textContent,
     cwd: window.__ptySpawns.at(-1)?.cwd,
-    msg: document.querySelector("#git-msg")?.textContent ?? "",
+    msg: document.querySelector("#git-toast .git-toast-detail")?.textContent ?? "",
+    gitWindowOpen: document.querySelector("#git-window-overlay")?.hidden === false,
     open: document.querySelector("#worktree-overlay")?.hidden === false,
     selected: [...document.querySelectorAll(".ws-item.is-selected")].map(
       (item) => item.querySelector(".ws-name")?.textContent,
@@ -771,16 +849,21 @@ if (gitOpsOpen) {
       && prSession.cwd === "/tmp/pa-worktrees/fix-resize-race"
       && prSession.msg.includes("再利用")
       && !prSession.open
+      && !prSession.gitWindowOpen
       && JSON.stringify(prSession.selected) === JSON.stringify(["#42 リサイズ競合を直す"]),
     `session=${JSON.stringify(prSession)}`);
 
-  // Push: 現在ブランチをリポジトリルートから Push する
+
+  // ============================================================
+  // Push / Fetch / Pull（結果とエラーは右下のトーストに全文出す）
+  // ============================================================
+  await openGit();
   await pageGitOps.locator("#git-push").click();
-  await pageGitOps.waitForTimeout(300);
+  const pushToast = await waitToast("Everything up-to-date");
   const pushCall = await pageGitOps.evaluate(() => (window.__gitPushCalls ?? []).at(-1));
   check("push invokes git_push with repository root", pushCall?.root === "/repo", `call=${JSON.stringify(pushCall)}`);
-  const pushMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
-  check("push result message shown", pushMsg.includes("Everything up-to-date"), `msg="${pushMsg}"`);
+  check("push result shown in the toast", pushToast.visible && pushToast.kind === "ok",
+    `toast=${JSON.stringify(pushToast)}`);
   // Push 失敗（非 fast-forward 等）は git の出力を全文出す。1行に詰めて省略すると
   // "To <url>" しか読めず原因が分からない（Rust 側が1行目に要約を足している）
   await pageGitOps.evaluate(() => {
@@ -794,105 +877,133 @@ if (gitOpsOpen) {
     };
   });
   await pageGitOps.locator("#git-push").click();
-  await pageGitOps.waitForTimeout(300);
-  const pushErrClass = (await pageGitOps.locator("#git-msg").getAttribute("class")) ?? "";
-  const pushErrMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
+  const pushErr = await waitToast("failed to push some refs");
   check("push failure shows every line, not just the first",
-    pushErrClass.includes("err")
-      && pushErrMsg.includes("Pull first")
-      && pushErrMsg.includes("[rejected]")
-      && pushErrMsg.includes("failed to push some refs"),
-    `class=${pushErrClass} msg="${pushErrMsg}"`);
+    pushErr.kind === "err"
+      && pushErr.detail.includes("Pull first")
+      && pushErr.detail.includes("To https://github.com/o/r.git")
+      && pushErr.detail.includes("[rejected]")
+      && pushErr.detail.includes("failed to push some refs"),
+    `toast=${JSON.stringify(pushErr)}`);
   const pushErrWrap = await pageGitOps.evaluate(() => {
-    const el = document.querySelector("#git-msg");
+    const el = document.querySelector("#git-toast .git-toast-detail");
     const s = el ? getComputedStyle(el) : null;
-    return { ws: s?.whiteSpace ?? "", h: el?.getBoundingClientRect().height ?? 0 };
+    return {
+      ws: s?.whiteSpace ?? "",
+      h: el?.getBoundingClientRect().height ?? 0,
+      clipped: el ? el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1 : true,
+    };
   });
   check("push failure wraps instead of clipping to one line",
-    pushErrWrap.ws === "pre-wrap" && pushErrWrap.h > 20,
+    pushErrWrap.ws === "pre-wrap" && pushErrWrap.h > 40 && !pushErrWrap.clipped,
     `style=${JSON.stringify(pushErrWrap)}`);
+  // 失敗トーストは Git ウィンドウより手前に出る
+  const toastOnTop = await pageGitOps.evaluate(() => {
+    const el = document.querySelector("#git-toast .git-toast-detail");
+    const r = el?.getBoundingClientRect();
+    if (!r) return false;
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 5);
+    return Boolean(hit && document.querySelector("#git-toast")?.contains(hit));
+  });
+  check("the result toast is shown above the Git window", toastOnTop);
   await pageGitOps.evaluate(() => {
     window.__mockGitPushResult = undefined;
   });
   // Fetch: 全リモートの更新をリポジトリルートから取得する
   await pageGitOps.locator("#git-fetch").click();
-  await pageGitOps.waitForTimeout(300);
+  const fetchToast = await waitToast("Fetched all remotes");
   const fetchCall = await pageGitOps.evaluate(() => (window.__gitFetchCalls ?? [])[0]);
   check("fetch invokes git_fetch with repository root", fetchCall?.root === "/repo", `call=${JSON.stringify(fetchCall)}`);
-  const fetchMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
-  check("fetch result message shown", fetchMsg.includes("Fetched all remotes"), `msg="${fetchMsg}"`);
+  check("fetch result shown in the toast", fetchToast.visible && fetchToast.kind === "ok",
+    `toast=${JSON.stringify(fetchToast)}`);
   // プル: ボタン押下後に取り込み元を選び、リポジトリルートで git_pull を呼ぶ
   await pageGitOps.locator("#git-pull").click();
+  await pageGitOps.waitForSelector("#pull-overlay:not([hidden])", { timeout: 3000 }).catch(() => {});
   check("pull button opens a modal with upstream selected",
     await pageGitOps.locator("#pull-overlay").isVisible()
       && await pageGitOps.locator("#pull-branch").inputValue() === "origin/main");
+  const pullOnTop = await pageGitOps.evaluate(() => {
+    const btn = document.querySelector("#pull-submit");
+    const r = btn?.getBoundingClientRect();
+    if (!r) return false;
+    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("#pull-submit") === btn;
+  });
+  check("pull modal stacks above the Git window", pullOnTop);
   await pageGitOps.locator("#pull-branch").selectOption("origin/develop");
   await pageGitOps.locator("#pull-submit").click();
-  await pageGitOps.waitForTimeout(300);
+  const pullToast = await waitToast("Already up to date");
   const pullCall = await pageGitOps.evaluate(() => (window.__gitPullCalls ?? [])[0]);
   check("pull invokes git_pull with selected branch",
     pullCall?.root === "/repo" && pullCall?.branch === "origin/develop",
     `call=${JSON.stringify(pullCall)}`);
-  const pullMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
-  check("pull result message shown", pullMsg.includes("Already up to date"), `msg="${pullMsg}"`);
+  check("pull result shown in the toast and the Git window stays open",
+    pullToast.visible && pullToast.kind === "ok" && await overlay.isVisible(),
+    `toast=${JSON.stringify(pullToast)}`);
   // プル失敗（コンフリクト等）はエラー表示になる
   await pageGitOps.evaluate(() => {
     window.__mockGitPullResult = { error: "CONFLICT (content): merge conflict in src/app.ts" };
   });
   await pageGitOps.locator("#git-pull").click();
   await pageGitOps.locator("#pull-submit").click();
-  await pageGitOps.waitForTimeout(300);
-  const errClass = (await pageGitOps.locator("#git-msg").getAttribute("class")) ?? "";
-  const errMsg = (await pageGitOps.locator("#git-msg").textContent()) ?? "";
+  const pullErr = await waitToast("CONFLICT");
   const pullModalErr = (await pageGitOps.locator("#pull-error").textContent()) ?? "";
   check("pull conflict shows error message",
-    errClass.includes("err") && errMsg.includes("CONFLICT") && pullModalErr.includes("CONFLICT"),
-    `class=${errClass} msg="${errMsg}" modal="${pullModalErr}"`);
+    pullErr.kind === "err" && pullErr.detail.includes("CONFLICT") && pullModalErr.includes("CONFLICT"),
+    `toast=${JSON.stringify(pullErr)} modal="${pullModalErr}"`);
   await pageGitOps.locator("#pull-cancel").click();
+  await pageGitOps.evaluate(() => { window.__mockGitPullResult = undefined; });
+
   // 変更ゼロになったら Stash とコミットだけ disabled（Worktree/Push/Fetch/Pull は可能なまま）
   await pageGitOps.evaluate(() => {
     window.__mockGitChanges = { repo: true, root: "/repo", files: [] };
   });
-  await pageGitOps.waitForTimeout(3600);
-  const stashDisabled = await pageGitOps.locator("#git-stash").isDisabled();
-  const commitDisabled = await pageGitOps.locator("#git-commit").isDisabled();
-  const worktreeEnabled = await pageGitOps.locator("#git-worktree").isEnabled();
-  const pushEnabled = await pageGitOps.locator("#git-push").isEnabled();
-  const fetchEnabled = await pageGitOps.locator("#git-fetch").isEnabled();
-  const pullEnabled = await pageGitOps.locator("#git-pull").isEnabled();
+  await refreshWatch();
+  const cleanState = await pageGitOps.evaluate(() => ({
+    stash: document.querySelector("#git-stash")?.disabled,
+    commit: document.querySelector("#git-commit")?.disabled,
+    worktree: document.querySelector("#git-worktree")?.disabled,
+    push: document.querySelector("#git-push")?.disabled,
+    fetch: document.querySelector("#git-fetch")?.disabled,
+    pull: document.querySelector("#git-pull")?.disabled,
+    badgeHidden: document.querySelector("#git-open-badge")?.hidden,
+    empty: Boolean(document.querySelector("#gw-status-files .gw-status-empty")),
+    submit: document.querySelector("#commit-submit")?.disabled,
+    allDiff: document.querySelector("#gw-view-all-diff")?.disabled,
+  }));
   check("change actions disabled when clean, remote actions stay enabled",
-    stashDisabled && commitDisabled && worktreeEnabled && pushEnabled && fetchEnabled && pullEnabled);
-  // 横幅が足りない場合は横スクロールを出さず、各行の操作を折り返す
-  await pageGitOps.setViewportSize({ width: 600, height: 820 });
-  const narrowLayout = await pageGitOps.evaluate(() => {
-    const actions = document.querySelector("#git-actions");
-    const branchRow = document.querySelector("#git-branch-actions");
-    if (!actions || !branchRow) return null;
-    const childTops = [...branchRow.children].map((el) => el.getBoundingClientRect().top);
-    return {
-      clientWidth: actions.clientWidth,
-      scrollWidth: actions.scrollWidth,
-      wrapped: new Set(childTops.map((top) => Math.round(top))).size > 1,
-    };
-  });
-  check("narrow git actions wrap without horizontal scrolling",
-    Boolean(narrowLayout && narrowLayout.wrapped && narrowLayout.scrollWidth <= narrowLayout.clientWidth + 1),
-    `layout=${JSON.stringify(narrowLayout)}`);
-  await pageGitOps.setViewportSize({ width: 1280, height: 820 });
-  // リモートが無いリポジトリではプルボタンを隠し、Push / Fetch は disabled
-  await pageGitOps.locator(".workspace-layer:not([hidden]) .pane-body").click();
+    cleanState.stash && cleanState.commit && !cleanState.worktree
+      && !cleanState.push && !cleanState.fetch && !cleanState.pull,
+    `state=${JSON.stringify(cleanState)}`);
+  check("clean repo hides the badge and shows an empty File status",
+    cleanState.badgeHidden && cleanState.empty && cleanState.submit && cleanState.allDiff,
+    `state=${JSON.stringify(cleanState)}`);
+  // リモートが無いリポジトリでは Pull / Push / Fetch を disabled にする（ボタンは残す）
   await pageGitOps.evaluate(() => {
-    window.__mockGitBranches = { current: "main", upstream: null, branches: [], remotes: [] };
+    window.__mockGitBranches = { current: "main", upstream: null, localBranches: ["main"], branches: [], remotes: [] };
   });
-  await pageGitOps.waitForTimeout(3600);
-  const pullHidden = !(await pageGitOps.locator("#git-pull").isVisible());
-  const pushVisible = await pageGitOps.locator("#git-push").isVisible();
-  const pushDisabled = await pageGitOps.locator("#git-push").isDisabled();
-  const fetchVisible = await pageGitOps.locator("#git-fetch").isVisible();
-  const fetchDisabled = await pageGitOps.locator("#git-fetch").isDisabled();
-  check("no-remote repo hides pull UI and disables push and fetch",
-    pullHidden && pushVisible && pushDisabled && fetchVisible && fetchDisabled,
-    `pullHidden=${pullHidden} pushDisabled=${pushDisabled} fetchDisabled=${fetchDisabled}`);
+  await refreshWatch();
+  const noRemote = await pageGitOps.evaluate(() => Object.fromEntries(["pull", "push", "fetch"].map((id) => {
+    const el = document.querySelector(`#git-${id}`);
+    return [id, { visible: Boolean(el?.getClientRects().length), disabled: el?.disabled }];
+  })));
+  check("no-remote repo disables pull, push, and fetch",
+    Object.values(noRemote).every((s) => s.visible && s.disabled),
+    `state=${JSON.stringify(noRemote)}`);
+  // リポジトリ外では「Git リポジトリではありません」を出し、操作はすべて disabled
+  await pageGitOps.evaluate(() => {
+    window.__mockGitChanges = { repo: false, root: null, files: [] };
+  });
+  await refreshWatch();
+  const noRepo = await pageGitOps.evaluate(() => ({
+    empty: document.querySelector("#gw-empty")?.hidden === false,
+    text: document.querySelector("#gw-empty")?.textContent ?? "",
+    status: document.querySelector("#gw-view-status")?.hidden,
+    disabled: ["commit", "pull", "push", "fetch", "worktree", "stash"].every(
+      (id) => document.querySelector(`#git-${id}`)?.disabled),
+  }));
+  check("outside a repository the Git window says so and disables every action",
+    noRepo.empty && noRepo.text.length > 0 && noRepo.status && noRepo.disabled,
+    `state=${JSON.stringify(noRepo)}`);
 }
 await pageGitOps.close();
 

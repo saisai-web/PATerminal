@@ -123,11 +123,17 @@ await page.waitForTimeout(200);
 check("quick phrases open the purchase modal", await overlayVisible());
 await closeOverlay();
 
-// --- 定型文バーと変更ストリップは表示ごと止まる ---
+// --- 定型文バーは表示ごと止まり、Git ウィンドウは 🔒 付きの入口から購入案内になる ---
 check("quick phrase bar is hidden while locked",
   await page.locator("#quick-phrase-bar").isHidden());
-check("change strip is hidden while locked",
-  await page.locator("#agent-panel").isHidden());
+check("Git button shows the lock mark and hides the change count while locked",
+  await page.locator("#git-open").evaluate((el) => el.classList.contains("is-locked")) &&
+    await page.locator("#git-open-badge").isHidden());
+await page.click("#git-open");
+await page.waitForTimeout(200);
+check("Git button opens the purchase modal instead of the Git window",
+  await overlayVisible() && await page.locator("#git-window-overlay").isHidden());
+await closeOverlay();
 
 // --- ゴミ箱: モーダルは開けるが復元だけロック ---
 await page.click("#session-trash-open");

@@ -1,10 +1,10 @@
 // PR 一覧・詳細の「新規セッション」で共有する処理。
 //
-// 変更ストリップの Worktree モーダルを PR モードで開く。置き場所ラジオ・作成中の
+// Git ウィンドウの Worktree モーダルを PR モードで開く。置き場所ラジオ・作成中の
 // 無効化・既存 worktree 一覧を Worktree ボタンと同じ画面で出し、作成後は PR 画面と
-// 拡大モーダルを閉じて通常シェルのセッション（「#番号 タイトル」）を開く。
+// Git ウィンドウを閉じて通常シェルのセッション（「#番号 タイトル」）を開く。
 
-import { closeGitPanelModal } from "./git-panel";
+import { closeGitWindow } from "./git-window";
 import { getIssueRoot } from "./issues-tab";
 import { closePrOverlay } from "./pr-overlay";
 import { getPrListPrs } from "./pr-tab";
@@ -42,7 +42,7 @@ export async function openWorktreeDialogForPr(
       // 詳細と拡大一覧を閉じても以前のボタンへ focus を戻さない。直後に作る
       // セッションのターミナルへ createWorkspace が focus を移すため。
       closePrOverlay(false);
-      closeGitPanelModal(false);
+      closeGitWindow(false);
     },
   });
 }
