@@ -12,6 +12,11 @@
 //   （CLAUDE.md: refit → resize の順序はそのまま。ここから pty_resize は呼ばない）
 // - fs_list は開いているフォルダ1つ分だけ、操作時に直列で呼ぶ（定期実行しない）
 // - 他機能の操作は main.ts から callback で受け取り、import の循環を作らない
+// - ブラウザーは既定 760×640 で開き、端のハンドルで大きさを変えられる（localStorage に残す）。
+//   広い間は左に「場所」列（ターミナルのフォルダー・ホーム・お気に入り・最近使った場所）を出す。
+//   作成・移動は表示中のフォルダーに対して右下のボタンからだけ行う（行ごとの操作は置かない）
+// - サイドバーの新規セッション入口（場所フライアウト）も openFolderPicker で同じブラウザーを
+//   開き、選んだフォルダーにセッションを作る
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
@@ -19,7 +24,8 @@ import { homeDir } from "@tauri-apps/api/path";
 import { t } from "../../i18n";
 import { copyText } from "../../shared/clipboard";
 import type { Pane } from "../../terminal/pane";
-import { panes } from "../../workspace/state";
+import { getHostOs, panes } from "../../workspace/state";
+import { getRecentDirs } from "../sidebar/recent-dirs";
 import type { FsEntry, FsListing } from "../../workspace/types";
 import { joinPath, normPath, parentPath, pathBasename } from "../explorer/paths";
 
@@ -33,6 +39,10 @@ type PathBarDeps = {
   toggleFavorite: (path: string) => void;
   /** ペインをフォーカスする（setFocused） */
   focusPane: (pane: Pane) => void;
+  /** フォルダーで新しいセッションを作る（サイドバーのクイック作成と同じ配置） */
+  newSession: (path: string) => void;
+  /** OS のフォルダ選択（Finder / エクスプローラー）。キャンセルは null */
+  pickFolderFromOs: () => Promise<string | null>;
 };
 
 let deps: PathBarDeps | undefined;
@@ -52,6 +62,7 @@ const ICONS = {
   close: "M4.75 4.75l6.5 6.5M11.25 4.75l-6.5 6.5",
   home: "M2.5 7.5 8 3l5.5 4.5M4 6.5v6.5h3v-3.5h2V13h3V6.5",
   move: "M2.5 8h9M8.5 4.5 12 8l-3.5 3.5",
+  plus: "M8 3.5v9M3.5 8h9",
 } as const;
 
 function icon(name: keyof typeof ICONS, className = "pathbar-icon"): SVGSVGElement {
@@ -142,6 +153,14 @@ function openPathBrowser(pane: Pane): void {
   openBrowser(pane, bar, button, cwd);
 }
 
+/** 作成直後のペインでフォルダーブラウザーを開く（ルートに作ったセッションを作業フォルダーへ
+    移すため）。表示・layout が済んでからバーの位置に合わせて開く */
+export function openPathBrowserAfterCreate(pane: Pane): void {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (live(pane) && !pane.ws.layer.hidden) openPathBrowser(pane);
+  }));
+}
+
 function createBar(pane: Pane): HTMLDivElement {
   const bar = document.createElement("div");
   bar.className = "pane-pathbar";
@@ -169,12 +188,86 @@ function createBar(pane: Pane): HTMLDivElement {
 
 type Row = { entry: FsEntry; path: string };
 
+type BrowserOpts = {
+  /** 最初に表示するフォルダー。「現在地へ戻る」の戻り先も兼ねる */
+  start: string;
+  /** ポップオーバーの位置の基準にする要素 */
+  anchor: HTMLElement;
+  /** パスバーから: ペインの操作（ここへ移動・新規セッション）を出す */
+  pane?: { pane: Pane; bar: HTMLDivElement };
+  /** 新規セッションの場所選び: 主ボタンで表示中フォルダーを onPick に渡す */
+  pick?: { label: string; onPick: (path: string) => void };
+};
+
+/** 「Finderから選択」の文言（ユーザーの呼び名に合わせて Finder / エクスプローラー） */
+function osPickLabel(): string {
+  if (getHostOs() === "macos") return t("pathbar.osPickMac");
+  if (getHostOs() === "windows") return t("pathbar.osPickWin");
+  return t("pathbar.osPickOther");
+}
+
+// ---- 大きさ: 既定はパスバー初版（380×400）の約2倍。四隅の1つ + 2辺のハンドルで変えられ、
+//      変えた大きさは閲覧者ごとの利便として localStorage に残す（無くても既定で開く）
+const SIZE_KEY = "pa.folderBrowserSize";
+const DEFAULT_SIZE = { w: 760, h: 640 };
+const MIN_W = 420;
+const MIN_H = 260;
+/** これ以上の幅では左に「場所」列（ホーム・お気に入り・最近使った場所）を出す */
+const SIDE_MIN_W = 600;
+
+function loadSize(): { w: number; h: number } {
+  try {
+    const v = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "null");
+    if (v && Number.isFinite(v.w) && Number.isFinite(v.h)) return { w: v.w, h: v.h };
+  } catch {
+    /* 既定の大きさで開く */
+  }
+  return { ...DEFAULT_SIZE };
+}
+
+function saveSize(size: { w: number; h: number } | null) {
+  try {
+    if (size) localStorage.setItem(SIZE_KEY, JSON.stringify(size));
+    else localStorage.removeItem(SIZE_KEY);
+  } catch {
+    /* 保存できなくても今回の表示には影響しない */
+  }
+}
+
 function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement, start: string) {
   closeBrowser?.();
   if (!deps || !live(pane)) return;
+  bar.dataset.open = "true";
+  anchor.setAttribute("aria-expanded", "true");
+  openFolderBrowser({ start, anchor, pane: { pane, bar } }, (refocus) => {
+    delete bar.dataset.open;
+    anchor.setAttribute("aria-expanded", "false");
+    if (refocus && live(pane)) deps?.focusPane(pane);
+  });
+}
+
+/** 新規セッションの場所をアプリ内のフォルダーブラウザーで選ぶ（サイドバーの作成入口から）。
+    主ボタンで表示中のフォルダーを onPick に渡して閉じる */
+export function openFolderPicker(
+  anchor: HTMLElement,
+  start: string,
+  label: string,
+  onPick: (path: string) => void,
+): void {
+  openFolderBrowser({ start: normPath(start), anchor, pick: { label, onPick } }, () => {});
+}
+
+function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => void) {
+  closeBrowser?.();
+  if (!deps) return;
   const d = deps;
-  const origin = start;
-  let current = start;
+  const target = opts.pane;
+  const pane = target?.pane;
+  const anchorRect = opts.anchor.getBoundingClientRect();
+  // パスバーからはバーの上へ（下端固定）、サイドバーの入口からはボタンの下へ（上端固定）
+  const above = !!target;
+  const origin = opts.start;
+  let current = opts.start;
   let listing: FsListing | null = null;
   let error: string | null = null;
   let loading = false;
@@ -182,11 +275,16 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
   let rows: Row[] = [];
   let selected = 0;
   let closed = false;
+  let size = loadSize();
+  /** OS のフォルダ選択を開いている間は、ウィンドウの blur で閉じない */
+  let osDialog = false;
 
   const pop = document.createElement("div");
   pop.className = "pathbar-pop";
+  pop.classList.toggle("is-above", above);
+  pop.classList.toggle("is-pick", !!opts.pick);
   pop.setAttribute("role", "dialog");
-  pop.setAttribute("aria-label", t("pathbar.browse"));
+  pop.setAttribute("aria-label", opts.pick ? opts.pick.label : t("pathbar.browse"));
 
   // ---- 見出し: 上へ / パンくず / 現在地へ戻る
   const head = document.createElement("div");
@@ -199,6 +297,10 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
   crumbs.className = "pathbar-crumbs";
   const currentBtn = iconButton("target", t("pathbar.current"), () => navigate(origin));
   head.append(upBtn, crumbs, currentBtn);
+
+  // ---- 左列: 場所（ターミナルのフォルダー・ホーム）/ お気に入り / 最近使った場所
+  const side = document.createElement("div");
+  side.className = "pathbar-side";
 
   // ---- 絞り込み
   const filterWrap = document.createElement("div");
@@ -216,6 +318,13 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
   list.className = "pathbar-list";
   list.id = "pathbar-list";
   list.setAttribute("role", "listbox");
+
+  const main = document.createElement("div");
+  main.className = "pathbar-main";
+  main.append(filterWrap, list);
+  const body = document.createElement("div");
+  body.className = "pathbar-body";
+  body.append(side, main);
 
   // ---- 操作（表示中のフォルダに対して）
   const actions = document.createElement("div");
@@ -247,18 +356,60 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
   favBtn.setAttribute("aria-haspopup", "menu");
   favBtn.setAttribute("aria-expanded", "false");
   let favMenu: HTMLDivElement | null = null;
-  const moveBtn = actionButton("move", t("pathbar.move"), () => {
-    const target = current;
-    close();
-    if (live(pane)) d.moveTo(pane, target);
-  });
-  moveBtn.classList.add("is-primary");
-  actions.append(rootBtn, copyBtn, favBtn, moveBtn);
+  actions.append(rootBtn, copyBtn, favBtn);
 
-  pop.append(head, filterWrap, list, actions);
+  // Finder / エクスプローラーで選んだフォルダーへ一覧の表示先を移す（作成・移動は各主ボタン）
+  const osBtn = actionButton("folder", osPickLabel(), () => {
+    osDialog = true;
+    void d.pickFolderFromOs().then(
+      (path) => {
+        osDialog = false;
+        if (closed) return;
+        if (path) void navigate(path);
+        filter.focus();
+      },
+      () => {
+        osDialog = false;
+      },
+    );
+  });
+  osBtn.classList.add("pathbar-os-pick");
+  actions.append(osBtn);
+
+  // パスバーからは「新規セッション」+「ここへ移動」、場所選びでは入口ごとの主ボタン1つ
+  const newSessionBtn = target
+    ? actionButton("plus", t("pathbar.newSession"), () => startSession(current))
+    : null;
+  if (newSessionBtn) {
+    newSessionBtn.classList.add("pathbar-new-session");
+    newSessionBtn.title = t("pathbar.newSessionTitle");
+    actions.append(newSessionBtn);
+  }
+  const primaryBtn = actionButton(
+    "move",
+    opts.pick ? opts.pick.label : t("pathbar.move"),
+    () => runPrimary(current),
+  );
+  primaryBtn.classList.add("is-primary");
+  actions.append(primaryBtn);
+
+  // ---- 大きさ変更ハンドル（アンカーの反対側の辺と右辺、その角）
+  const grips = (["y", "x", "xy"] as const).map((axis) => {
+    const g = document.createElement("div");
+    g.className = `pathbar-grip is-${axis}`;
+    g.title = t("pathbar.resize");
+    g.setAttribute("aria-hidden", "true");
+    g.addEventListener("pointerdown", (e) => startResize(e, axis));
+    g.addEventListener("dblclick", () => {
+      saveSize(null);
+      size = { ...DEFAULT_SIZE };
+      position();
+    });
+    return g;
+  });
+
+  pop.append(head, body, actions, ...grips);
   document.body.append(pop);
-  bar.dataset.open = "true";
-  anchor.setAttribute("aria-expanded", "true");
 
   function iconButton(name: keyof typeof ICONS, label: string, onClick: () => void) {
     const b = document.createElement("button");
@@ -282,6 +433,25 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     return b;
   }
 
+  /** 主ボタン: パスバーからはターミナルの移動、場所選びでは入口へ渡す */
+  function runPrimary(path: string) {
+    if (opts.pick) {
+      const onPick = opts.pick.onPick;
+      close(false);
+      onPick(path);
+      return;
+    }
+    if (!pane || path === origin) return;
+    close();
+    if (live(pane)) d.moveTo(pane, path);
+  }
+
+  /** 新規セッションはそちらがフォーカスを持つので、ペインへは戻さない */
+  function startSession(path: string) {
+    close(false);
+    d.newSession(path);
+  }
+
   function updateFavBtn() {
     favBtn.classList.toggle("is-on", d.favorites().includes(current));
   }
@@ -290,6 +460,12 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     favMenu?.remove();
     favMenu = null;
     favBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleFavorite(path: string) {
+    d.toggleFavorite(path);
+    updateFavBtn();
+    renderSide();
   }
 
   function renderFavMenu() {
@@ -315,8 +491,7 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     here.textContent = pathBasename(displayPath(current));
     toggle.append(icon("star"), toggleText, here);
     toggle.onclick = () => {
-      d.toggleFavorite(current);
-      updateFavBtn();
+      toggleFavorite(current);
       renderFavMenu();
       // 作り直しでフォーカスが body へ落ちると Esc がポップオーバーに届かない
       favMenu?.querySelector<HTMLButtonElement>(".pathbar-fav-toggle")?.focus();
@@ -342,7 +517,7 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
         const context = document.createElement("span");
         context.className = "pathbar-fav-context";
         // rtl で先頭側を省略しても / や ~ が入れ替わらないよう LRM で囲む
-        context.textContent = parent ? `\u200e${displayPath(parent)}\u200e` : "";
+        context.textContent = parent ? `‎${displayPath(parent)}‎` : "";
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "pathbar-fav-remove";
@@ -351,8 +526,7 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
         remove.append(icon("close"));
         remove.onclick = (e) => {
           e.stopPropagation();
-          d.toggleFavorite(path);
-          updateFavBtn();
+          toggleFavorite(path);
           renderFavMenu();
           favMenu?.querySelector<HTMLButtonElement>(".pathbar-fav-toggle")?.focus();
         };
@@ -380,16 +554,130 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     favBtn.setAttribute("aria-expanded", "true");
   }
 
+  /** 左列の1行。クリックは一覧の表示先を切り替えるだけ（ターミナルは動かさない） */
+  function sideItem(label: string, path: string, iconName: keyof typeof ICONS, onRemove?: () => void) {
+    const item = document.createElement("div");
+    item.className = "pathbar-side-item";
+    item.classList.toggle("is-current", path === current);
+    item.setAttribute("role", "button");
+    item.tabIndex = 0;
+    item.title = path;
+    const name = document.createElement("span");
+    name.className = "pathbar-side-name";
+    name.textContent = label;
+    item.append(icon(iconName), name);
+    item.onclick = () => {
+      void navigate(path);
+      filter.focus();
+    };
+    item.onkeydown = (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      item.click();
+    };
+    if (onRemove) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "pathbar-side-remove";
+      remove.title = t("pathbar.favDelete");
+      remove.setAttribute("aria-label", t("pathbar.favDelete"));
+      remove.append(icon("close"));
+      remove.onclick = (e) => {
+        e.stopPropagation();
+        onRemove();
+      };
+      item.append(remove);
+    }
+    return item;
+  }
+
+  function sideSection(label: string, items: HTMLElement[]) {
+    if (!items.length) return;
+    const h = document.createElement("div");
+    h.className = "pathbar-side-head";
+    h.textContent = label;
+    side.append(h, ...items);
+  }
+
+  function renderSide() {
+    side.textContent = "";
+    const places: HTMLElement[] = [];
+    places.push(sideItem(
+      pane ? t("pathbar.terminalDir") : pathBasename(displayPath(origin)),
+      origin,
+      "target",
+    ));
+    const root = defaultRoot();
+    if (root) places.push(sideItem(t("loc.home"), root, "home"));
+    sideSection(t("pathbar.places"), places);
+    const favs = d.favorites();
+    sideSection(t("pathbar.favorites"), favs.map((p) =>
+      sideItem(pathBasename(displayPath(p)), p, "star", () => toggleFavorite(p))));
+    sideSection(t("loc.recent"), getRecentDirs()
+      .filter((p) => p !== origin && !favs.includes(p))
+      .map((p) => sideItem(pathBasename(displayPath(p)), p, "folder")));
+  }
+
   function position() {
-    const r = anchor.getBoundingClientRect();
-    const width = Math.min(380, window.innerWidth - 16);
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
-    const spaceAbove = r.top - 12;
-    pop.style.width = `${width}px`;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxW = Math.max(240, vw - 16);
+    const w = Math.min(Math.max(size.w, MIN_W), maxW);
+    const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
+    pop.style.width = `${w}px`;
     pop.style.left = `${left}px`;
-    pop.style.bottom = `${window.innerHeight - r.top + 6}px`;
     // 高さは固定し、フォルダを移るたびに上端が跳ねないようにする
-    pop.style.height = `${Math.max(200, Math.min(400, spaceAbove))}px`;
+    if (above) {
+      const maxH = Math.max(200, anchorRect.top - 12);
+      pop.style.height = `${Math.min(Math.max(size.h, MIN_H), maxH)}px`;
+      pop.style.bottom = `${vh - anchorRect.top + 6}px`;
+      pop.style.top = "";
+    } else {
+      const h = Math.min(Math.max(size.h, MIN_H), vh - 16);
+      const top = Math.max(8, Math.min(anchorRect.bottom + 4, vh - h - 8));
+      pop.style.height = `${h}px`;
+      pop.style.top = `${top}px`;
+      pop.style.bottom = "";
+    }
+    pop.classList.toggle("has-side", w >= SIDE_MIN_W);
+  }
+
+  function startResize(down: PointerEvent, axis: "x" | "y" | "xy") {
+    down.preventDefault();
+    const grip = down.currentTarget as HTMLElement;
+    try {
+      grip.setPointerCapture(down.pointerId);
+    } catch {
+      /* キャプチャ不可でも move は届く範囲で動く */
+    }
+    // 開くアニメーションの scale を含まない実寸で測る
+    const startW = pop.offsetWidth;
+    const startH = pop.offsetHeight;
+    pop.classList.add("is-resizing");
+    closeFavMenu();
+    const move = (e: PointerEvent) => {
+      const dx = e.clientX - down.clientX;
+      const dy = e.clientY - down.clientY;
+      size = {
+        w: axis === "y" ? startW : startW + dx,
+        // 下端固定（パスバーの上）は上へ引くと伸び、上端固定は下へ引くと伸びる
+        h: axis === "x" ? startH : above ? startH - dy : startH + dy,
+      };
+      position();
+    };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      pop.classList.remove("is-resizing");
+      // 画面に収めた後の実寸を残す
+      size = { w: pop.offsetWidth, h: pop.offsetHeight };
+      saveSize(size);
+      filter.focus();
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
   }
 
   function renderCrumbs() {
@@ -433,8 +721,13 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     const rootPath = defaultRoot();
     rootBtn.disabled = !rootPath || current === rootPath;
     rootBtn.title = rootPath ?? "";
-    moveBtn.disabled = current === origin;
-    moveBtn.title = current === origin ? t("pathbar.here") : current;
+    if (opts.pick) {
+      primaryBtn.title = current;
+    } else {
+      primaryBtn.disabled = current === origin;
+      primaryBtn.title = current === origin ? t("pathbar.here") : current;
+    }
+    renderSide();
   }
 
   function computeRows() {
@@ -547,26 +840,27 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
     closed = true;
     token++;
     pop.remove();
-    delete bar.dataset.open;
-    anchor.setAttribute("aria-expanded", "false");
     document.removeEventListener("mousedown", onOutside, true);
     window.removeEventListener("resize", dismissQuietly);
-    window.removeEventListener("blur", dismissQuietly);
+    window.removeEventListener("blur", onWindowBlur);
     if (closeBrowser === dismissQuietly) closeBrowser = undefined;
-    if (refocus && live(pane)) d.focusPane(pane);
+    onClosed(refocus);
   }
   function dismissQuietly() {
     close(false);
   }
+  function onWindowBlur() {
+    if (!osDialog) close(false);
+  }
   closeBrowser = dismissQuietly;
 
   function onOutside(e: MouseEvent) {
-    if (e.target instanceof Node && (pop.contains(e.target) || anchor.contains(e.target))) return;
+    if (e.target instanceof Node && (pop.contains(e.target) || opts.anchor.contains(e.target))) return;
     close(false);
   }
   document.addEventListener("mousedown", onOutside, true);
   window.addEventListener("resize", dismissQuietly);
-  window.addEventListener("blur", dismissQuietly);
+  window.addEventListener("blur", onWindowBlur);
 
   pop.addEventListener("mousedown", (e) => {
     if (!favMenu || !(e.target instanceof Node)) return;
@@ -598,7 +892,14 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
         updateSelection(true);
         return;
       case "Enter":
-        if (!inFilter || !rows[selected]) return;
+        if (!inFilter) return;
+        // Cmd/Ctrl+Enter は表示中のフォルダーで主ボタン（移動 / 場所の決定）
+        if (e.metaKey || e.ctrlKey) {
+          e.preventDefault();
+          if (!primaryBtn.disabled) runPrimary(current);
+          return;
+        }
+        if (!rows[selected]) return;
         e.preventDefault();
         activate(rows[selected]);
         return;
@@ -623,6 +924,6 @@ function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement,
 
   position();
   renderCrumbs();
-  void navigate(start);
+  void navigate(opts.start);
   filter.focus();
 }

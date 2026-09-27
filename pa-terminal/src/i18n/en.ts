@@ -40,11 +40,7 @@ export const en = {
   // 新規セッションの場所フライアウト（ホバーで出る作成先の選択）
   "loc.pickTitle": "Choose a location for the new session",
   "loc.home": "Home",
-  "loc.browseMac": "Open from Finder…",
-  "loc.browseWin": "Open from Explorer…",
-  "loc.browseOther": "Open a folder…",
   "loc.recent": "Recent locations",
-  "loc.favorites": "Favorites",
 
   // ツールバー
   "toolbar.splitRight": "Split right (Cmd/Ctrl+Shift+D)",
@@ -101,7 +97,6 @@ export const en = {
   "save.failed": "save failed",
 
   // 最近削除したセッション
-  "trash.open": "Recently deleted sessions",
   "trash.title": "Recently deleted",
   "trash.hint": "The 20 most recently closed sessions are kept with their pane layout and terminal history.",
   "trash.close": "Close recently deleted sessions",
@@ -295,6 +290,15 @@ export const en = {
   "pathbar.here": "The terminal is already in this folder",
   "pathbar.loading": "Loading…",
   "pathbar.empty": "This folder is empty",
+  "pathbar.newSession": "New session",
+  "pathbar.newSessionTitle": "Start a new session in this folder",
+  "pathbar.terminalDir": "Terminal's folder",
+  "pathbar.places": "Places",
+  "pathbar.chooseHere": "Use this folder",
+  "pathbar.resize": "Drag to resize (double-click to reset)",
+  "pathbar.osPickMac": "Choose in Finder",
+  "pathbar.osPickWin": "Choose in File Explorer",
+  "pathbar.osPickOther": "Choose a folder",
 
   "agents.exited": "{agent} exited",
   "agents.resume": "Resume conversation",

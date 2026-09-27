@@ -88,7 +88,9 @@ export default async function ({ browser, check, BASE_URL }) {
   }
   const spawns = await page.evaluate(() => window.__ptySpawns.length);
   await page.click("#ws-new");
-  await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+  // 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+  await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+  await page.keyboard.press("Escape");
   if (await page.locator("#ws-new-form").isVisible()) await page.locator("#ws-new-shells button").first().click();
   await page.waitForFunction((count) => window.__ptySpawns.length > count, spawns);
   await page.waitForTimeout(300);

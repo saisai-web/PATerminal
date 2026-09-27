@@ -14,7 +14,8 @@ export default async function ({ browser, check, BASE_URL }) {
     window.__mockAgentSessionId = id;
   }, { kind, id });
   const open = async (page, path = "/tmp") => {
-    await page.locator("#pane-change-directory").click();
+    // ペインバーのフォルダー移動アイコンは廃止。ペインバーの cwd 表示から開く
+    await page.locator(".pane.is-focused .pane-cwd").click();
     await page.locator("#move-directory-path").fill(path);
   };
   const unchanged = (page) => page.evaluate(() =>

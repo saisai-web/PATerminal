@@ -24,12 +24,15 @@ check("closing a session saves it in v5 recently-deleted history",
 check("recently-deleted history captures terminal scrollback",
   archived?.deletedWorkspaces?.[0]?.root?.scrollback?.includes("archived-history-line") === true);
 
-await page.click("#session-trash-open");
-check("pane history button opens the shared dialog on the recently-deleted tab",
+// ペインバーの復元ボタンは廃止。ツールバーの「履歴」から最近削除したタブへ切り替える
+check("the pane bar no longer has a history button",
+  (await page.locator("#session-trash-open").count()) === 0);
+await page.click("#takeover-open");
+await page.click("#history-tab-trash");
+check("the toolbar history dialog shows the recently-deleted tab",
   (await page.locator("#history-tab-trash").getAttribute("aria-selected")) === "true" &&
     await page.locator("#session-trash-panel").isVisible() &&
-    await page.locator("#takeover-panel").isHidden() &&
-    (await page.evaluate(() => (window.__agentSessionListCalls ?? []).length)) === 0);
+    await page.locator("#takeover-panel").isHidden());
 check("recently-deleted dialog lists the closed session",
   await page.locator(".session-trash-row", { hasText: "Recover me" }).count() === 1);
 await page.click("#history-tab-takeover");
@@ -42,7 +45,9 @@ await page.click("#history-close");
 
 // 別セッションを消しても、既に見た分と合わせて履歴に積み上がる
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(150);
 await page.locator(".ws-item.is-active .ws-name").dblclick();
 await page.locator(".ws-item.is-active .inline-edit").fill("Second delete");
@@ -50,7 +55,8 @@ await page.keyboard.press("Enter");
 await page.locator(".ws-item.is-active .ws-close").click();
 await page.waitForTimeout(400);
 
-await page.click("#session-trash-open");
+await page.click("#takeover-open");
+await page.click("#history-tab-trash");
 check("recently-deleted dialog lists both closed sessions after reopening",
   await page.locator(".session-trash-row").count() === 2);
 await page.locator(".session-trash-row", { hasText: "Recover me" })
@@ -89,7 +95,8 @@ await pageV5.addInitScript(() => {
 });
 await pageV5.goto(BASE_URL);
 await pageV5.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
-await pageV5.click("#session-trash-open");
+await pageV5.click("#takeover-open");
+await pageV5.click("#history-tab-trash");
 check("v5 restores recently-deleted entries after app restart",
   await pageV5.locator(".session-trash-row", { hasText: "Persisted deleted" }).count() === 1);
 await pageV5.locator(".session-trash-row .session-trash-restore").click();

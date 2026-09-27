@@ -5,20 +5,24 @@ const { page, check, MOD, pAfter } = ctx;
 // セッションサイドバー
 // ============================================================
 
-// --- 9. 検索欄横の + は即時作成せず、場所フライアウトを開く ---
+// --- 9. 検索欄横の + はルートに即作成し、移動用にフォルダーブラウザーを開く ---
 const countBeforePlus = await page.locator(".ws-item").count();
 await page.click("#ws-new");
 await page.waitForTimeout(200);
-check("+ opens the location flyout", await page.locator("#loc-flyout").isVisible());
-check("+ does not create a session before choosing an action",
-  (await page.locator(".ws-item").count()) === countBeforePlus);
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+check("+ creates a session right away and opens its folder browser",
+  (await page.locator(".ws-item").count()) === countBeforePlus + 1 &&
+    await page.locator(".pathbar-pop:not(.is-pick)").isVisible());
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const plusCreatedName = await page.locator(".ws-item.is-active .ws-name").textContent();
 check("+ default action creates an auto-numbered session", plusCreatedName === "Session 2",
   `active="${plusCreatedName}"`);
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const plusNextName = await page.locator(".ws-item.is-active .ws-name").textContent();
 check("+ default action advances the automatic session number", plusNextName === "Session 3",
@@ -28,7 +32,9 @@ check("+ default action advances the automatic session number", plusNextName ===
 await page.locator(".ws-item", { hasText: "Session 1" }).locator(".ws-name").click();
 await page.waitForTimeout(300);
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const plusOrder = await page.locator(".ws-item .ws-name").allTextContents();
 check("+ default action inserts the new session right after the active one",

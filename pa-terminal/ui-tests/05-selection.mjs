@@ -7,10 +7,14 @@ const { page, check, MOD, dragItemTo } = ctx;
 // ============================================================
 
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(250);
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(350);
 const selFixture = await page.locator(".ws-whole-members > .ws-item .ws-name").allTextContents();
 check("multi-select fixture adds two ungrouped sessions",

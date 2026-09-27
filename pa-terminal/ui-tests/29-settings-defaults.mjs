@@ -15,16 +15,14 @@ check("sidebar footer holds exactly the settings and license buttons",
   await page.locator("#sidebar-foot #settings-open").isVisible() &&
     await page.locator("#sidebar-foot #license-open").isVisible() &&
     (await page.locator("#sidebar-foot button").count()) === 2);
-check("history and pane-clear are visible in the focused pane header",
-  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible() &&
-    await page.locator(".pane.is-focused .pane-bar #pane-clear").isVisible() &&
-    (await page.locator("#sidebar-foot #session-trash-open").count()) === 0 &&
+check("pane-clear is visible in the focused pane header",
+  await page.locator(".pane.is-focused .pane-bar #pane-clear").isVisible() &&
     (await page.locator("#sidebar-foot #pane-clear").count()) === 0);
 const headerOrder = await page.locator(".pane.is-focused .pane-bar #pane-actions > *").evaluateAll(
   (els) => els.map((el) => el.id || el.className),
 );
-check("pane-clear sits directly to the right of history",
-  headerOrder.indexOf("pane-clear") === headerOrder.indexOf("session-trash-open") + 1,
+check("the pane bar keeps only the trash (pane-clear) icon",
+  JSON.stringify(headerOrder) === JSON.stringify(["pane-clear"]),
   `order=${JSON.stringify(headerOrder)}`);
 check("auto-enter controls are removed",
   (await page.locator("#auto-enter-toggle, #auto-enter-overlay").count()) === 0);
@@ -95,9 +93,8 @@ check("worktree defaults persisted",
 // Enter はフォーカス中のペインだけに送る。
 await page.click("#split-right");
 await page.waitForTimeout(250);
-check("history and pane-clear follow the focused pane after splitting",
-  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible() &&
-    await page.locator(".pane.is-focused .pane-bar #pane-clear").isVisible());
+check("pane-clear follows the focused pane after splitting",
+  await page.locator(".pane.is-focused .pane-bar #pane-clear").isVisible());
 await page.locator(".pane .pane-body").first().click();
 const focusedId = await page.locator(".pane.is-focused").getAttribute("data-pane-id");
 const enterBefore = await page.evaluate(() => window.__ptyWrites.length);

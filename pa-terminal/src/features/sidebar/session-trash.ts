@@ -20,7 +20,6 @@ type SessionTrashOptions = {
 /** スクロールバックを含むため無制限には保持しない。新しいものから最大20セッション。 */
 const MAX_DELETED_WORKSPACES = 20;
 
-const openBtn = document.querySelector<HTMLButtonElement>("#session-trash-open")!;
 const clearPaneBtn = document.querySelector<HTMLButtonElement>("#pane-clear")!;
 const hintEl = document.querySelector<HTMLParagraphElement>("#session-trash-hint")!;
 const listEl = document.querySelector<HTMLDivElement>("#session-trash-list")!;
@@ -151,9 +150,6 @@ export function renderSessionTrashTexts() {
   const clearPaneLabel = t("trash.clearPane");
   clearPaneBtn.title = clearPaneLabel;
   clearPaneBtn.setAttribute("aria-label", clearPaneLabel);
-  const historyLabel = t("trash.open");
-  openBtn.title = historyLabel;
-  openBtn.setAttribute("aria-label", historyLabel);
   hintEl.textContent = t("trash.hint");
   emptyEl.textContent = t("trash.empty");
   renderList();

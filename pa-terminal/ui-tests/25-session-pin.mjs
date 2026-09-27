@@ -114,7 +114,8 @@ check("recently-deleted sessions retain their pin and background styling",
     archived?.deletedWorkspaces?.[0]?.pinned === true &&
     archived?.deletedWorkspaces?.[0]?.backgroundColor === "purple");
 
-await page.click("#session-trash-open");
+await page.click("#takeover-open");
+await page.click("#history-tab-trash");
 await page.locator(".session-trash-row", { hasText: "Alpha" })
   .locator(".session-trash-restore").click();
 await page.waitForTimeout(1100);

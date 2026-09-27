@@ -169,23 +169,25 @@
   stroke-linejoin: round;
 }
 
-/* ── アプリ内フォルダーブラウザー（パスバーの上に開く） ── */
+/* ── アプリ内フォルダーブラウザー（パスバーの上 / サイドバーの作成入口の下に開く） ── */
 .pathbar-pop {
   position: fixed;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   min-height: 200px;
+  font-size: 12.5px;
   background: var(--chrome);
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 14px 36px var(--shadow), 0 2px 6px var(--shadow);
   color: var(--text);
-  font-size: 12px;
   overflow: hidden;
-  transform-origin: bottom left;
+  transform-origin: top left;
   animation: pathbar-pop-in 0.14s ease-out;
 }
+.pathbar-pop.is-above { transform-origin: bottom left; }
+.pathbar-pop.is-resizing { user-select: none; }
 @keyframes pathbar-pop-in {
   from { opacity: 0; transform: translateY(6px) scale(0.98); }
   to { opacity: 1; transform: none; }
@@ -241,7 +243,85 @@
 .pathbar-icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .pathbar-icon-btn:disabled { opacity: 0.3; cursor: default; }
 
-.pathbar-filter { flex: none; padding: 0 8px 6px; }
+/* 本体: 左に「場所」列（広いときだけ）、右に絞り込み + 一覧 */
+.pathbar-body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+}
+.pathbar-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.pathbar-side {
+  display: none;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+  width: 190px;
+  padding: 8px 6px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--pane-bg) 35%, var(--chrome));
+  border-right: 1px solid var(--line);
+}
+.pathbar-pop.has-side .pathbar-side { display: flex; }
+.pathbar-side-head {
+  padding: 10px 8px 4px;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pathbar-side-head:first-child { padding-top: 2px; }
+.pathbar-side-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 4px 0 8px;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+}
+.pathbar-side-item > .pathbar-icon { color: var(--dim); }
+.pathbar-side-item:hover,
+.pathbar-side-item:focus-visible { background: var(--hover); }
+.pathbar-side-item:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
+.pathbar-side-item.is-current { background: var(--active-bg); font-weight: 600; }
+.pathbar-side-item.is-current > .pathbar-icon { color: var(--accent); }
+.pathbar-side-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pathbar-side-remove {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  color: var(--dim);
+  cursor: pointer;
+  opacity: 0;
+}
+.pathbar-side-item:hover .pathbar-side-remove,
+.pathbar-side-item:focus-within .pathbar-side-remove { opacity: 1; }
+.pathbar-side-remove:hover { background: var(--hover); color: var(--alarm); }
+.pathbar-side-remove > .pathbar-icon { width: 12px; height: 12px; }
+
+.pathbar-filter { flex: none; padding: 8px 8px 6px; }
 .pathbar-filter input {
   box-sizing: border-box;
   width: 100%;
@@ -264,14 +344,13 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 4px 4px;
-  border-top: 1px solid var(--line);
+  padding: 2px 6px 6px;
 }
 .pathbar-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 28px;
+  height: 30px;
   padding: 0 6px 0 8px;
   border-radius: 6px;
   cursor: pointer;
@@ -289,6 +368,34 @@
 .pathbar-row:not(.is-dir) .pathbar-row-name { color: var(--dim); }
 .pathbar-row[aria-selected="true"] .pathbar-row-name { color: var(--text); }
 .pathbar-row-chevron { width: 12px; height: 12px; color: var(--dim); opacity: 0.6; }
+
+/* 大きさ変更ハンドル: アンカーの反対側の辺・右辺・その角 */
+.pathbar-grip { position: absolute; z-index: 3; }
+.pathbar-grip.is-x { top: 12px; bottom: 12px; right: 0; width: 6px; cursor: ew-resize; }
+.pathbar-grip.is-y { left: 12px; right: 12px; bottom: 0; height: 6px; cursor: ns-resize; }
+.pathbar-grip.is-xy { right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.pathbar-pop.is-above .pathbar-grip.is-y { top: 0; bottom: auto; }
+.pathbar-pop.is-above .pathbar-grip.is-xy { top: 0; bottom: auto; cursor: nesw-resize; }
+.pathbar-grip.is-xy::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--dim);
+  border-bottom: 1.5px solid var(--dim);
+  border-bottom-right-radius: 2px;
+  opacity: 0.45;
+}
+.pathbar-pop.is-above .pathbar-grip.is-xy::after {
+  top: 3px;
+  bottom: auto;
+  border-bottom: 0;
+  border-top: 1.5px solid var(--dim);
+  border-radius: 0 2px 0 0;
+}
+.pathbar-grip.is-xy:hover::after { opacity: 1; border-color: var(--accent); }
 
 .pathbar-msg { padding: 18px 12px; text-align: center; color: var(--dim); }
 .pathbar-msg.is-error { color: var(--alarm); }
@@ -322,7 +429,6 @@
 .pathbar-action.is-done,
 .pathbar-action.is-done > .pathbar-icon { color: var(--accent); border-color: var(--accent); }
 .pathbar-action.is-primary {
-  margin-left: auto;
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -333,6 +439,8 @@
   background: color-mix(in srgb, var(--accent) 85%, var(--text));
 }
 .pathbar-action:disabled { opacity: 0.4; cursor: default; }
+/* 「Finderから選択」から右は、表示中フォルダーを使う操作（新規セッション / 移動 / 決定） */
+.pathbar-os-pick { margin-left: auto; }
 .pathbar-pop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ── お気に入り（コピーの隣のボタン + その上に開くメニュー） ── */

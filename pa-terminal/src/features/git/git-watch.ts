@@ -110,6 +110,10 @@ async function pollGit(refreshIfBusy: boolean): Promise<void> {
       gitCwd = res?.repo && cwd ? cwd : null;
       applyChanges(res);
       renderBranches(br);
+      // 操作ボタンは変更件数（Commit / Stash）とブランチ・リモート（Push / Fetch / Pull）の
+      // 両方で決まるので、両方を反映し終えてから決め直す。applyChanges の中で呼ぶと
+      // 新しいリポジトリに前のリポジトリのリモート情報を組み合わせた状態で一度描いてしまう
+      updateActionButtons();
       // Git ウィンドウが開いていれば履歴・サイドバーも同じ cwd で更新する
       gitWindowTick(cwd, Boolean(res?.repo));
     }
@@ -128,7 +132,6 @@ function applyChanges(res: GitChanges | null): void {
   if (isPullDialogOpen() && nextRoot !== getPullDialogRoot()) closePullDialog();
   syncWorktreeDialogWithWatch(nextRoot);
   renderGitOpenBadge(files.length);
-  updateActionButtons(); // Commit / Stash は変更件数で有効・無効が変わる
   renderStatusFiles();
 }
 

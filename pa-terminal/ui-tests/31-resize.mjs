@@ -465,7 +465,9 @@ check("a failed resize is retried until it lands",
 // 新しいグリッドへ流し込まれる
 await page.evaluate(() => { window.__ipcLog.length = 0; });
 await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(700);
 await page.setViewportSize({ width: 1000, height: 780 });
 await page.waitForTimeout(500);

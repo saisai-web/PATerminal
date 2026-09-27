@@ -934,6 +934,10 @@ if (logShown) {
 
   check("opening a worktree session closes the Git window",
     await pageLog.locator("#git-window-overlay").isHidden());
+  // ルートに作る「セッションを作成」と違い、場所が決まっているのでフォルダーブラウザーは開かない
+  await pageLog.waitForTimeout(150);
+  check("opening a worktree session does not open the folder browser",
+    (await pageLog.locator(".pathbar-pop").count()) === 0);
   await ensureGitWindow();
   await pageLog.waitForSelector("#gw-worktrees .wt-row", { timeout: 3000 });
   // 作成済み worktree のブランチを、Worktree ビューから後で open Issue に紐付ける

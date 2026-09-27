@@ -5,6 +5,7 @@ import "./styles.css";
 import { initAgentWatch } from "./features/agents/watch";
 import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-directory";
 import { initPathBar } from "./features/agents/path-bar";
+import { pickFolderFromOs } from "./features/sidebar/new-session-location";
 import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
 import { initGitWatch } from "./features/git/git-watch";
@@ -41,6 +42,7 @@ import {
   createWorkspaceBesideActive,
   newSessionCwd,
   onActiveWorkspaceChange,
+  quickCreateWorkspace,
   setActive,
   workspaceCwd,
   updateWorkspaceNote,
@@ -125,6 +127,8 @@ initPathBar({
   favorites: getExplorerFavorites,
   toggleFavorite: toggleExpFavorite,
   focusPane: (pane) => setFocused(pane.id),
+  newSession: (path) => void quickCreateWorkspace({ cwd: path }),
+  pickFolderFromOs,
 });
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。

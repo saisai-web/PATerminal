@@ -107,10 +107,52 @@ export default async function ({ browser, check, BASE_URL }) {
   await page.keyboard.press("Backspace");
   await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "~");
   check("browser: Backspace on an empty filter goes up", true);
-  check("browser: offers root, copy, favorites and move actions",
+  check("browser: offers root, copy, favorites, Finder, new session and move actions",
     JSON.stringify(await page.$$eval(".pathbar-action span", (els) => els.map((el) => el.textContent))) ===
-      JSON.stringify(["ルート", "コピー", "お気に入り", "ここへ移動"]));
+      JSON.stringify(["ルート", "コピー", "お気に入り", "Finderから選択", "新規セッション", "ここへ移動"]));
   await page.keyboard.press("Escape");
+
+  // 大きさ: 既定は約2倍（760×640、画面に収める）で、広いので左に「場所」列が出る
+  await page.evaluate(() => localStorage.removeItem("pa.folderBrowserSize"));
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-row");
+  // 開くアニメーション（scale）を終わらせてから実寸を測る
+  const popBox = () => page.evaluate(() => {
+    const pop = document.querySelector(".pathbar-pop");
+    for (const a of pop.getAnimations()) a.finish();
+    const r = pop.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), bottom: Math.round(r.bottom) };
+  });
+  const big = await popBox();
+  const barTop = await page.evaluate(() => document.querySelector(".pane-pathbar-path").getBoundingClientRect().top);
+  check("size: opens about twice the old 380px popover and stays above the bar",
+    big.w === 760 && big.h >= 400 && big.bottom <= barTop, JSON.stringify({ big, barTop }));
+  const sideItems = await page.$$eval(".pathbar-side-item .pathbar-side-name", (els) => els.map((el) => el.textContent));
+  check("side: the wide browser lists the terminal's folder in a places column",
+    await page.locator(".pathbar-side").isVisible() && sideItems[0] === "ターミナルのフォルダー", JSON.stringify(sideItems));
+  await page.locator(".pathbar-side-item", { hasText: "ターミナルのフォルダー" }).click();
+  check("side: choosing a place keeps the browser open without moving the terminal",
+    (await page.locator(".pathbar-pop").count()) === 1);
+
+  // 右上の角をドラッグすると縮み、大きさは次回も残る。狭いと場所列は隠れる
+  const grip = await page.locator(".pathbar-grip.is-xy").boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2 - 260, grip.y + grip.height / 2 + 100, { steps: 4 });
+  await page.mouse.up();
+  const small = await popBox();
+  check("resize: dragging the corner shrinks the browser and keeps it anchored to the bar",
+    small.w === 500 && small.h === big.h - 100 && small.bottom === big.bottom, JSON.stringify({ big, small }));
+  check("resize: a narrow browser hides the places column", await page.locator(".pathbar-side").isHidden());
+  await page.keyboard.press("Escape");
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-pop");
+  const reopened = await popBox();
+  check("resize: the size is remembered for the next open", JSON.stringify(reopened) === JSON.stringify(small), JSON.stringify({ small, reopened }));
+  await page.locator(".pathbar-grip.is-xy").dblclick();
+  check("resize: double-clicking the corner restores the default size", (await popBox()).w === 760);
+  await page.keyboard.press("Escape");
+
 
   // お気に入り: コピーの隣のボタンからメニューを開き、追加・ジャンプ・削除する。
   // 一覧はエクスプローラーのお気に入りと共有
@@ -183,5 +225,30 @@ export default async function ({ browser, check, BASE_URL }) {
   await page.waitForFunction(() => document.querySelector(".pane-pathbar-agent")?.hidden);
   check("path bar: stays after the CLI exits, dropping only the agent label",
     (await page.locator(".pane-pathbar").count()) === 1);
+
+  // Finderから選択: OS で選んだフォルダーへ一覧を移すだけで、ターミナルは動かさない
+  await page.evaluate(() => { window.__mockPickedDirectory = "/home/user/proj/src"; });
+  const writesBeforeOs = await page.evaluate(() => window.__ptyWrites.length);
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-row");
+  await page.locator(".pathbar-action", { hasText: "Finderから選択" }).click();
+  await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "src");
+  check("Finder: choosing a folder moves only the listing and keeps the browser open",
+    (await page.locator(".pathbar-pop").count()) === 1 &&
+    await page.evaluate((n) => window.__ptyWrites.length === n, writesBeforeOs));
+  await page.keyboard.press("Escape");
+
+  // 新規セッション: 右下のボタンで表示中のフォルダーに作る（フォルダー行には操作を置かない）
+  const spawnsBefore = await page.evaluate(() => window.__ptySpawns.length);
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-row");
+  check("new session: folder rows carry no buttons", (await page.locator(".pathbar-row button").count()) === 0);
+  await page.locator(".pathbar-row", { hasText: "proj" }).click();
+  await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "proj");
+  await page.locator(".pathbar-action", { hasText: "新規セッション" }).click();
+  await page.waitForFunction((n) => window.__ptySpawns.length > n, spawnsBefore);
+  check("new session: the bottom button starts a session in the viewed folder",
+    (await page.evaluate(() => window.__ptySpawns.at(-1).cwd)) === "/home/user/proj" &&
+    (await page.locator(".pathbar-pop").count()) === 0);
   await page.close();
 }

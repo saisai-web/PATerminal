@@ -68,9 +68,11 @@ check("collapsed group auto-expands when member activated", expandedAfter && act
 // --- 22b. + の既定行は表示中セッションと同じグループの直後へ作る ---
 const beforePlusCreate = await page.locator(".ws-item").count();
 await page.click("#ws-new");
-check("+ flyout does not create before choosing its default action",
-  (await page.locator(".ws-item").count()) === beforePlusCreate);
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+check("+ creates right away",
+  (await page.locator(".ws-item").count()) === beforePlusCreate + 1);
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const plusInGroupName = await page.locator(".ws-item.is-active .ws-name").textContent();
 const groupOrder = await page.locator(".ws-group-members .ws-item .ws-name").allTextContents();
@@ -224,6 +226,9 @@ check("clickable group create control offers create-session and create-group",
     groupCtxLabels.includes("グループを作成"),
   `labels=${JSON.stringify(groupCtxLabels)}`);
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const freshMemberNames = await page
   .locator(`.ws-group[data-group-id="${freshId}"] + .ws-group-members > .ws-item .ws-name`)
@@ -268,6 +273,9 @@ await page.waitForTimeout(200);
 await childHead.click({ button: "right" });
 await page.waitForTimeout(150);
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const childMemberNames = await page
   .locator(`.ws-group[data-group-id="${childId}"] + .ws-group-members > .ws-item .ws-name`)
@@ -319,6 +327,9 @@ check("Whole exposes both creation actions by left click",
     defaultCtxLabels.includes("グループを作成"));
 const itemsBeforeDefaultSession = await page.locator(".ws-item").count();
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const defaultSessionName = (await page.locator(".ws-item.is-active .ws-name").textContent()) ?? "";
 const defaultRootNames = await page
@@ -388,6 +399,9 @@ const itemsBeforeBlankSession = await page.locator(".ws-item").count();
 await page.mouse.click(listBox.x + listBox.width / 2, listBox.y + listBox.height - 6, { button: "right" });
 await page.waitForTimeout(150);
 await page.locator("#ctx-menu button", { hasText: "セッションを作成" }).click();
+// 作成したセッションは移動用にフォルダーブラウザーが開くので閉じる
+await page.locator(".pathbar-pop").waitFor({ timeout: 3000 });
+await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const blankSessionName = (await page.locator(".ws-item.is-active .ws-name").textContent()) ?? "";
 const rootItemNames = await page.locator(".ws-whole-members > .ws-item .ws-name").allTextContents();

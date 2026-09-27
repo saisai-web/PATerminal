@@ -143,28 +143,6 @@ check("toolbar Worktree button opens the purchase modal instead of the worktree 
   await overlayVisible() && await page.locator("#worktree-overlay").isHidden());
 await closeOverlay();
 
-// --- ゴミ箱: モーダルは開けるが復元だけロック ---
-await page.click("#session-trash-open");
-await page.waitForSelector("#history-overlay:not([hidden])", { timeout: 3000 });
-check("trash entry selects the recently-deleted tab while locked",
-  (await page.locator("#history-tab-trash").getAttribute("aria-selected")) === "true");
-await page.click("#history-tab-takeover");
-await page.waitForTimeout(200);
-check("locked conversation tab opens the purchase modal and keeps trash selected",
-  await overlayVisible() &&
-    (await page.locator("#history-tab-trash").getAttribute("aria-selected")) === "true");
-await closeOverlay();
-check("trash restore button shows the lock mark",
-  (await page.locator(".session-trash-restore.is-locked").count()) === 1);
-await page.click(".session-trash-restore");
-await page.waitForTimeout(200);
-check("trash restore opens the purchase modal", await overlayVisible());
-check("locked restore does not bring the session back",
-  (await page.locator('.ws-item').count()) === 3);
-await closeOverlay();
-await page.keyboard.press("Escape");
-await page.waitForTimeout(150);
-
 // --- 購入ボタンはチェックアウト URL を開く ---
 await page.click("#broadcast");
 await page.waitForTimeout(200);

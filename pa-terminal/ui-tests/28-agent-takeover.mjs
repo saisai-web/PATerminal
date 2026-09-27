@@ -30,8 +30,6 @@ await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(300);
 
 // ---- 一覧の表示 ----
-check("history is in the focused pane header",
-  await page.locator(".pane.is-focused .pane-bar #session-trash-open").isVisible());
 check("takeover history sits just before the Git and Worktree buttons at the end of the toolbar",
   JSON.stringify(await page.locator("#toolbar > button").evaluateAll((buttons) =>
     buttons.slice(-3).map((button) => button.id))) ===

@@ -1,8 +1,8 @@
 // ============================================================
 // 履歴ダイアログ（会話履歴 / 最近削除したセッション）
 //
-// ツールバーの「履歴」とペインバーの復元ボタンは同じダイアログを開く。
-// 押した入口に対応するタブを初期表示し、各機能固有の描画・操作は
+// ツールバーの「履歴」から開く（ペインバーの復元ボタンは廃止し、最近削除したセッションは
+// ダイアログ内のタブから開く）。openHistoryDialog で開くタブを指定でき、各機能固有の描画・操作は
 // takeover.ts / session-trash.ts が所有したまま、ここではモーダルと
 // タブのライフサイクルだけを調停する。
 // ============================================================
@@ -26,7 +26,6 @@ type HistoryDialogOptions = {
 };
 
 const takeoverOpenBtn = document.querySelector<HTMLButtonElement>("#takeover-open")!;
-const trashOpenBtn = document.querySelector<HTMLButtonElement>("#session-trash-open")!;
 const overlay = document.querySelector<HTMLDivElement>("#history-overlay")!;
 const panel = document.querySelector<HTMLDivElement>("#history-panel")!;
 const titleEl = document.querySelector<HTMLSpanElement>("#history-title")!;
@@ -85,7 +84,6 @@ function selectTab(tab: HistoryTab, focusTab = false): boolean {
 
 function setExpanded(open: boolean): void {
   takeoverOpenBtn.setAttribute("aria-expanded", String(open));
-  trashOpenBtn.setAttribute("aria-expanded", String(open));
 }
 
 export function openHistoryDialog(tab: HistoryTab): void {
@@ -124,7 +122,6 @@ function moveTabFocus(event: KeyboardEvent, current: HistoryTab): void {
 export function initHistoryDialog(deps: HistoryDialogOptions): void {
   options = deps;
   takeoverOpenBtn.onclick = () => openHistoryDialog("takeover");
-  trashOpenBtn.onclick = () => openHistoryDialog("trash");
   takeoverTabBtn.onclick = () => selectTab("takeover");
   trashTabBtn.onclick = () => selectTab("trash");
   takeoverTabBtn.onkeydown = (event) => moveTabFocus(event, "takeover");

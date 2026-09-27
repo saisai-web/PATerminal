@@ -137,14 +137,16 @@ const sbBoxReset = await page.locator("#sidebar").boundingBox();
 check("dblclick resets sidebar width to default", Math.abs(sbBoxReset.width - 320) < 2,
   `width=${Math.round(sbBoxReset.width)}px`);
 
-// --- 44. 新規セッションは表示中ペインのディレクトリで開く ---
+// --- 44. 詳細フォーム（Cmd/Ctrl+T）の既定の場所は表示中ペインのディレクトリ ---
+// （+ と「セッションを作成」はルートに作ってから移動する仕様。38-new-session-location で確認）
 await page.evaluate(() => { window.__mockPtyCwd = "/home/user/proj"; });
 const cwdSpawnBefore = await page.evaluate(() => window.__ptySpawns.length);
-await page.click("#ws-new");
-await page.locator("#loc-flyout .loc-row", { hasText: "表示中ペインと同じ場所" }).click();
+await page.keyboard.press(`${MOD}+KeyT`);
+await page.waitForSelector("#ws-new-form:not([hidden])", { timeout: 3000 });
+await page.locator("#ws-new-shells button").first().click();
 await page.waitForTimeout(400);
 const cwdSpawns = await page.evaluate((n) => window.__ptySpawns.slice(n), cwdSpawnBefore);
-check("new session inherits the focused pane's directory",
+check("the new-session form defaults to the focused pane's directory",
   cwdSpawns.length === 1 && cwdSpawns[0].cwd === "/home/user/proj",
   `spawns=${JSON.stringify(cwdSpawns.map((s) => s.cwd))}`);
 await page.evaluate(() => { window.__mockPtyCwd = null; });
