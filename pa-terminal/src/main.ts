@@ -3,7 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import "@xterm/xterm/css/xterm.css";
 import "./styles.css";
 import { initAgentWatch } from "./features/agents/watch";
-import { initDirectoryChange } from "./features/agents/change-directory";
+import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-directory";
+import { initPathBar } from "./features/agents/path-bar";
+import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
 import { initAgentPanel } from "./features/git/agent-panel";
 import { initGitPanel } from "./features/git/git-panel";
@@ -20,9 +22,11 @@ import { broadcastWrite, toggleBroadcast } from "./terminal/focus";
 import { initBroadcastDialog, openBroadcastDialog } from "./features/broadcast/broadcast-dialog";
 import {
   explorerFollow,
+  getExplorerFavorites,
   initExplorer,
   isExplorerOpen,
   setExplorerOpen,
+  toggleExpFavorite,
 } from "./features/explorer/explorer";
 import { layout, scheduleLayout } from "./terminal/layout";
 import { normPath } from "./features/explorer/paths";
@@ -119,6 +123,13 @@ initBroadcastDialog({
 });
 initDropPaths();
 initDirectoryChange({ beforeReplace: notifyPairExit });
+initPathBar({
+  openFile: (path) => void openFileViewer(path),
+  moveTo: (pane, path) => void moveTerminalTo(pane, path),
+  favorites: getExplorerFavorites,
+  toggleFavorite: toggleExpFavorite,
+  focusPane: (pane) => setFocused(pane.id),
+});
 initQuickPhrases({
   // 定型文はクリックでも選択モードの Enter でも入力のみ。実行用の改行は送らない。
   insert: (text) => {
@@ -280,6 +291,9 @@ async function resolveWatchCwd(): Promise<string | null> {
       /* フォールバックへ */
     }
   }
+  // OSC 7 を吐かないシェル（macOS の素の zsh 等）の cd も、ペインバー・パスバー・
+  // サイドバーへ反映する。await 中に閉じられたペインは触らない
+  if (live && pane.alive && panes.get(pane.id) === pane) pane.setCwd(live, { fromPoll: true });
   const p = live ?? pane.cwd ?? pane.spec.cwd;
   if (!p) return null;
   const n = normPath(p);
@@ -321,6 +335,10 @@ initWsGit({
         }),
       };
     }),
+  onPaneCwd: (paneId, cwd) => {
+    const pane = panes.get(paneId);
+    if (pane?.alive) pane.setCwd(cwd, { fromPoll: true });
+  },
 });
 
 // ---- 実行中エージェントの検知（復元時の会話再開 + 終了バナー） ----

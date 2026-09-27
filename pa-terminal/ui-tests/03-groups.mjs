@@ -435,7 +435,15 @@ await page.locator(".ws-item", { hasText: "のコピー" }).locator(".ws-close")
 await page.waitForTimeout(300);
 const dupGone = await page.locator(".ws-item", { hasText: "のコピー" }).count();
 check("duplicated session closes cleanly", dupGone === 0, `remaining=${dupGone}`);
-await page.evaluate(() => { window.__mockPtyCwd = null; });
+// 実 cwd のポーリングはペインの表示先も live-project へ移す。後続スイートの前提
+// （/home/user）へ戻すため、シェルが cd で戻ったのと同じ状態にする
+await page.evaluate(async () => {
+  window.__mockPtyCwd = null;
+  const { panes } = await import("/src/workspace/state.ts");
+  for (const pane of panes.values()) {
+    if (pane.cwd === "/home/user/live-project") pane.setCwd("/home/user");
+  }
+});
 
 // --- 23b2. 複製直後の打鍵はコピー先のターミナルへ流れる ---
 await page.locator(".ws-item", { hasText: "Session 1" }).click({ button: "right" });

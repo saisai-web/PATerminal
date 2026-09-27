@@ -25,6 +25,8 @@ import { scheduleSave } from "../app/session";
 import { getTheme } from "../features/settings/settings-panel";
 import { renderSidebar } from "../features/sidebar/sidebar";
 import { resumeCommandFor } from "../features/agents/agents";
+import { syncPathBar } from "../features/agents/path-bar";
+import { normPath } from "../features/explorer/paths";
 import { getFocusedId, getHostOs, panes } from "../workspace/state";
 import { XTERM_MINIMUM_CONTRAST_RATIO, xtermThemeFor } from "../features/settings/themes";
 import { closePane } from "./tree";
@@ -249,6 +251,8 @@ export class Pane {
     const body = document.createElement("div");
     body.className = "pane-body";
     this.el.append(bar, body);
+    // 最下部のフォルダ表示（cwd 未確定なら最初の OSC 7 で出る）
+    syncPathBar(this);
 
     this.term = new Terminal({
       fontFamily: '"SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace',
@@ -373,23 +377,7 @@ export class Pane {
           let p = decodeURIComponent(url.pathname);
           // Windows: "/C:/Users/..." → "C:/Users/..."
           if (/^\/[A-Za-z]:/.test(p)) p = p.slice(1);
-          // 同じ cwd の再通知（プロンプト表示のたびに来る）では何もしない
-          if (p !== this.cwd) {
-            // 最初の通知 = 起動ディレクトリ。以降の cd では動かさない
-            if (this.initialCwd === undefined) this.initialCwd = p;
-            this.cwd = p;
-            this.cwdEl.textContent = p;
-            scheduleSave();
-            renderSidebar();
-            updateWsGit(); // 非アクティブセッションの cd でもバッジを追従させる
-            // フォーカス中ペインの cd なら「セッションの現在地」ピン・git 監視・
-            // エクスプローラーの表示先も追従
-            if (this.id === getFocusedId()) {
-              renderExplorerFavs();
-              updateGitWatch();
-              explorerFollow(p);
-            }
-          }
+          this.setCwd(p);
         }
       } catch {
         /* 不正な OSC 7 は無視 */
@@ -634,6 +622,31 @@ export class Pane {
       キーイベントのハンドラ内から同期的に IPC (postMessage) を呼ぶと、
       WKWebView のキー配送（UIプロセスとの同期往復）と競合して次の打鍵を
       取りこぼすことがあるため、タスクを分けてから送る。 */
+  /**
+   * 現在ディレクトリの更新。OSC 7 と、シェル統合が無く OSC 7 が来ない環境向けの
+   * pty_cwd ポーリング（変更ストリップ 3 秒 / セッション git バッジ 5 秒の既存経路に相乗り）
+   * の両方から呼ぶ。同じ場所の再通知（プロンプト毎・ポーリング毎）では何もしない。
+   * fromPoll: 呼び出し元がその git 監視自身なので、git の再確認を起こさない
+   */
+  setCwd(path: string, opts: { fromPoll?: boolean } = {}) {
+    if (this.cwd !== undefined && normPath(this.cwd) === normPath(path)) return;
+    // 最初の通知 = 起動ディレクトリ。以降の cd では動かさない
+    if (this.initialCwd === undefined) this.initialCwd = path;
+    this.cwd = path;
+    this.cwdEl.textContent = path;
+    syncPathBar(this);
+    scheduleSave();
+    renderSidebar();
+    if (!opts.fromPoll) updateWsGit(); // 非アクティブセッションの cd でもバッジを追従させる
+    // フォーカス中ペインの cd なら「セッションの現在地」ピン・git 監視・
+    // エクスプローラーの表示先も追従
+    if (this.id === getFocusedId()) {
+      renderExplorerFavs();
+      if (!opts.fromPoll) updateGitWatch();
+      explorerFollow(path);
+    }
+  }
+
   write(data: string, marksActivity = true) {
     this.enqueue(data, marksActivity);
   }

@@ -1,0 +1,622 @@
+// ============================================================
+// ペイン下部のパスバー + アプリ内フォルダーブラウザー
+//
+// すべてのペインの最下部（claude / codex なら入力欄のすぐ下）に現在のフォルダを出す。
+// クリックすると OS の Finder / エクスプローラーではなく、アプリ内のポップオーバーで
+// フォルダを辿れる。辿った先はパスのコピー・お気に入り・ターミナルの移動（シェルは cd、エージェントは会話を引き継ぐ既存の切り替えダイアログ）に使える。
+//
+// - cwd が分かった時点でバーを出す（Pane の生成時と OSC 7 の cd で syncPathBar）。
+//   エージェント種別のラベルは検知スイープ（watch.ts の apply）が更新する。
+// - 「ルート」は一覧の表示先を既定のルート（新規ターミナルの起動場所 = ホーム）へ切り替える。
+//   バーの出現で .pane-body の高さが変わり、ペインの ResizeObserver が refit する
+//   （CLAUDE.md: refit → resize の順序はそのまま。ここから pty_resize は呼ばない）
+// - fs_list は開いているフォルダ1つ分だけ、操作時に直列で呼ぶ（定期実行しない）
+// - 他機能の操作は main.ts から callback で受け取り、import の循環を作らない
+// ============================================================
+
+import { invoke } from "@tauri-apps/api/core";
+import { homeDir } from "@tauri-apps/api/path";
+import { t } from "../../i18n";
+import { copyText } from "../../shared/clipboard";
+import type { Pane } from "../../terminal/pane";
+import { panes } from "../../workspace/state";
+import type { FsEntry, FsListing } from "../../workspace/types";
+import { joinPath, normPath, parentPath, pathBasename } from "../explorer/paths";
+
+type PathBarDeps = {
+  /** アプリ内ビューアーでファイルを開く */
+  openFile: (path: string) => void;
+  /** ターミナルをフォルダへ移動する（シェルは cd、エージェントは切り替えダイアログ） */
+  moveTo: (pane: Pane, path: string) => void;
+  /** お気に入りフォルダ（エクスプローラーと共有。保存もあちら） */
+  favorites: () => string[];
+  toggleFavorite: (path: string) => void;
+  /** ペインをフォーカスする（setFocused） */
+  focusPane: (pane: Pane) => void;
+};
+
+let deps: PathBarDeps | undefined;
+let home: string | undefined;
+let closeBrowser: (() => void) | undefined;
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const ICONS = {
+  folder: "M2.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h4.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z",
+  file: "M4.5 2.5h4.5l3 3v8h-7.5zM9 2.5v3h3",
+  up: "M8 12.5v-9M4.5 7 8 3.5 11.5 7",
+  chevron: "M6 4l4 4-4 4",
+  caret: "M4.5 10 8 6.5l3.5 3.5",
+  target: "M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z",
+  copy: "M5.5 5.5h7v7h-7zM3.5 10.5v-7h7",
+  star: "M8 2.4l1.7 3.5 3.8.55-2.75 2.7.65 3.8L8 11.15l-3.4 1.8.65-3.8-2.75-2.7 3.8-.55z",
+  close: "M4.75 4.75l6.5 6.5M11.25 4.75l-6.5 6.5",
+  home: "M2.5 7.5 8 3l5.5 4.5M4 6.5v6.5h3v-3.5h2V13h3V6.5",
+  move: "M2.5 8h9M8.5 4.5 12 8l-3.5 3.5",
+} as const;
+
+function icon(name: keyof typeof ICONS, className = "pathbar-icon"): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add(className);
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", ICONS[name]);
+  svg.append(path);
+  return svg;
+}
+
+export function initPathBar(d: PathBarDeps): void {
+  deps = d;
+  void homeDir().then(
+    (h) => {
+      home = normPath(h);
+      // 取得前に出したバーの ~ 表記を反映し直す
+      for (const pane of panes.values()) syncPathBar(pane);
+    },
+    () => {},
+  );
+}
+
+/** ホーム配下は ~ で短く見せる（表示専用。操作は常に絶対パスで行う） */
+function displayPath(path: string): string {
+  if (home && home !== "/" && (path === home || path.startsWith(`${home}/`))) {
+    return `~${path.slice(home.length)}`;
+  }
+  return path;
+}
+
+function paneCwd(pane: Pane): string | undefined {
+  const p = pane.cwd ?? pane.spec.cwd;
+  return p ? normPath(p) : undefined;
+}
+
+/** ターミナルの既定のルート = 新しいターミナルが最初に開く場所（cwd 指定なしの
+    pty_spawn はホームで起動する）。ホーム未取得の間は undefined */
+function defaultRoot(): string | undefined {
+  return home;
+}
+
+function live(pane: Pane): boolean {
+  return pane.alive && panes.get(pane.id) === pane;
+}
+
+/** cwd が分かっているペインにバーを出し、cwd やエージェント種別が変わったときだけ
+    DOM を書き換える。agent を省略すると直近の検知結果のまま（OSC 7 の cd から呼ぶ） */
+export function syncPathBar(pane: Pane, agent?: string | null): void {
+  const cwd = paneCwd(pane);
+  let bar = pane.el.querySelector<HTMLDivElement>(":scope > .pane-pathbar");
+  if (!cwd) return;
+  if (!bar) {
+    bar = createBar(pane);
+    pane.el.append(bar);
+  }
+  if (agent !== undefined && (bar.dataset.agent ?? null) !== agent) {
+    if (agent) bar.dataset.agent = agent;
+    else delete bar.dataset.agent;
+    const label = bar.querySelector<HTMLSpanElement>(".pane-pathbar-agent")!;
+    label.textContent = agent ?? "";
+    label.hidden = !agent;
+  }
+  const shown = displayPath(cwd);
+  if (bar.dataset.cwd !== cwd || bar.dataset.shown !== shown) {
+    bar.dataset.cwd = cwd;
+    bar.dataset.shown = shown;
+    const leaf = pathBasename(shown);
+    const parent = shown.slice(0, shown.length - leaf.length);
+    // 長い親パスは先頭側を省略し、末尾のフォルダ名は常に見せる
+    bar.querySelector(".pane-pathbar-parent")!.textContent = parent ? `‎${parent}‎` : "";
+    bar.querySelector(".pane-pathbar-leaf")!.textContent = leaf;
+    bar.querySelector<HTMLButtonElement>(".pane-pathbar-path")!.title = `${cwd}\n${t("pathbar.browse")}`;
+  }
+}
+
+function createBar(pane: Pane): HTMLDivElement {
+  const bar = document.createElement("div");
+  bar.className = "pane-pathbar";
+  const agentEl = document.createElement("span");
+  agentEl.className = "pane-pathbar-agent";
+  agentEl.hidden = true;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pane-pathbar-path";
+  button.setAttribute("aria-haspopup", "dialog");
+  button.setAttribute("aria-expanded", "false");
+  const parent = document.createElement("span");
+  parent.className = "pane-pathbar-parent";
+  const leaf = document.createElement("span");
+  leaf.className = "pane-pathbar-leaf";
+  button.append(icon("folder"), parent, leaf, icon("caret", "pathbar-caret"));
+  button.onclick = (e) => {
+    e.stopPropagation();
+    if (bar.dataset.open === "true") {
+      closeBrowser?.();
+      return;
+    }
+    const cwd = bar.dataset.cwd;
+    if (!cwd) return;
+    deps?.focusPane(pane);
+    openBrowser(pane, bar, button, cwd);
+  };
+  bar.append(agentEl, button);
+  return bar;
+}
+
+type Row = { entry: FsEntry; path: string };
+
+function openBrowser(pane: Pane, bar: HTMLDivElement, anchor: HTMLButtonElement, start: string) {
+  closeBrowser?.();
+  if (!deps || !live(pane)) return;
+  const d = deps;
+  const origin = start;
+  let current = start;
+  let listing: FsListing | null = null;
+  let error: string | null = null;
+  let loading = false;
+  let token = 0;
+  let rows: Row[] = [];
+  let selected = 0;
+  let closed = false;
+
+  const pop = document.createElement("div");
+  pop.className = "pathbar-pop";
+  pop.setAttribute("role", "dialog");
+  pop.setAttribute("aria-label", t("pathbar.browse"));
+
+  // ---- 見出し: 上へ / パンくず / 現在地へ戻る
+  const head = document.createElement("div");
+  head.className = "pathbar-pop-head";
+  const upBtn = iconButton("up", t("pathbar.up"), () => {
+    const p = parentPath(current);
+    if (p) navigate(p);
+  });
+  const crumbs = document.createElement("div");
+  crumbs.className = "pathbar-crumbs";
+  const currentBtn = iconButton("target", t("pathbar.current"), () => navigate(origin));
+  head.append(upBtn, crumbs, currentBtn);
+
+  // ---- 絞り込み
+  const filterWrap = document.createElement("div");
+  filterWrap.className = "pathbar-filter";
+  const filter = document.createElement("input");
+  filter.type = "text";
+  filter.placeholder = t("pathbar.filter");
+  filter.spellcheck = false;
+  filter.autocomplete = "off";
+  filter.setAttribute("aria-controls", "pathbar-list");
+  filterWrap.append(filter);
+
+  // ---- 一覧
+  const list = document.createElement("div");
+  list.className = "pathbar-list";
+  list.id = "pathbar-list";
+  list.setAttribute("role", "listbox");
+
+  // ---- 操作（表示中のフォルダに対して）
+  const actions = document.createElement("div");
+  actions.className = "pathbar-actions";
+  // 一覧の表示先を既定のルート（新規ターミナルの起動場所 = ホーム）へ切り替えるだけ。
+  // ターミナル自体の移動は「ここへ移動」に一本化する
+  const rootBtn = actionButton("home", t("pathbar.root"), () => {
+    const root = defaultRoot();
+    if (root) void navigate(root);
+  });
+  const copyBtn = actionButton("copy", t("pathbar.copy"), () => {
+    void copyText(current).then(() => {
+      if (closed) return;
+      copyBtn.classList.add("is-done");
+      copyBtn.querySelector("span")!.textContent = t("pathbar.copied");
+      window.setTimeout(() => {
+        copyBtn.classList.remove("is-done");
+        copyBtn.querySelector("span")!.textContent = t("pathbar.copy");
+      }, 1200);
+    });
+  });
+  // お気に入り: ボタンの上に小さなメニューを開き、表示中フォルダの追加/解除と
+  // 登録済みフォルダへのジャンプ（一覧の表示先を切り替えるだけ）を行う
+  const favBtn = actionButton("star", t("pathbar.favorites"), () => {
+    if (favMenu) closeFavMenu();
+    else renderFavMenu();
+  });
+  favBtn.classList.add("pathbar-fav-btn");
+  favBtn.setAttribute("aria-haspopup", "menu");
+  favBtn.setAttribute("aria-expanded", "false");
+  let favMenu: HTMLDivElement | null = null;
+  const moveBtn = actionButton("move", t("pathbar.move"), () => {
+    const target = current;
+    close();
+    if (live(pane)) d.moveTo(pane, target);
+  });
+  moveBtn.classList.add("is-primary");
+  actions.append(rootBtn, copyBtn, favBtn, moveBtn);
+
+  pop.append(head, filterWrap, list, actions);
+  document.body.append(pop);
+  bar.dataset.open = "true";
+  anchor.setAttribute("aria-expanded", "true");
+
+  function iconButton(name: keyof typeof ICONS, label: string, onClick: () => void) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pathbar-icon-btn";
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    b.append(icon(name));
+    b.onclick = onClick;
+    return b;
+  }
+
+  function actionButton(name: keyof typeof ICONS, label: string, onClick: () => void) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pathbar-action";
+    const text = document.createElement("span");
+    text.textContent = label;
+    b.append(icon(name), text);
+    b.onclick = onClick;
+    return b;
+  }
+
+  function updateFavBtn() {
+    favBtn.classList.toggle("is-on", d.favorites().includes(current));
+  }
+
+  function closeFavMenu() {
+    favMenu?.remove();
+    favMenu = null;
+    favBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function renderFavMenu() {
+    favMenu?.remove();
+    const menu = document.createElement("div");
+    menu.className = "pathbar-favs";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", t("pathbar.favorites"));
+    const list = d.favorites();
+    const isFav = list.includes(current);
+
+    // 表示中フォルダの追加 / 解除
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "pathbar-fav-toggle";
+    toggle.classList.toggle("is-on", isFav);
+    toggle.setAttribute("role", "menuitem");
+    const toggleText = document.createElement("span");
+    toggleText.className = "pathbar-fav-toggle-text";
+    toggleText.textContent = isFav ? t("pathbar.favRemove") : t("pathbar.favAdd");
+    const here = document.createElement("span");
+    here.className = "pathbar-fav-here";
+    here.textContent = pathBasename(displayPath(current));
+    toggle.append(icon("star"), toggleText, here);
+    toggle.onclick = () => {
+      d.toggleFavorite(current);
+      updateFavBtn();
+      renderFavMenu();
+      // 作り直しでフォーカスが body へ落ちると Esc がポップオーバーに届かない
+      favMenu?.querySelector<HTMLButtonElement>(".pathbar-fav-toggle")?.focus();
+    };
+    menu.append(toggle);
+
+    if (list.length === 0) {
+      menu.append(message(t("pathbar.favEmpty"), "is-muted"));
+    } else {
+      const rowsEl = document.createElement("div");
+      rowsEl.className = "pathbar-fav-list";
+      for (const path of list) {
+        const row = document.createElement("div");
+        row.className = "pathbar-fav-row";
+        row.setAttribute("role", "menuitem");
+        row.tabIndex = 0;
+        row.title = path;
+        row.classList.toggle("is-current", path === current);
+        const name = document.createElement("span");
+        name.className = "pathbar-fav-name";
+        name.textContent = pathBasename(displayPath(path));
+        const parent = parentPath(path);
+        const context = document.createElement("span");
+        context.className = "pathbar-fav-context";
+        // rtl で先頭側を省略しても / や ~ が入れ替わらないよう LRM で囲む
+        context.textContent = parent ? `\u200e${displayPath(parent)}\u200e` : "";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "pathbar-fav-remove";
+        remove.title = t("pathbar.favDelete");
+        remove.setAttribute("aria-label", t("pathbar.favDelete"));
+        remove.append(icon("close"));
+        remove.onclick = (e) => {
+          e.stopPropagation();
+          d.toggleFavorite(path);
+          updateFavBtn();
+          renderFavMenu();
+          favMenu?.querySelector<HTMLButtonElement>(".pathbar-fav-toggle")?.focus();
+        };
+        const jump = () => {
+          closeFavMenu();
+          void navigate(path);
+          filter.focus();
+        };
+        row.onclick = jump;
+        row.onkeydown = (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          jump();
+        };
+        row.append(icon("folder"), name, context, remove);
+        rowsEl.append(row);
+      }
+      menu.append(rowsEl);
+    }
+    const left = Math.min(favBtn.offsetLeft, pop.clientWidth - 280 - 8);
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.bottom = `${actions.offsetHeight + 6}px`;
+    pop.append(menu);
+    favMenu = menu;
+    favBtn.setAttribute("aria-expanded", "true");
+  }
+
+  function position() {
+    const r = anchor.getBoundingClientRect();
+    const width = Math.min(380, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    const spaceAbove = r.top - 12;
+    pop.style.width = `${width}px`;
+    pop.style.left = `${left}px`;
+    pop.style.bottom = `${window.innerHeight - r.top + 6}px`;
+    // 高さは固定し、フォルダを移るたびに上端が跳ねないようにする
+    pop.style.height = `${Math.max(200, Math.min(400, spaceAbove))}px`;
+  }
+
+  function renderCrumbs() {
+    crumbs.textContent = "";
+    const shown = displayPath(current);
+    const tilde = shown !== current;
+    const parts: Array<{ label: string; target: string }> = [];
+    const drive = current.match(/^([A-Za-z]:\/)(.*)$/);
+    let root = drive ? drive[1] : "/";
+    let rest = drive ? drive[2] : current.slice(1);
+    if (tilde && home) {
+      root = home;
+      rest = current.slice(home.length + 1);
+      parts.push({ label: "~", target: home });
+    } else {
+      parts.push({ label: root, target: root });
+    }
+    let target = root;
+    for (const seg of rest.split("/").filter(Boolean)) {
+      target = joinPath(target, seg);
+      parts.push({ label: seg, target });
+    }
+    parts.forEach((part, i) => {
+      if (i > 0) {
+        const sep = icon("chevron", "pathbar-crumb-sep");
+        crumbs.append(sep);
+      }
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pathbar-crumb";
+      b.textContent = part.label;
+      b.title = part.target;
+      if (i === parts.length - 1) b.setAttribute("aria-current", "location");
+      b.onclick = () => navigate(part.target);
+      crumbs.append(b);
+    });
+    requestAnimationFrame(() => { crumbs.scrollLeft = crumbs.scrollWidth; });
+    upBtn.disabled = parentPath(current) === null;
+    currentBtn.disabled = current === origin;
+    updateFavBtn();
+    const rootPath = defaultRoot();
+    rootBtn.disabled = !rootPath || current === rootPath;
+    rootBtn.title = rootPath ?? "";
+    moveBtn.disabled = current === origin;
+    moveBtn.title = current === origin ? t("pathbar.here") : current;
+  }
+
+  function computeRows() {
+    const q = filter.value.trim().toLowerCase();
+    const entries = (listing?.entries ?? []).filter((e) => {
+      // ドットファイルは「.」から絞り込んだときだけ出す
+      if (e.name.startsWith(".") && !q.startsWith(".")) return false;
+      return !q || e.name.toLowerCase().includes(q);
+    });
+    entries.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1));
+    rows = entries.map((entry) => ({ entry, path: joinPath(current, entry.name) }));
+    selected = Math.min(selected, Math.max(0, rows.length - 1));
+  }
+
+  function renderList() {
+    list.textContent = "";
+    if (loading && !listing) {
+      list.append(message(t("pathbar.loading"), "is-muted"));
+      return;
+    }
+    if (error) {
+      list.append(message(t("exp.readError", { error }), "is-error"));
+      return;
+    }
+    if (rows.length === 0) {
+      list.append(message(filter.value ? t("exp.noMatch") : t("pathbar.empty"), "is-muted"));
+      return;
+    }
+    rows.forEach((row, i) => {
+      const item = document.createElement("div");
+      item.className = "pathbar-row";
+      item.id = `pathbar-row-${i}`;
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(i === selected));
+      item.classList.toggle("is-dir", row.entry.isDir);
+      item.title = row.path;
+      const name = document.createElement("span");
+      name.className = "pathbar-row-name";
+      name.textContent = row.entry.name;
+      item.append(icon(row.entry.isDir ? "folder" : "file"), name);
+      if (row.entry.isDir) item.append(icon("chevron", "pathbar-row-chevron"));
+      item.onmousemove = () => {
+        if (selected === i) return;
+        selected = i;
+        updateSelection(false);
+      };
+      item.onclick = () => activate(row);
+      list.append(item);
+    });
+    if (listing?.truncated) list.append(message(t("exp.truncated"), "is-muted"));
+    updateSelection(true);
+  }
+
+  function message(text: string, cls: string) {
+    const el = document.createElement("div");
+    el.className = `pathbar-msg ${cls}`;
+    el.textContent = text;
+    return el;
+  }
+
+  function updateSelection(scroll: boolean) {
+    list.querySelectorAll<HTMLElement>(".pathbar-row").forEach((el, i) => {
+      el.setAttribute("aria-selected", String(i === selected));
+      if (i === selected && scroll) el.scrollIntoView({ block: "nearest" });
+    });
+    if (rows.length) filter.setAttribute("aria-activedescendant", `pathbar-row-${selected}`);
+    else filter.removeAttribute("aria-activedescendant");
+  }
+
+  function activate(row: Row) {
+    if (row.entry.isDir) navigate(row.path);
+    else {
+      // ビューアーがフォーカスを持つので、ペインへは戻さない
+      close(false);
+      d.openFile(row.path);
+    }
+  }
+
+  async function navigate(path: string) {
+    const target = normPath(path);
+    const my = ++token;
+    closeFavMenu();
+    current = target;
+    filter.value = "";
+    selected = 0;
+    loading = true;
+    error = null;
+    listing = null;
+    renderCrumbs();
+    // 速い応答ではローディング表示を出さない（ちらつき防止）
+    const spinner = window.setTimeout(() => { if (my === token && loading) renderList(); }, 120);
+    try {
+      const result = await invoke<FsListing>("fs_list", { path: target });
+      if (my !== token || closed) return;
+      listing = result;
+    } catch (e) {
+      if (my !== token || closed) return;
+      error = String(e);
+    } finally {
+      window.clearTimeout(spinner);
+    }
+    loading = false;
+    computeRows();
+    renderList();
+  }
+
+  /** refocus: Esc や操作の完了ではペインへ戻す。外側クリック等ではクリック先に任せる */
+  function close(refocus = true) {
+    if (closed) return;
+    closed = true;
+    token++;
+    pop.remove();
+    delete bar.dataset.open;
+    anchor.setAttribute("aria-expanded", "false");
+    document.removeEventListener("mousedown", onOutside, true);
+    window.removeEventListener("resize", dismissQuietly);
+    window.removeEventListener("blur", dismissQuietly);
+    if (closeBrowser === dismissQuietly) closeBrowser = undefined;
+    if (refocus && live(pane)) d.focusPane(pane);
+  }
+  function dismissQuietly() {
+    close(false);
+  }
+  closeBrowser = dismissQuietly;
+
+  function onOutside(e: MouseEvent) {
+    if (e.target instanceof Node && (pop.contains(e.target) || anchor.contains(e.target))) return;
+    close(false);
+  }
+  document.addEventListener("mousedown", onOutside, true);
+  window.addEventListener("resize", dismissQuietly);
+  window.addEventListener("blur", dismissQuietly);
+
+  pop.addEventListener("mousedown", (e) => {
+    if (!favMenu || !(e.target instanceof Node)) return;
+    if (favMenu.contains(e.target) || favBtn.contains(e.target)) return;
+    closeFavMenu();
+  });
+  filter.oninput = () => {
+    selected = 0;
+    computeRows();
+    renderList();
+  };
+  pop.addEventListener("keydown", (e) => {
+    // グローバルショートカットやターミナルへキーを流さない
+    e.stopPropagation();
+    const inFilter = e.target === filter;
+    switch (e.key) {
+      case "Escape":
+        e.preventDefault();
+        if (favMenu) {
+          closeFavMenu();
+          favBtn.focus();
+        } else close();
+        return;
+      case "ArrowDown":
+      case "ArrowUp":
+        if (!rows.length || favMenu?.contains(e.target as Node)) return;
+        e.preventDefault();
+        selected = (selected + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length;
+        updateSelection(true);
+        return;
+      case "Enter":
+        if (!inFilter || !rows[selected]) return;
+        e.preventDefault();
+        activate(rows[selected]);
+        return;
+      case "ArrowRight":
+        if (!inFilter || filter.selectionStart !== filter.value.length) return;
+        if (rows[selected]?.entry.isDir) {
+          e.preventDefault();
+          void navigate(rows[selected].path);
+        }
+        return;
+      case "ArrowLeft":
+      case "Backspace":
+        if (!inFilter || filter.value) return;
+        e.preventDefault();
+        {
+          const p = parentPath(current);
+          if (p) void navigate(p);
+        }
+        return;
+    }
+  });
+
+  position();
+  renderCrumbs();
+  void navigate(start);
+  filter.focus();
+}

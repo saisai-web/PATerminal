@@ -60,3 +60,403 @@
   background: var(--hover);
   color: var(--text);
 }
+
+/* ── ペイン下部のパスバー（全ペイン。claude / codex では入力欄のすぐ下） ── */
+.pane-pathbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  min-width: 0;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--chrome) 65%, var(--pane-bg));
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  --agent-color: var(--accent);
+}
+.pane-pathbar[data-agent="claude"] { --agent-color: #d97757; }
+.pane-pathbar[data-agent="codex"] { --agent-color: var(--ws-color-blue); }
+
+.pane-pathbar-agent {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agent-color) 14%, transparent);
+  color: color-mix(in srgb, var(--agent-color) 80%, var(--text));
+  font-family: "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+.pane-pathbar-agent[hidden] { display: none; }
+.pane-pathbar-agent::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--agent-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-color) 25%, transparent);
+}
+
+.pane-pathbar-path {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px 0 5px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+.pane-pathbar-path:hover,
+.pane-pathbar-path[aria-expanded="true"] {
+  background: var(--hover);
+  border-color: var(--line);
+  color: var(--text);
+}
+.pane-pathbar-path[aria-expanded="true"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.pane-pathbar-path:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-pathbar-path > .pathbar-icon { color: var(--accent); }
+
+.pane-pathbar-parent {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* 長い親パスは先頭側を省略する */
+  opacity: 0.8;
+}
+.pane-pathbar-parent:empty { display: none; }
+.pane-pathbar-leaf {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+.pathbar-caret {
+  flex: none;
+  width: 12px !important;
+  height: 12px !important;
+  opacity: 0.45;
+  transition: transform 0.15s, opacity 0.12s;
+}
+.pane-pathbar-path:hover .pathbar-caret { opacity: 0.9; }
+.pane-pathbar-path[aria-expanded="true"] .pathbar-caret { opacity: 0.9; transform: rotate(180deg); }
+
+.pathbar-icon,
+.pathbar-caret,
+.pathbar-crumb-sep,
+.pathbar-row-chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── アプリ内フォルダーブラウザー（パスバーの上に開く） ── */
+.pathbar-pop {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 36px var(--shadow), 0 2px 6px var(--shadow);
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+  transform-origin: bottom left;
+  animation: pathbar-pop-in 0.14s ease-out;
+}
+@keyframes pathbar-pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pathbar-pop { animation: none; }
+}
+
+.pathbar-pop-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 4px;
+}
+.pathbar-crumbs {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.pathbar-crumbs::-webkit-scrollbar { display: none; }
+.pathbar-crumb {
+  flex: none;
+  padding: 3px 5px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+}
+.pathbar-crumb:hover { background: var(--hover); color: var(--text); }
+.pathbar-crumb[aria-current="location"] { color: var(--text); font-weight: 600; }
+.pathbar-crumb-sep { width: 10px; height: 10px; color: var(--dim); opacity: 0.6; }
+
+.pathbar-icon-btn {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dim);
+  cursor: pointer;
+}
+.pathbar-icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.pathbar-icon-btn:disabled { opacity: 0.3; cursor: default; }
+
+.pathbar-filter { flex: none; padding: 0 8px 6px; }
+.pathbar-filter input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.pathbar-filter input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.pathbar-filter input::placeholder { color: var(--dim); opacity: 0.8; }
+
+.pathbar-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 4px 4px;
+  border-top: 1px solid var(--line);
+}
+.pathbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 6px 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pathbar-row[aria-selected="true"] { background: var(--active-bg); }
+.pathbar-row > .pathbar-icon { color: var(--dim); }
+.pathbar-row.is-dir > .pathbar-icon { color: var(--accent); }
+.pathbar-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pathbar-row:not(.is-dir) .pathbar-row-name { color: var(--dim); }
+.pathbar-row[aria-selected="true"] .pathbar-row-name { color: var(--text); }
+.pathbar-row-chevron { width: 12px; height: 12px; color: var(--dim); opacity: 0.6; }
+
+.pathbar-msg { padding: 18px 12px; text-align: center; color: var(--dim); }
+.pathbar-msg.is-error { color: var(--alarm); }
+
+.pathbar-actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--pane-bg) 45%, var(--chrome));
+  border-top: 1px solid var(--line);
+}
+.pathbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px 0 7px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+.pathbar-action > .pathbar-icon { color: var(--dim); }
+.pathbar-action:hover:not(:disabled) { background: var(--hover); }
+.pathbar-action.is-done,
+.pathbar-action.is-done > .pathbar-icon { color: var(--accent); border-color: var(--accent); }
+.pathbar-action.is-primary {
+  margin-left: auto;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.pathbar-action.is-primary > .pathbar-icon { color: var(--on-accent); }
+.pathbar-action.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 85%, var(--text));
+}
+.pathbar-action:disabled { opacity: 0.4; cursor: default; }
+.pathbar-pop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── お気に入り（コピーの隣のボタン + その上に開くメニュー） ── */
+.pathbar-fav-btn.is-on > .pathbar-icon,
+.pathbar-fav-toggle.is-on > .pathbar-icon {
+  color: var(--ws-color-yellow);
+  fill: currentColor;
+}
+.pathbar-fav-btn[aria-expanded="true"] {
+  background: var(--hover);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.pathbar-favs {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 64px);
+  background: color-mix(in srgb, var(--text) 3%, var(--chrome));
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 10px 28px var(--shadow), 0 1px 3px var(--shadow);
+  overflow: hidden;
+  transform-origin: bottom left;
+  animation: pathbar-pop-in 0.12s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pathbar-favs { animation: none; }
+}
+
+.pathbar-fav-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.pathbar-fav-toggle > .pathbar-icon { color: var(--dim); }
+.pathbar-fav-toggle:hover { background: var(--hover); }
+.pathbar-fav-toggle:hover > .pathbar-icon { color: var(--ws-color-yellow); }
+.pathbar-fav-toggle-text { flex: none; }
+.pathbar-fav-here {
+  min-width: 0;
+  max-width: 45%;
+  margin-inline-start: auto;
+  padding: 1px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--dim);
+  font-family: "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+}
+
+.pathbar-fav-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+.pathbar-fav-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 4px 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+}
+.pathbar-fav-row:hover,
+.pathbar-fav-row:focus-visible { background: var(--active-bg); }
+.pathbar-fav-row:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
+.pathbar-fav-row > .pathbar-icon { color: var(--accent); }
+.pathbar-fav-name {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.pathbar-fav-row.is-current .pathbar-fav-name { color: var(--accent); }
+.pathbar-fav-context {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* 長い親パスは先頭側を省略する */
+  text-align: right;
+  color: var(--dim);
+  font-size: 11px;
+}
+.pathbar-fav-remove {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  color: var(--dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.pathbar-fav-row:hover .pathbar-fav-remove,
+.pathbar-fav-row:focus-within .pathbar-fav-remove { opacity: 1; }
+.pathbar-fav-remove:hover { background: var(--hover); color: var(--alarm); }
+.pathbar-favs .pathbar-msg { padding: 14px 12px; font-size: 11.5px; line-height: 1.5; }

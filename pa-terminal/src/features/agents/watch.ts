@@ -27,6 +27,7 @@ import type { Pane } from "../../terminal/pane";
 import type { PaneAgentInfo } from "../../workspace/types";
 import { isKnownAgent, isValidSessionId, resumeCommandFor } from "./agents";
 import { withTerminalScrollback } from "../../terminal/agent-launch";
+import { syncPathBar } from "./path-bar";
 
 const SWEEP_MS = 5000;
 /** これ未満しか観測していないエージェントの終了にはバナーを出さない
@@ -124,6 +125,8 @@ async function sweep(): Promise<void> {
 
 function apply(pane: Pane, kind: string | null, now: number): void {
   if (!firstSweepAt.has(pane.id)) firstSweepAt.set(pane.id, now);
+  // 入力欄の近くに出すフォルダ表示。検知結果に合わせて出し入れする
+  syncPathBar(pane, kind);
   const state = running.get(pane.id);
   if (kind) {
     // ユーザーが手で再開した場合もバナーは畳む

@@ -33,7 +33,11 @@ export type WsGitTarget = {
   panes: WsGitPaneTarget[];
 };
 
-type WsGitDeps = { getTargets: () => WsGitTarget[] };
+type WsGitDeps = {
+  getTargets: () => WsGitTarget[];
+  /** pty_cwd で読めたシェルの実 cwd。OSC 7 が来ないシェルの cd をペイン表示へ反映する */
+  onPaneCwd?: (paneId: string, cwd: string) => void;
+};
 
 type GitSummary = {
   repo: boolean;
@@ -139,6 +143,7 @@ async function resolveCwd(tg: WsGitPaneTarget): Promise<string | null> {
       /* フォールバックへ */
     }
   }
+  if (live) deps.onPaneCwd?.(tg.paneId, live);
   return live ?? tg.fallbackCwd;
 }
 
