@@ -49,6 +49,7 @@ import { normalizeWorkspaceBackgroundColor } from "../workspace/types";
 import { getRecentDirs, setRecentDirs } from "../features/sidebar/recent-dirs";
 import { getWorktreePrefs, setWorktreePrefs } from "../features/git/worktree";
 import { getPairDefaultCmds, setPairDefaultCmds } from "../features/pair/pair";
+import { getToursDone, getTutorialMode, setToursDone, setTutorialMode } from "../features/onboarding/tutorial";
 import { createEmptyWorkspace, setActive } from "../workspace/workspace";
 import { normalizeWorkspaceNote } from "../workspace/note";
 import { normalizeAgentHistory, seedAgentHistory } from "../workspace/agent-history";
@@ -140,6 +141,8 @@ function serializeAll(): SessionV5 {
       recentDirs: getRecentDirs(),
       worktree: getWorktreePrefs(),
       pair: getPairDefaultCmds(),
+      tutorial: getTutorialMode() === "welcome" ? "pending" : getTutorialMode() === "update" ? "update" : "done",
+      tours: getToursDone(),
     },
     workspaces: workspaces.map(serializeWorkspace).filter((w): w is SerializedWorkspace => !!w),
     deletedWorkspaces: getDeletedWorkspaces(),
@@ -314,6 +317,17 @@ export async function boot() {
   setRecentDirs(savedSettings?.recentDirs);
   setWorktreePrefs(savedSettings?.worktree);
   setPairDefaultCmds(savedSettings?.pair);
+  // 保存データが無い = 初回インストール。保存データに tutorial が無い = v1.0.0 より前からの
+  // 更新（「アップデートされました」で案内）。完了・スキップまでは同じ状態のまま保存して次回も出す
+  const savedTutorial = savedSettings?.tutorial;
+  setToursDone(savedSettings?.tours);
+  setTutorialMode(
+    !parsedRaw || savedTutorial === "pending"
+      ? "welcome"
+      : savedTutorial === undefined || savedTutorial === "update"
+        ? "update"
+        : null,
+  );
   applyStaticTexts();
   renderLockMarks(); // applyStaticTexts の後（🔒 は .is-locked クラス + CSS 疑似要素）
   setNotificationsEnabled(savedSettings?.notifications !== false); // 未設定はデフォルト ON

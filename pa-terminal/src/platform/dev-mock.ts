@@ -7,6 +7,9 @@ type Cb = (e: unknown) => void;
 const w = window as unknown as Record<string, unknown>;
 
 if (!w.__TAURI_INTERNALS__) {
+  // 初回チュートリアルは既定で出さない（既存スイートの操作を塞がない）。
+  // テストは window.__mockTutorial = true で有効化する
+  w.__devMock = true;
   let nextId = 1;
   const cbs = new Map<number, Cb>();
   const listeners = new Map<string, Map<number, Cb>>();
