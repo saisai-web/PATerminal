@@ -20,6 +20,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub(crate) mod codex_config;
 pub(crate) mod list;
+pub(crate) mod prompts;
 pub(crate) mod signal;
 
 /// kind（"claude" / "codex"）と cwd から、since_ms（epoch ミリ秒）以後に作成された

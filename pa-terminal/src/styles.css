@@ -22,6 +22,7 @@
 @import "./styles/history-dialog.css";
 @import "./styles/session-trash.css";
 @import "./styles/takeover.css";
+@import "./styles/prompt-history.css";
 @import "./styles/agents.css";
 @import "./styles/change-directory.css";
 @import "./styles/pair.css";

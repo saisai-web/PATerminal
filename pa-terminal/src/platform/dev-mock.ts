@@ -447,6 +447,21 @@ if (!w.__TAURI_INTERNALS__) {
           if (w.__mockAgentSessionListError) throw new Error(String(w.__mockAgentSessionListError));
           return (w.__mockAgentSessionList as unknown[]) ?? [];
         }
+        case "agent_session_prompts": {
+          // テストから window.__mockAgentPrompts（会話 ID → AgentPrompt[]）で注入。
+          // 未登録の ID は保存ファイルが無い扱い（found: false）
+          if (!Array.isArray(w.__agentPromptCalls)) w.__agentPromptCalls = [];
+          const refs = args.refs as { kind: string; id: string }[];
+          (w.__agentPromptCalls as unknown[]).push(refs);
+          const byId = (w.__mockAgentPrompts as Record<string, unknown[]> | undefined) ?? {};
+          return refs.map((r) => ({
+            kind: r.kind,
+            id: r.id,
+            found: Array.isArray(byId[r.id]),
+            omitted: 0,
+            prompts: byId[r.id] ?? [],
+          }));
+        }
         case "pty_cwd": {
           // テストから window.__mockPtyCwd で注入。ペイン別マップがあれば
           // そちらを優先する。null → フロントは OSC 7 側へフォールバック。

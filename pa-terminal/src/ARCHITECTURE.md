@@ -18,7 +18,7 @@ src/
 │   ├── broadcast/          broadcast target picker for the toolbar toggle
 │   ├── explorer/           filesystem explorer, import, and file viewer
 │   ├── git/                change strip, Git actions, PRs, Issues, and worktrees
-│   ├── history/            shared dialog for conversation and deleted-session history
+│   ├── history/            conversation / deleted-session history dialog and per-session prompt history
 │   ├── license/            trial/license status, soft-lock gate, lock marks, purchase modal, banners
 │   ├── pair/               pair mode: implementer/reviewer panes handing work to each other
 │   ├── quick-phrases/      reusable command phrases
