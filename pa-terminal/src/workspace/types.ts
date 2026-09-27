@@ -179,6 +179,8 @@ export type SessionV3 = {
     /** 初回チュートリアル。"pending" は初回インストール、"update" は v1.0.0 より前からの更新で、
         どちらも完了・スキップで "done"。未設定は v1.0.0 より前の保存データ（= "update" 扱い） */
     tutorial?: "pending" | "update" | "done";
+    /** 上部バーの「ツアー」で見終えた編（一覧の ✓ 表示用） */
+    tours?: string[];
   };
   workspaces: Array<{
     id: string;

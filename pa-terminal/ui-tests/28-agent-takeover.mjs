@@ -30,10 +30,10 @@ await page.waitForSelector(".pane", { timeout: 10000 });
 await page.waitForTimeout(300);
 
 // ---- 一覧の表示 ----
-check("takeover history sits just before the Git and Worktree buttons at the end of the toolbar",
+check("takeover history sits just before the Git and Worktree buttons, followed only by the tour",
   JSON.stringify(await page.locator("#toolbar > button").evaluateAll((buttons) =>
-    buttons.slice(-3).map((button) => button.id))) ===
-    JSON.stringify(["takeover-open", "git-open", "worktree-open"]));
+    buttons.slice(-4).map((button) => button.id))) ===
+    JSON.stringify(["takeover-open", "git-open", "worktree-open", "tutorial-open"]));
 await page.locator("#takeover-open").click();
 check("toolbar button opens the takeover modal",
   await page.locator("#takeover-panel").isVisible());

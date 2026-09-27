@@ -29,8 +29,8 @@
   opacity: 0;
   transition: opacity 0.25s ease;
 }
-.tut[data-step="welcome"] .tut-scrim,
-.tut[data-step="done"] .tut-scrim {
+.tut[data-screen="welcome"] .tut-scrim,
+.tut[data-screen="done"] .tut-scrim {
   opacity: 1;
   pointer-events: auto;
 }
@@ -53,7 +53,8 @@
     height 0.35s var(--tut-ease),
     opacity 0.25s ease;
 }
-.tut:not(.is-centered):not([data-step="welcome"]):not([data-step="done"]) .tut-spot {
+.tut[data-screen="step"]:not(.is-centered) .tut-spot,
+.tut[data-screen="hint"]:not(.is-centered) .tut-spot {
   opacity: 1;
 }
 .tut-spot::after {
@@ -92,8 +93,8 @@
   transition: transform 0.35s var(--tut-ease);
   animation: tut-card-in 0.28s var(--tut-ease);
 }
-.tut[data-step="welcome"] .tut-card,
-.tut[data-step="done"] .tut-card {
+.tut[data-screen="welcome"] .tut-card,
+.tut[data-screen="done"] .tut-card {
   width: 420px;
   padding: 22px 24px 18px;
   text-align: center;
@@ -157,8 +158,7 @@
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .tut-kicker svg { width: 15px; height: 15px; }
 
@@ -169,8 +169,8 @@
   font-weight: 700;
   color: var(--text);
 }
-.tut[data-step="welcome"] .tut-title,
-.tut[data-step="done"] .tut-title { font-size: 19px; }
+.tut[data-screen="welcome"] .tut-title,
+.tut[data-screen="done"] .tut-title { font-size: 19px; }
 
 .tut-body {
   margin: 0;
@@ -296,9 +296,9 @@
   gap: 10px;
   margin-top: 16px;
 }
-.tut[data-step="welcome"] .tut-foot,
-.tut[data-step="done"] .tut-foot { justify-content: center; }
-.tut[data-step="done"] .tut-dots { display: none; }
+.tut[data-screen="welcome"] .tut-foot,
+.tut[data-screen="done"] .tut-foot { justify-content: center; }
+.tut[data-screen="done"] .tut-dots { display: none; }
 .tut-dots {
   display: flex;
   gap: 5px;
@@ -340,8 +340,9 @@
 }
 .tut-btn.is-primary:hover { filter: brightness(1.08); background: var(--accent); }
 .tut-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tut[data-step="welcome"] .tut-btn.is-primary,
-.tut[data-step="done"] .tut-btn.is-primary { padding: 7px 22px; }
+.tut[data-screen="welcome"] .tut-btn.is-primary,
+.tut[data-screen="done"] .tut-btn.is-primary,
+.tut[data-screen="picker"] .tut-btn.is-primary { padding: 7px 22px; }
 
 @media (prefers-reduced-motion: reduce) {
   .tut, .tut-card, .tut-tile, .tut-done-badge { animation: none; }
@@ -468,3 +469,84 @@
   .tut-pointer-inner, .tut-task.is-current .tut-task-mark { animation: none; }
   .tut-pointer { transition: opacity 0.2s; }
 }
+
+/* ── 中央カードの画面（一覧・完了）: 導入と同じ全面の暗幕 ── */
+.tut[data-screen="picker"] .tut-scrim,
+.tut[data-screen="done"] .tut-scrim,
+.tut[data-screen="welcome"] .tut-scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tut[data-screen="picker"] .tut-card,
+.tut[data-screen="done"] .tut-card {
+  width: 420px;
+  padding: 22px 24px 18px;
+  text-align: center;
+}
+.tut[data-screen="picker"] .tut-card { width: 480px; }
+.tut[data-screen="picker"] .tut-foot,
+.tut[data-screen="done"] .tut-foot { justify-content: center; }
+.tut[data-screen="picker"] .tut-title,
+.tut[data-screen="done"] .tut-title { font-size: 19px; }
+
+/* ── ツアー一覧 ── */
+.tut-tours {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  text-align: start;
+}
+.tut-tour {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--bg)), var(--bg));
+  color: var(--text);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  animation: tut-tile-in 0.4s var(--tut-ease) backwards;
+  animation-delay: calc(0.04s + var(--i) * 0.05s);
+}
+.tut-tour:hover:not(:disabled),
+.tut-tour:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  transform: translateY(-1px);
+  outline: none;
+}
+.tut-tour:disabled { cursor: default; opacity: 0.55; }
+.tut-tour-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.tut-tour-icon svg { width: 20px; height: 20px; stroke-width: 1.7; }
+.tut-tour-text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.tut-tour-name { font-size: 13px; font-weight: 700; }
+.tut-tour-desc { color: var(--dim); font-size: 11.5px; }
+.tut-tour-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+  font-size: 11px;
+}
+.tut-tour-meta svg { width: 13px; height: 13px; stroke-width: 2.2; }
+.tut-tour-meta.is-done { color: var(--accent); }

@@ -25,7 +25,7 @@ export default async function ({ browser, check, BASE_URL }) {
     await page.evaluate(() => document.querySelector("#guide-panel").hidden));
 
   await page.locator(".tut-btn.is-primary").click();
-  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "session");
+  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "basics:session");
   const spotOnPlus = await page.evaluate(async () => {
     await new Promise((r) => setTimeout(r, 450));
     const s = document.querySelector(".tut-spot").getBoundingClientRect();
@@ -39,7 +39,7 @@ export default async function ({ browser, check, BASE_URL }) {
   // スポットライト中もクリックは塞がない: ＋ を押すと作成され、フォルダーのステップへ進む
   const wsBefore = await page.evaluate(async () => (await import("/src/workspace/state.ts")).workspaces.length);
   await page.locator("#ws-new").click();
-  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "folder");
+  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "basics:folder");
   check("session step: clicking + creates a session and advances",
     await page.evaluate(async (n) => (await import("/src/workspace/state.ts")).workspaces.length === n + 1, wsBefore));
   await page.waitForSelector(".pathbar-pop");
@@ -74,7 +74,7 @@ export default async function ({ browser, check, BASE_URL }) {
     await page.evaluate(() => document.querySelectorAll(".tut-task.is-done").length === 2));
   const writesBefore = await page.evaluate(() => window.__ptyWrites.length);
   await page.locator(".pathbar-actions .is-primary").click();
-  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "split");
+  await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "basics:split");
   check("folder step: “Move here” moves the terminal and advances",
     await page.evaluate((n) => window.__ptyWrites.slice(n).some((w) => w.data.includes("/home/user/proj")), writesBefore));
   check("split step: the arrow points at the split button", await pointerAt("#split-right"));
@@ -82,23 +82,124 @@ export default async function ({ browser, check, BASE_URL }) {
   await page.waitForFunction(() => document.querySelector("#tutorial")?.dataset.step === "done");
   check("split step: splitting a pane advances to the finish card", true);
   check("before finishing, the tour stays pending in session.json", (await saved(page)) !== "done");
+  check("the finish card offers the other tours",
+    (await page.locator(".tut-card .tut-btn", { hasText: "ほかのツアーを見る" }).count()) === 1);
   await page.locator(".tut-btn.is-primary").click();
-  await page.waitForFunction(() => !document.querySelector("#tutorial"));
+  // 初回の後は一度だけ「ツアー」ボタンを矢印で紹介する
+  await page.waitForSelector("#tutorial[data-step=hint]");
+  check("after the first tour, the Tour button is introduced once with the arrow", await pointerAt("#tutorial-open"));
   await waitSaved(page, "done");
-  check("finishing saves the tour as done", true);
+  await page.locator(".tut-card .tut-btn.is-primary").click();
+  await page.waitForFunction(() => !document.querySelector("#tutorial"));
+  check("finishing saves the tour as done and remembers the basics tour",
+    await page.evaluate(() => JSON.parse(window.__savedSession).settings.tours?.includes("basics")));
 
-  // 設定 → ヘルプから再表示できる
-  await page.locator("#settings-open").click();
-  await page.locator('.settings-nav-item[data-section="help"]').click();
-  await page.locator("#settings-tutorial-replay").click();
-  await page.waitForSelector("#tutorial[data-step=welcome]");
-  check("settings: replaying closes settings and reopens the tour",
-    await page.evaluate(() => document.querySelector("#settings-overlay").hidden));
+  // 上部バーの「ツアー」（Worktree の右隣）から一覧を開き、各編を選べる
+  check("toolbar: the tour button sits right after Worktree", await page.evaluate(() =>
+    document.querySelector("#worktree-open").nextElementSibling?.id === "tutorial-open" &&
+    document.querySelector("#tutorial-open .toolbar-label").textContent === "ツアー"));
+  check("settings no longer has a Help section",
+    (await page.locator('.settings-nav-item[data-section="help"]').count()) === 0);
+  await page.locator("#tutorial-open").click();
+  await page.waitForSelector("#tutorial[data-step=picker]");
+  const picker = await page.evaluate(() => [...document.querySelectorAll(".tut-tour")].map((b) =>
+    `${b.dataset.tour}:${b.querySelector(".tut-tour-meta").classList.contains("is-done") ? "done" : "-"}`));
+  check("picker: lists the five tours and marks the basics as completed",
+    picker.join(",") === "basics:done,view:-,phrases:-,history:-,git:-", picker.join(","));
   const focusInCard = await page.waitForFunction(
     () => document.querySelector(".tut-card")?.contains(document.activeElement), null, { timeout: 3000 },
   ).then(() => true, () => false);
-  check("the welcome card takes keyboard focus", focusInCard,
+  check("the picker card takes keyboard focus", focusInCard,
     await page.evaluate(() => document.activeElement?.className ?? ""));
+
+  const at = (id) => page.waitForFunction((id) => document.querySelector("#tutorial")?.dataset.step === id, id, { timeout: 5000 })
+    .then(() => true, () => false);
+  const next = () => page.locator(".tut-card .tut-btn.is-primary").click();
+  const toPicker = async () => {
+    await at("done");
+    await page.locator(".tut-card .tut-btn", { hasText: "ほかのツアーを見る" }).click();
+    await page.waitForSelector("#tutorial[data-step=picker]");
+  };
+
+  // ---- セッション分割編（セッションは基本ツアーで2つあるので準備は飛ばす）
+  await page.locator('.tut-tour[data-tour="view"]').click();
+  check("view tour: skips preparing sessions when two exist and points at the split view button",
+    await at("view:open") && await pointerAt("#session-view-open"));
+  await page.locator("#session-view-open").click();
+  check("view tour: opening the dialog advances to picking sessions", await at("view:pick"));
+  for (let i = 0; i < 4 && await page.evaluate(() => document.querySelector("#tutorial")?.dataset.step === "view:pick"); i++) {
+    await page.locator("#session-view-list label.bc-row:not(:has(input:checked))").first().click();
+    await page.waitForTimeout(250);
+  }
+  check("view tour: checking two sessions advances to the layout explanation", await at("view:modes"));
+  await next();
+  check("view tour: then points at “Show together”", await at("view:apply") && await pointerAt("#session-view-apply"));
+  await page.locator("#session-view-apply").click();
+  check("view tour: applying shows the sessions together and explains the headers",
+    await at("view:header") && await page.evaluate(() => !!document.querySelector("#grid.multi-session")));
+  await next();
+  await toPicker();
+  check("view tour: completing marks it in the picker",
+    await page.locator('.tut-tour[data-tour="view"] .tut-tour-meta.is-done').count() === 1);
+
+  // ---- 定型文編: 開く → 登録 → 範囲 → クリックで入力 → バー
+  await page.locator('.tut-tour[data-tour="phrases"]').click();
+  await at("phrases:open");
+  await page.locator("#quick-phrases-open").click();
+  check("phrases tour: opening advances to adding a phrase with the input pointed at",
+    await at("phrases:add") && await pointerAt("#quick-phrase-input"));
+  await page.locator("#quick-phrase-input").fill("テストも実行して");
+  check("phrases tour: after typing, the arrow moves to the add button", await pointerAt("#quick-phrase-submit"));
+  await page.locator("#quick-phrase-submit").click();
+  check("phrases tour: adding advances to the scope explanation", await at("phrases:scope"));
+  await next();
+  await at("phrases:use");
+  const writesBeforePhrase = await page.evaluate(() => window.__ptyWrites.length);
+  await page.locator("#quick-phrases-list .quick-phrase-use").last().click();
+  check("phrases tour: clicking the phrase types it into the terminal and advances",
+    await at("phrases:bar") &&
+    await page.evaluate((n) => window.__ptyWrites.slice(n).some((w) => w.data.includes("テストも実行して")), writesBeforePhrase));
+  await next();
+  await toPicker();
+
+  // ---- 入力履歴・履歴編
+  await page.locator('.tut-tour[data-tour="history"]').click();
+  await at("history:open");
+  await page.locator("#prompt-history-open").click();
+  check("history tour: opening prompt history advances", await at("history:sessions"));
+  await next();
+  await at("history:timeline");
+  await next();
+  check("history tour: asks to close prompt history", await at("history:close") && await pointerAt("#prompt-history-close"));
+  await page.locator("#prompt-history-close").click();
+  check("history tour: then points at History", await at("history:takeover") && await pointerAt("#takeover-open"));
+  await page.locator("#takeover-open").click();
+  await at("history:conversations");
+  await next();
+  check("history tour: points at the deleted sessions tab", await at("history:trashTab") && await pointerAt("#history-tab-trash"));
+  await page.locator("#history-tab-trash").click();
+  check("history tour: opening the tab advances to restoring", await at("history:trash"));
+  await next();
+  await toPicker();
+
+  // ---- Git・Worktree編（リポジトリ外: 案内だけして閉じ、Worktree は説明のみ）
+  await page.locator('.tut-tour[data-tour="git"]').click();
+  await at("git:open");
+  await page.locator("#git-open").click();
+  check("git tour: outside a repository it explains how to use it", await at("git:norepo"));
+  await next();
+  check("git tour: then asks to close the Git window", await at("git:close") && await pointerAt("#gw-close"));
+  await page.locator("#gw-close").click();
+  check("git tour: Worktree is explained without opening while disabled", await at("git:wtInfo"));
+  await next();
+  check("git tour: ends at the finish card", await at("done"), await page.evaluate(() => document.querySelector("#tutorial")?.dataset.step ?? "closed"));
+  check("git tour: finishes with a close button",
+    (await page.locator(".tut-card .tut-btn.is-primary").textContent()) === "閉じる");
+  check("all tours are remembered", await page.evaluate(async () => {
+    const { flushSessionSave } = await import("/src/app/session.ts");
+    await flushSessionSave();
+    return JSON.parse(window.__savedSession).settings.tours.join(",") === "basics,view,phrases,history,git";
+  }));
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("#tutorial"), null, { timeout: 3000 });
   check("Escape on the card dismisses the tour", true);
@@ -130,9 +231,21 @@ export default async function ({ browser, check, BASE_URL }) {
     upCopy.badge.includes("アップデートされました") && upCopy.badge.includes("v0.2.0") &&
     upCopy.title.includes("アップデート"), JSON.stringify(upCopy));
   await up.locator(".tut-btn.is-ghost").click(); // あとで
-  await up.waitForFunction(() => !document.querySelector("#tutorial"));
+  // あとでにしても、ほかの紹介の場所は一度だけ知らせる。「ツアー」を押せば一覧が開く
+  await up.waitForSelector("#tutorial[data-step=hint]");
   await waitSaved(up, "done");
-  check("pre-1.0 user: skipping saves done", true);
+  check("pre-1.0 user: skipping saves done and still introduces the Tour button", true);
+  await up.locator("#tutorial-open").click();
+  check("hint: pressing Tour opens the picker",
+    await up.waitForSelector("#tutorial[data-step=picker]", { timeout: 3000 }).then(() => true, () => false));
+  await up.locator(".tut-card .tut-btn.is-primary").click();
+  await up.waitForFunction(() => !document.querySelector("#tutorial"));
+  await up.locator("#tutorial-open").click();
+  await up.waitForSelector("#tutorial[data-step=picker]");
+  await up.waitForFunction(() => document.querySelector(".tut-card")?.contains(document.activeElement));
+  await up.keyboard.press("Escape");
+  await up.waitForTimeout(300);
+  check("hint: the Tour button introduction is not repeated", (await up.locator("#tutorial").count()) === 0);
   await up.close();
 
   // ---- 表示済み（done）なら出さない
@@ -148,4 +261,20 @@ export default async function ({ browser, check, BASE_URL }) {
   await seen.waitForTimeout(400);
   check("after the tour was seen, it does not open again", (await step(seen)) === null);
   await seen.close();
+
+  // ---- ロック中はロック対象の機能の編を選べない
+  const locked = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+  await locked.addInitScript(() => {
+    window.__mockLicense = { official: true, state: "expired", locked: true, daysLeft: 0, supporter: false,
+      keyMasked: null, keyKind: null, retrialAvailable: false, banner: null, guidePending: false,
+      checkoutUrl: "https://polar.sh/checkout/PLACEHOLDER" };
+  });
+  await locked.goto(BASE_URL);
+  await locked.waitForSelector(".pane .xterm-helper-textarea");
+  await locked.locator("#tutorial-open").click();
+  await locked.waitForSelector("#tutorial[data-step=picker]");
+  const disabledTours = await locked.evaluate(() =>
+    [...document.querySelectorAll(".tut-tour:disabled")].map((b) => b.dataset.tour).join(","));
+  check("locked: phrases, history and git tours are disabled", disabledTours === "phrases,history,git", disabledTours);
+  await locked.close();
 }
