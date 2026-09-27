@@ -274,6 +274,8 @@ export const ru: Dict = {
   "pathbar.empty": "Папка пуста",
   "pathbar.newSession": "Новый сеанс",
   "pathbar.newSessionTitle": "Начать новый сеанс в этой папке",
+  "pathbar.introTitle": "Выберите папку, которую нужно открыть в этом терминале",
+  "pathbar.introHint": "Перейдите в папку и нажмите «{move}», чтобы переместить туда этот терминал.",
   "pathbar.terminalDir": "Папка терминала",
   "pathbar.places": "Места",
   "pathbar.chooseHere": "Выбрать эту папку",

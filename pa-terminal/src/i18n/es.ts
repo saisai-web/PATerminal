@@ -274,6 +274,8 @@ export const es: Dict = {
   "pathbar.empty": "Esta carpeta está vacía",
   "pathbar.newSession": "Nueva sesión",
   "pathbar.newSessionTitle": "Iniciar una sesión nueva en esta carpeta",
+  "pathbar.introTitle": "Elige la carpeta que quieres abrir en esta terminal",
+  "pathbar.introHint": "Navega hasta una carpeta y pulsa «{move}» para cambiar esta terminal allí.",
   "pathbar.terminalDir": "Carpeta de la terminal",
   "pathbar.places": "Lugares",
   "pathbar.chooseHere": "Usar esta carpeta",

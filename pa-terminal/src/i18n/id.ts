@@ -274,6 +274,8 @@ export const id: Dict = {
   "pathbar.empty": "Folder ini kosong",
   "pathbar.newSession": "Sesi baru",
   "pathbar.newSessionTitle": "Mulai sesi baru di folder ini",
+  "pathbar.introTitle": "Pilih folder yang ingin dibuka di terminal ini",
+  "pathbar.introHint": "Buka folder yang diinginkan lalu tekan “{move}” untuk memindahkan terminal ini ke sana.",
   "pathbar.terminalDir": "Folder terminal",
   "pathbar.places": "Lokasi",
   "pathbar.chooseHere": "Gunakan folder ini",

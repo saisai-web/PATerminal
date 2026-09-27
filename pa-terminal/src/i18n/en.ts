@@ -292,6 +292,8 @@ export const en = {
   "pathbar.empty": "This folder is empty",
   "pathbar.newSession": "New session",
   "pathbar.newSessionTitle": "Start a new session in this folder",
+  "pathbar.introTitle": "Choose the folder to open in this terminal",
+  "pathbar.introHint": "Browse to a folder and press “{move}” to switch this terminal there.",
   "pathbar.terminalDir": "Terminal's folder",
   "pathbar.places": "Places",
   "pathbar.chooseHere": "Use this folder",
