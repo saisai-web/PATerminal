@@ -274,6 +274,8 @@ export const de: Dict = {
   "pathbar.empty": "Dieser Ordner ist leer",
   "pathbar.newSession": "Neue Sitzung",
   "pathbar.newSessionTitle": "Neue Sitzung in diesem Ordner starten",
+  "pathbar.introTitle": "Wähle den Ordner, der in diesem Terminal geöffnet werden soll",
+  "pathbar.introHint": "Navigiere zu einem Ordner und klicke auf „{move}“, um dieses Terminal dorthin zu wechseln.",
   "pathbar.terminalDir": "Ordner des Terminals",
   "pathbar.places": "Orte",
   "pathbar.chooseHere": "Diesen Ordner verwenden",

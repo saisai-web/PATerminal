@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import "@xterm/xterm/css/xterm.css";
 import "./styles.css";
 import { initAgentWatch } from "./features/agents/watch";
+import { initAutoNote } from "./features/history/auto-note";
 import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-directory";
 import { initPathBar } from "./features/agents/path-bar";
 import { pickFolderFromOs } from "./features/sidebar/new-session-location";
@@ -390,6 +391,8 @@ window.addEventListener("resize", () => scheduleLayout());
 async function startApp(): Promise<void> {
   if (!(await ensureEulaAccepted())) return;
   await boot();
+  // 保存済みの入力履歴から、空のメモ欄を埋める
+  initAutoNote();
   // Finder から渡されたフォルダ（起動前の分も含む）は復元が終わってから開く
   flushPendingOpenDirs();
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・

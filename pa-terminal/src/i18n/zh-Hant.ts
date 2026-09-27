@@ -274,6 +274,8 @@ export const zhHant: Dict = {
   "pathbar.empty": "此資料夾是空的",
   "pathbar.newSession": "新增工作階段",
   "pathbar.newSessionTitle": "在此資料夾中新增工作階段",
+  "pathbar.introTitle": "請選擇要在此終端機中開啟的資料夾",
+  "pathbar.introHint": "瀏覽到目標資料夾後按下「{move}」，此終端機就會切換到該資料夾。",
   "pathbar.terminalDir": "終端機所在資料夾",
   "pathbar.places": "位置",
   "pathbar.chooseHere": "使用此資料夾",

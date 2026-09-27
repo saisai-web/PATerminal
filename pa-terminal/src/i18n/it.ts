@@ -274,6 +274,8 @@ export const it: Dict = {
   "pathbar.empty": "Questa cartella è vuota",
   "pathbar.newSession": "Nuova sessione",
   "pathbar.newSessionTitle": "Avvia una nuova sessione in questa cartella",
+  "pathbar.introTitle": "Scegli la cartella da aprire in questo terminale",
+  "pathbar.introHint": "Sfoglia fino a una cartella e premi «{move}» per spostare lì questo terminale.",
   "pathbar.terminalDir": "Cartella del terminale",
   "pathbar.places": "Posizioni",
   "pathbar.chooseHere": "Usa questa cartella",

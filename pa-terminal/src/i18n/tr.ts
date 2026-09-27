@@ -274,6 +274,8 @@ export const tr: Dict = {
   "pathbar.empty": "Bu klasör boş",
   "pathbar.newSession": "Yeni oturum",
   "pathbar.newSessionTitle": "Bu klasörde yeni bir oturum başlat",
+  "pathbar.introTitle": "Bu terminalde açılacak klasörü seçin",
+  "pathbar.introHint": "Bir klasöre gidin ve bu terminali oraya taşımak için “{move}” düğmesine basın.",
   "pathbar.terminalDir": "Terminalin klasörü",
   "pathbar.places": "Konumlar",
   "pathbar.chooseHere": "Bu klasörü kullan",

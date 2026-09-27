@@ -274,6 +274,8 @@ export const ja: Dict = {
   "pathbar.empty": "このフォルダーは空です",
   "pathbar.newSession": "新規セッション",
   "pathbar.newSessionTitle": "このフォルダーで新しいセッションを作成",
+  "pathbar.introTitle": "ターミナルで開きたいフォルダーを選択してください",
+  "pathbar.introHint": "フォルダーを辿って「{move}」を押すと、このターミナルがそのフォルダーに移ります。",
   "pathbar.terminalDir": "ターミナルのフォルダー",
   "pathbar.places": "場所",
   "pathbar.chooseHere": "このフォルダーを選択",

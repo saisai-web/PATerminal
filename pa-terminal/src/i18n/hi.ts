@@ -274,6 +274,8 @@ export const hi: Dict = {
   "pathbar.empty": "यह फ़ोल्डर खाली है",
   "pathbar.newSession": "नया सत्र",
   "pathbar.newSessionTitle": "इस फ़ोल्डर में नया सत्र शुरू करें",
+  "pathbar.introTitle": "इस टर्मिनल में खोलने के लिए फ़ोल्डर चुनें",
+  "pathbar.introHint": "किसी फ़ोल्डर तक जाएँ और इस टर्मिनल को वहाँ ले जाने के लिए “{move}” दबाएँ।",
   "pathbar.terminalDir": "टर्मिनल का फ़ोल्डर",
   "pathbar.places": "स्थान",
   "pathbar.chooseHere": "यह फ़ोल्डर चुनें",

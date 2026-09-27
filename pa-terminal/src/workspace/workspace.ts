@@ -119,6 +119,7 @@ export function updateWorkspaceNote(w: Workspace, value: unknown) {
   const note = normalizeWorkspaceNote(value);
   if (w.note === note) return;
   w.note = note;
+  w.noteTouched = true; // 消して空にした場合も、入力履歴からの自動入力で埋め直さない
   // サイドバーは再描画せず（入力フォーカスを維持）、ペインバーだけを同期する。
   // 空↔非空や行数変更で本文領域の高さが変わるため、表示中なら即座に再フィットする。
   if (!w.layer.hidden) layout(w);
@@ -324,6 +325,7 @@ export async function duplicateWorkspace(src: Workspace, count = 1) {
       activate: false,
     });
     ws.note = src.note;
+    ws.noteTouched = src.noteTouched;
     ws.backgroundColor = src.backgroundColor;
     placeAfter(ws, ref);
     ref = ws;

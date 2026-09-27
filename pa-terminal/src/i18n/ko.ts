@@ -274,6 +274,8 @@ export const ko: Dict = {
   "pathbar.empty": "폴더가 비어 있습니다",
   "pathbar.newSession": "새 세션",
   "pathbar.newSessionTitle": "이 폴더에서 새 세션 시작",
+  "pathbar.introTitle": "이 터미널에서 열 폴더를 선택하세요",
+  "pathbar.introHint": "폴더로 이동한 뒤 “{move}”을(를) 누르면 이 터미널이 그 폴더로 옮겨집니다.",
   "pathbar.terminalDir": "터미널의 폴더",
   "pathbar.places": "위치",
   "pathbar.chooseHere": "이 폴더 사용",

@@ -29,6 +29,7 @@ import { isKnownAgent, isValidSessionId, resumeCommandFor } from "./agents";
 import { withTerminalScrollback } from "../../terminal/agent-launch";
 import { syncPathBar } from "./path-bar";
 import { rememberAgentConversation } from "../../workspace/agent-history";
+import { requestAutoNote } from "../history/auto-note";
 
 const SWEEP_MS = 5000;
 /** これ未満しか観測していないエージェントの終了にはバナーを出さない
@@ -153,6 +154,8 @@ function apply(pane: Pane, kind: string | null, now: number): void {
       // 保存ファイルは初回メッセージまで作られないことがある。解決まで再試行
       void resolveSessionId(pane);
     }
+    // メモが空なら、最初の入力が書かれ次第メモへ入れる（間隔は auto-note 側で間引く）
+    requestAutoNote(pane.ws);
     return;
   }
   if (state) {
@@ -183,7 +186,10 @@ function apply(pane: Pane, kind: string | null, now: number): void {
 function recordConversation(pane: Pane): void {
   const agent = pane.spec.agent;
   if (!agent || !isValidSessionId(agent.sessionId)) return;
-  if (rememberAgentConversation(pane.ws, agent.kind, agent.sessionId)) scheduleSave();
+  if (rememberAgentConversation(pane.ws, agent.kind, agent.sessionId)) {
+    scheduleSave();
+    requestAutoNote(pane.ws, true);
+  }
 }
 
 /** 検知時点の cwd からエージェントのセッション ID を解決して spec.agent に足す。

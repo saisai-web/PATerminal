@@ -86,6 +86,8 @@ export type Workspace = {
   name: string;
   /** サイドバーと先頭ペインのバーに表示するセッション固有のメモ */
   note?: string;
+  /** メモを一度でも書き換えた（自動入力を含む）。空でも入力履歴から自動入力しない */
+  noteTouched?: boolean;
   /** サイドバーの同じ階層内で先頭に固定する */
   pinned?: boolean;
   /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
@@ -122,6 +124,7 @@ export type SerializedWorkspace = {
   id: string;
   name: string;
   note?: string;
+  noteTouched?: boolean;
   pinned?: boolean;
   /** 通常の一覧から退避し、アーカイブフィルターだけに表示する */
   archived?: boolean;

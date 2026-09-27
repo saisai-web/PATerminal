@@ -274,6 +274,8 @@ export const vi: Dict = {
   "pathbar.empty": "Thư mục trống",
   "pathbar.newSession": "Phiên mới",
   "pathbar.newSessionTitle": "Bắt đầu phiên mới trong thư mục này",
+  "pathbar.introTitle": "Chọn thư mục muốn mở trong terminal này",
+  "pathbar.introHint": "Duyệt đến một thư mục rồi nhấn “{move}” để chuyển terminal này sang đó.",
   "pathbar.terminalDir": "Thư mục của terminal",
   "pathbar.places": "Vị trí",
   "pathbar.chooseHere": "Dùng thư mục này",

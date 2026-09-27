@@ -274,6 +274,8 @@ export const ptBR: Dict = {
   "pathbar.empty": "Esta pasta está vazia",
   "pathbar.newSession": "Nova sessão",
   "pathbar.newSessionTitle": "Iniciar uma nova sessão nesta pasta",
+  "pathbar.introTitle": "Escolha a pasta para abrir neste terminal",
+  "pathbar.introHint": "Navegue até uma pasta e clique em “{move}” para mudar este terminal para lá.",
   "pathbar.terminalDir": "Pasta do terminal",
   "pathbar.places": "Locais",
   "pathbar.chooseHere": "Usar esta pasta",

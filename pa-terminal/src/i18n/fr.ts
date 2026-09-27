@@ -274,6 +274,8 @@ export const fr: Dict = {
   "pathbar.empty": "Ce dossier est vide",
   "pathbar.newSession": "Nouvelle session",
   "pathbar.newSessionTitle": "Démarrer une nouvelle session dans ce dossier",
+  "pathbar.introTitle": "Choisissez le dossier à ouvrir dans ce terminal",
+  "pathbar.introHint": "Parcourez jusqu’à un dossier et cliquez sur « {move} » pour y déplacer ce terminal.",
   "pathbar.terminalDir": "Dossier du terminal",
   "pathbar.places": "Emplacements",
   "pathbar.chooseHere": "Utiliser ce dossier",

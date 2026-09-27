@@ -274,6 +274,8 @@ export const zhHans: Dict = {
   "pathbar.empty": "此文件夹为空",
   "pathbar.newSession": "新建会话",
   "pathbar.newSessionTitle": "在此文件夹中新建会话",
+  "pathbar.introTitle": "请选择要在此终端中打开的文件夹",
+  "pathbar.introHint": "浏览到目标文件夹后点击“{move}”，此终端就会切换到该文件夹。",
   "pathbar.terminalDir": "终端所在文件夹",
   "pathbar.places": "位置",
   "pathbar.chooseHere": "使用此文件夹",
