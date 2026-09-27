@@ -20,6 +20,7 @@ src/
 │   ├── git/                Git window (file status, commit graph, branch sidebar, actions), PRs, Issues, and worktrees
 │   ├── history/            conversation / deleted-session history dialog and per-session prompt history
 │   ├── license/            trial/license status, soft-lock gate, lock marks, purchase modal, banners
+│   ├── onboarding/         first-run spotlight tutorial (new session, folder browser, split panes)
 │   ├── pair/               pair mode: implementer/reviewer panes handing work to each other
 │   ├── quick-phrases/      reusable command phrases
 │   ├── session-view/       select existing sessions to display together; view controls

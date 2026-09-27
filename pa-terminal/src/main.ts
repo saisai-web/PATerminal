@@ -59,6 +59,8 @@ import { renderLockMarks } from "./features/license/lock-marks";
 import { initPurchaseModal } from "./features/license/purchase-modal";
 import { initLicenseBanner } from "./features/license/banner";
 import { initGuide } from "./features/license/guide";
+import { runTutorialIfPending } from "./features/onboarding/tutorial";
+import { setSettingsOpen } from "./features/settings/settings-panel";
 import { initLicenseSettings, setLicenseManageOpen } from "./features/license/license-settings";
 import { initSelfBuildNotify } from "./features/license/self-build-notify";
 import { ensureEulaAccepted } from "./features/license/eula";
@@ -394,7 +396,8 @@ async function startApp(): Promise<void> {
   // ライセンス状態は boot() 内で確定済み。バナー・初回ガイド・1時間ごとの再評価・
   // 自ビルドの新バージョン通知はその後に起動する
   initLicenseBanner({ layout: () => layout() });
-  initGuide();
+  // 初回チュートリアルが終わってから右下の機能ガイドを出す（同時に重ねない）
+  void runTutorialIfPending({ onChange: scheduleSave, closeSettings: () => setSettingsOpen(false) }).then(initGuide);
   initLicense();
   initSelfBuildNotify();
 }

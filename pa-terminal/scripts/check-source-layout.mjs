@@ -23,6 +23,7 @@ const allowedFeatureDirectories = new Set([
   "git",
   "history",
   "license",
+  "onboarding",
   "pair",
   "quick-phrases",
   "session-view",

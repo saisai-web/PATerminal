@@ -176,6 +176,9 @@ export type SessionV3 = {
     };
     /** ペアモードの実装役・レビュー役の既定起動コマンド（設定パネルで変更・入れ替え可能） */
     pair?: { implCmd?: string; reviewCmd?: string };
+    /** 初回チュートリアル。"pending" は初回インストール、"update" は v1.0.0 より前からの更新で、
+        どちらも完了・スキップで "done"。未設定は v1.0.0 より前の保存データ（= "update" 扱い） */
+    tutorial?: "pending" | "update" | "done";
   };
   workspaces: Array<{
     id: string;
