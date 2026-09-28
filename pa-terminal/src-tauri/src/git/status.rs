@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use super::refs::parse_track;
 use super::run::{classify_git_error, classify_git_failure, run_git, GitProblemInfo};
 
 #[derive(Serialize)]
@@ -187,9 +188,46 @@ pub(crate) struct GitSummary {
     root: Option<String>,
     /// detached HEAD は短縮 SHA。unborn HEAD（初回コミット前）はシンボリック名
     branch: Option<String>,
+    /// detached HEAD（branch は短縮 SHA）
+    detached: bool,
+    /// 現在ブランチの upstream（"origin/main"）。無ければ None
+    upstream: Option<String>,
+    /// upstream に対して Push / Pull が必要なコミット数（ペインバーの同期表示）
+    ahead: u32,
+    behind: u32,
     file_count: i64,
     adds: i64,
     dels: i64,
+}
+
+/// 現在ブランチの upstream と ahead / behind。for-each-ref 1回で済ませる
+/// （全ペインの定期ポーリングで呼ばれるため rev-list は使わない）
+fn git_upstream_track(cwd: &str, branch: &str) -> (Option<String>, u32, u32) {
+    let full_ref = format!("refs/heads/{branch}");
+    let Ok(o) = run_git(&[
+        "-C",
+        cwd,
+        "for-each-ref",
+        "--format=%(upstream:short)%1f%(upstream:track,nobracket)",
+        &full_ref,
+    ]) else {
+        return (None, 0, 0);
+    };
+    if !o.status.success() {
+        return (None, 0, 0);
+    }
+    let text = String::from_utf8_lossy(&o.stdout);
+    let Some((upstream, track)) = text.trim_end_matches(['\n', '\r']).split_once('\u{1f}') else {
+        return (None, 0, 0);
+    };
+    if upstream.is_empty() {
+        return (None, 0, 0);
+    }
+    let (ahead, behind, gone) = parse_track(track);
+    if gone {
+        return (None, 0, 0);
+    }
+    (Some(upstream.to_string()), ahead, behind)
 }
 
 /// サイドバーのセッションバッジ用。git_changes と同じ数え方で集計だけ返す
@@ -200,6 +238,10 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
         repo: false,
         root: None,
         branch: None,
+        detached: false,
+        upstream: None,
+        ahead: 0,
+        behind: 0,
         file_count: 0,
         adds: 0,
         dels: 0,
@@ -215,7 +257,11 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
     }
     let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
 
-    let (branch, _) = git_current_branch(&cwd);
+    let (branch, detached) = git_current_branch(&cwd);
+    let (upstream, ahead, behind) = match branch.as_deref() {
+        Some(b) if !detached => git_upstream_track(&cwd, b),
+        _ => (None, 0, 0),
+    };
 
     // 集計は git_changes と同じソース（diff HEAD --numstat + 未追跡）で数を合わせる
     let mut file_count: i64 = 0;
@@ -259,6 +305,10 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
         repo: true,
         root: Some(root),
         branch,
+        detached,
+        upstream,
+        ahead,
+        behind,
         file_count,
         adds,
         dels,

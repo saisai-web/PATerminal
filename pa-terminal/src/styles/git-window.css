@@ -446,7 +446,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 30px;
+  min-height: 30px;
+  box-sizing: border-box;
   padding: 0 10px 0 8px;
   font-size: 12.5px;
   border-radius: 6px;
@@ -475,20 +476,18 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
+  flex-wrap: wrap; /* 1行に収まらないパスは省略せず、ディレクトリを次の行へ折り返して全体を見せる */
   align-items: baseline;
-  gap: 6px;
-  overflow: hidden;
-  white-space: nowrap;
+  column-gap: 6px;
+  padding: 6px 0;
+  line-height: 1.3;
 }
-.gw-file-base { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.gw-file-base { min-width: 0; overflow-wrap: anywhere; }
 .gw-file-dir {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   color: var(--dim);
   font-size: 11px;
-  direction: rtl; /* 長いディレクトリは先頭側を省略する */
-  text-align: left;
 }
 .agent-file-adds { flex: none; color: var(--diff-add-fg); }
 .agent-file-dels { flex: none; color: var(--diff-del-fg); }

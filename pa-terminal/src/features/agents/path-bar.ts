@@ -5,6 +5,8 @@
 // クリックすると OS の Finder / エクスプローラーではなく、アプリ内のポップオーバーで
 // フォルダを辿れる。辿った先はパスのコピー・お気に入り・ターミナルの移動（シェルは cd、エージェントは会話を引き継ぐ既存の切り替えダイアログ）に使える。
 //
+// - パスは省略せず、幅が足りなければ折り返して全文を見せる。Git の操作は上のペインバー
+//   （features/agents/pane-git.ts）に置く
 // - cwd が分かった時点でバーを出す（Pane の生成時と OSC 7 の cd で syncPathBar）。
 //   エージェント種別のラベルは検知スイープ（watch.ts の apply）が更新する。
 // - 「ルート」は一覧の表示先を既定のルート（新規ターミナルの起動場所 = ホーム）へ切り替える。
@@ -194,8 +196,11 @@ export function syncPathBar(pane: Pane, agent?: string | null): void {
     bar.dataset.shown = shown;
     const leaf = pathBasename(shown);
     const parent = shown.slice(0, shown.length - leaf.length);
-    // 長い親パスは先頭側を省略し、末尾のフォルダ名は常に見せる
-    bar.querySelector(".pane-pathbar-parent")!.textContent = parent ? `‎${parent}‎` : "";
+    // 長いパスも「…」で省略せず、バーの幅いっぱいまで使い、それでも収まらなければ
+    // "/" の後ろで折り返して全文を見せる（バーの高さが変わるとペインの ResizeObserver が refit する）
+    const parentEl = bar.querySelector(".pane-pathbar-parent")!;
+    parentEl.textContent = "";
+    for (const part of parent.split("/").slice(0, -1)) parentEl.append(`${part}/`, document.createElement("wbr"));
     bar.querySelector(".pane-pathbar-leaf")!.textContent = leaf;
     bar.querySelector<HTMLButtonElement>(".pane-pathbar-path")!.title = `${cwd}\n${t("pathbar.browse")}`;
   }
@@ -236,7 +241,10 @@ function createBar(pane: Pane): HTMLDivElement {
   parent.className = "pane-pathbar-parent";
   const leaf = document.createElement("span");
   leaf.className = "pane-pathbar-leaf";
-  button.append(icon("folder"), parent, leaf, icon("caret", "pathbar-caret"));
+  const text = document.createElement("span");
+  text.className = "pane-pathbar-text";
+  text.append(parent, leaf);
+  button.append(icon("folder"), text, icon("caret", "pathbar-caret"));
   button.onclick = (e) => {
     e.stopPropagation();
     if (bar.dataset.open === "true") closeBrowser?.();

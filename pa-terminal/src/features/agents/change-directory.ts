@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 import { t } from "../../i18n";
 import type { Pane } from "../../terminal/pane";
-import { setFocused } from "../../terminal/focus";
 import { replacePane } from "../../terminal/tree";
 import { getActiveWs, getFocusedId, getHostOs, panes } from "../../workspace/state";
 import type { PaneAgentInfo } from "../../workspace/types";
@@ -17,18 +16,6 @@ let beforeReplace: (pane: Pane) => void = () => {};
 
 export function initDirectoryChange(opts: { beforeReplace: (pane: Pane) => void }) {
   beforeReplace = opts.beforeReplace;
-  // Delegate to the grid so restored and newly split panes get the same action.
-  // Resolve the clicked pane explicitly, including keyboard activation in a
-  // pane that was not previously focused.
-  document.querySelector<HTMLDivElement>("#grid")!.addEventListener("click", (event) => {
-    if (!(event.target instanceof Element)) return;
-    const button = event.target.closest<HTMLButtonElement>(".pane-cwd");
-    const pane = button?.dataset.paneId ? panes.get(button.dataset.paneId) : undefined;
-    if (!pane) return;
-    event.stopPropagation();
-    setFocused(pane.id);
-    openDirectoryChange(pane);
-  });
 }
 
 /** Explorer's existing cd action stays immediate for shells. Never inject shell

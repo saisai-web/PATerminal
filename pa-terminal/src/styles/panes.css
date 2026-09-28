@@ -96,23 +96,6 @@
 .pane-title { color: var(--dim); }
 .pane.is-focused .pane-title { color: var(--text); }
 
-.pane-cwd {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: rtl; /* 長いパスは末尾（ディレクトリ名）側を残す */
-  max-width: 40%;
-  cursor: pointer;
-}
-.pane-cwd:hover { color: var(--text); text-decoration: underline; }
-.pane-cwd:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.pane-cwd:empty { display: none; }
-
 .pane-close {
   margin-left: auto;
   font: inherit;

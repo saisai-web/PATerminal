@@ -56,6 +56,7 @@ import finderOpen from "./ui-tests/44-finder-open.mjs";
 import changeDirectory from "./ui-tests/44-change-directory.mjs";
 import pathBar from "./ui-tests/46-path-bar.mjs";
 import tutorial from "./ui-tests/47-tutorial.mjs";
+import paneGit from "./ui-tests/48-pane-git.mjs";
 import gitEnvNotice from "./ui-tests/48-git-env-notice.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
@@ -80,6 +81,7 @@ const independentSuites = [
   ["session-view-navigation", sessionViewNavigation],
   ["change-directory", changeDirectory],
   ["path-bar", pathBar],
+  ["pane-git", paneGit],
   ["tutorial", tutorial],
   ["prompt-history", promptHistory],
   ["auto-note", autoNote],

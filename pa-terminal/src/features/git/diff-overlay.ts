@@ -259,6 +259,19 @@ function appendCommitLine(parent: HTMLElement, line: CommitLine): void {
   parent.append(row);
 }
 
+/** パスを「ディレクトリ（淡色）+ ファイル名」で入れ、"/" の後ろで折り返せるようにする。
+    長いパスも省略せずに枠内で全体を見せるため */
+function appendWrappablePath(el: HTMLElement, path: string): void {
+  const slash = path.lastIndexOf("/");
+  if (slash >= 0) {
+    const dir = document.createElement("span");
+    dir.className = "commit-file-nav-dir";
+    for (const part of path.slice(0, slash).split("/")) dir.append(`${part}/`, document.createElement("wbr"));
+    el.append(dir);
+  }
+  el.append(path.slice(slash + 1));
+}
+
 /** 複数ファイルの差分は一覧と行番号付きのファイル別パッチにして表示する。 */
 function renderMultiFileDiffBody(d: CommitDiff, labels: MultiFileLabels): HTMLDivElement {
   const body = document.createElement("div");
@@ -308,7 +321,7 @@ function renderMultiFileDiffBody(d: CommitDiff, labels: MultiFileLabels): HTMLDi
     navButton.title = current.path;
     const navPath = document.createElement("span");
     navPath.className = "commit-file-nav-path";
-    navPath.textContent = current.path;
+    appendWrappablePath(navPath, current.path);
     const navStats = document.createElement("span");
     navStats.className = "commit-file-nav-stats";
     const navAdds = document.createElement("span");
