@@ -14,17 +14,33 @@
 //   （CLAUDE.md: refit → resize の順序はそのまま。ここから pty_resize は呼ばない）
 // - fs_list は開いているフォルダ1つ分だけ、操作時に直列で呼ぶ（定期実行しない）
 // - 他機能の操作は main.ts から callback で受け取り、import の循環を作らない
-// - ブラウザーは既定 760×640 で開き、端のハンドルで大きさを変えられる（localStorage に残す）。
+// - ブラウザーは既定 960×640 で開き、端のハンドルで大きさを変えられる（localStorage に残す）。
 //   広い間は左に「場所」列（ターミナルのフォルダー・ホーム・お気に入り・最近使った場所）を出す。
 //   「場所」列の幅も右端のハンドルで変えられ、別キーで localStorage に残す。
-//   作成・移動は表示中のフォルダーに対して右下のボタンからだけ行う（行ごとの操作は置かない）
+//   「場所」には OS のファイルマネージャーと同じよく使うフォルダーも並べる（macOS は Finder の
+//   アプリケーション・デスクトップ・書類・ダウンロード、Windows / Linux はエクスプローラーの
+//   デスクトップ・ダウンロード・ドキュメント・ピクチャ・ミュージック・ビデオ）。
+//   実パスは OS の既知フォルダー API（Tauri path）で初回表示時に1回だけ直列に解決して使い回す
+//   一覧の上には表示中フォルダーのフルパスと、1つ上の階層へ戻る「..」行を常に出す。
+//   フルパスは区切りごとにボタンで、押すとその階層へ移る。見出しの「戻る / 進む」は
+//   このブラウザーを開いている間に辿った履歴を行き来する（閉じると捨てる）。
+//   作成・移動は表示中のフォルダーに対して右下のボタンからだけ行う。行ごとの操作は
+//   パスのコピーだけで、ホバーや選択に関係なく常に押せるボタンとして行の右端に置く
 // - サイドバーの新規セッション入口（場所フライアウト）も openFolderPicker で同じブラウザーを
 //   開き、選んだフォルダーにセッションを作る
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
-import { homeDir } from "@tauri-apps/api/path";
-import { t } from "../../i18n";
+import {
+  audioDir,
+  desktopDir,
+  documentDir,
+  downloadDir,
+  homeDir,
+  pictureDir,
+  videoDir,
+} from "@tauri-apps/api/path";
+import { t, type MsgKey } from "../../i18n";
 import { copyText } from "../../shared/clipboard";
 import type { Pane } from "../../terminal/pane";
 import { getHostOs, panes } from "../../workspace/state";
@@ -52,6 +68,46 @@ let deps: PathBarDeps | undefined;
 let home: string | undefined;
 let closeBrowser: (() => void) | undefined;
 
+type StandardDir = { label: MsgKey; path: string };
+/** OS のよく使うフォルダー（初回に解決してキャッシュ。取れなかったものは載せない） */
+let standardDirs: StandardDir[] | undefined;
+let standardDirsLoading: Promise<StandardDir[]> | undefined;
+
+function loadStandardDirs(): Promise<StandardDir[]> {
+  standardDirsLoading ??= (async () => {
+    const mac = getHostOs() === "macos";
+    const specs: Array<[MsgKey, () => Promise<string>]> = mac
+      ? [
+          ["pathbar.dir.applications", async () => "/Applications"],
+          ["pathbar.dir.desktop", desktopDir],
+          ["pathbar.dir.documentsMac", documentDir],
+          ["pathbar.dir.downloads", downloadDir],
+        ]
+      : [
+          ["pathbar.dir.desktop", desktopDir],
+          ["pathbar.dir.downloads", downloadDir],
+          ["pathbar.dir.documents", documentDir],
+          ["pathbar.dir.pictures", pictureDir],
+          ["pathbar.dir.music", audioDir],
+          ["pathbar.dir.videos", videoDir],
+        ];
+    const dirs: StandardDir[] = [];
+    // IPC を並列に撒かず1つずつ解決する（CLAUDE.md: per-pane の並列 invoke を避ける方針に合わせる）
+    for (const [label, resolve] of specs) {
+      try {
+        const path = normPath(await resolve());
+        // Linux で XDG 未設定だとホームそのものが返ることがあるので、ホームと同じものは省く
+        if (path && path !== home && !dirs.some((d) => d.path === path)) dirs.push({ label, path });
+      } catch {
+        /* その OS に無いフォルダーは出さない */
+      }
+    }
+    standardDirs = dirs;
+    return dirs;
+  })();
+  return standardDirsLoading;
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const ICONS = {
   folder: "M2.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h4.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z",
@@ -66,6 +122,9 @@ const ICONS = {
   home: "M2.5 7.5 8 3l5.5 4.5M4 6.5v6.5h3v-3.5h2V13h3V6.5",
   move: "M2.5 8h9M8.5 4.5 12 8l-3.5 3.5",
   plus: "M8 3.5v9M3.5 8h9",
+  back: "M12.5 8h-9M7 4.5 3.5 8 7 11.5",
+  forward: "M3.5 8h9M9 4.5 12.5 8 9 11.5",
+  check: "M3.5 8.5 6.5 11.5 12.5 4.5",
 } as const;
 
 function icon(name: keyof typeof ICONS, className = "pathbar-icon"): SVGSVGElement {
@@ -217,10 +276,10 @@ function osPickLabel(): string {
   return t("pathbar.osPickOther");
 }
 
-// ---- 大きさ: 既定はパスバー初版（380×400）の約2倍。四隅の1つ + 2辺のハンドルで変えられ、
+// ---- 大きさ: 既定は横長（960×640、パスバー初版 380×400 の約2.5倍）。四隅の1つ + 2辺のハンドルで変えられ、
 //      変えた大きさは閲覧者ごとの利便として localStorage に残す（無くても既定で開く）
 const SIZE_KEY = "pa.folderBrowserSize";
-const DEFAULT_SIZE = { w: 760, h: 640 };
+const DEFAULT_SIZE = { w: 960, h: 640 };
 const MIN_W = 420;
 const MIN_H = 260;
 /** これ以上の幅では左に「場所」列（ホーム・お気に入り・最近使った場所）を出す */
@@ -316,6 +375,9 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   let loading = false;
   let token = 0;
   let rows: Row[] = [];
+  /** このブラウザーで辿った履歴（戻る / 進む）。開いている間だけ持つ */
+  const backStack: string[] = [];
+  const forwardStack: string[] = [];
   let selected = 0;
   let closed = false;
   let size = loadSize();
@@ -342,9 +404,11 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     intro.append(icon("folder", "pathbar-intro-icon"), title, hint);
   }
 
-  // ---- 見出し: 上へ / パンくず / 現在地へ戻る
+  // ---- 見出し: 上へ / パンくず / 現在地へ戻る（戻る / 進むは一覧の上の「..」行に並べる）
   const head = document.createElement("div");
   head.className = "pathbar-pop-head";
+  const backBtn = iconButton("back", t("pathbar.back"), goBack);
+  const forwardBtn = iconButton("forward", t("pathbar.forward"), goForward);
   const upBtn = iconButton("up", t("pathbar.up"), () => {
     const p = parentPath(current);
     if (p) navigate(p);
@@ -352,6 +416,8 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   const crumbs = document.createElement("div");
   crumbs.className = "pathbar-crumbs";
   const currentBtn = iconButton("target", t("pathbar.current"), () => navigate(origin));
+  backBtn.classList.add("pathbar-nav-back");
+  forwardBtn.classList.add("pathbar-nav-forward");
   head.append(upBtn, crumbs, currentBtn);
 
   // ---- 左列: 場所（ターミナルのフォルダー・ホーム）/ お気に入り / 最近使った場所
@@ -385,9 +451,34 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   list.id = "pathbar-list";
   list.setAttribute("role", "listbox");
 
+  // ---- 一覧の上: 表示中フォルダーのフルパス（コピー可）と、1つ上の階層へ戻る「..」行。
+  // 一覧をスクロールしても動かないよう一覧の外に置く（キー操作の選択対象には含めない）
+  const here = document.createElement("div");
+  here.className = "pathbar-here";
+  const herePath = document.createElement("div");
+  herePath.className = "pathbar-here-path";
+  const upRow = document.createElement("button");
+  upRow.type = "button";
+  upRow.className = "pathbar-up-row";
+  upRow.title = t("pathbar.up");
+  const upName = document.createElement("span");
+  upName.className = "pathbar-up-name";
+  upName.textContent = "..";
+  const upPath = document.createElement("span");
+  upPath.className = "pathbar-up-path";
+  upRow.append(icon("up"), upName, upPath);
+  upRow.onclick = () => {
+    const p = parentPath(current);
+    if (p) void navigate(p);
+  };
+  // 戻る / 進むは「..」（上へ）と同じ行の左に置き、階層の移動操作を1か所にまとめる
+  const navRow = document.createElement("div");
+  navRow.className = "pathbar-nav";
+  navRow.append(backBtn, forwardBtn, upRow);
+
   const main = document.createElement("div");
   main.className = "pathbar-main";
-  main.append(filterWrap, list);
+  main.append(filterWrap, here, navRow, list);
   const body = document.createElement("div");
   body.className = "pathbar-body";
   body.append(side, sideGrip, main);
@@ -676,6 +767,11 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     ));
     const root = defaultRoot();
     if (root) places.push(sideItem(t("loc.home"), root, "home"));
+    if (standardDirs) {
+      for (const dir of standardDirs) places.push(sideItem(t(dir.label), dir.path, "folder"));
+    } else {
+      void loadStandardDirs().then(() => { if (!closed) renderSide(); });
+    }
     sideSection(t("pathbar.places"), places);
     const favs = d.favorites();
     sideSection(t("pathbar.favorites"), favs.map((p) =>
@@ -821,8 +917,21 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       crumbs.append(b);
     });
     requestAnimationFrame(() => { crumbs.scrollLeft = crumbs.scrollWidth; });
-    upBtn.disabled = parentPath(current) === null;
+    const parent = parentPath(current);
+    upBtn.disabled = parent === null;
+    renderHerePath();
+    here.title = current;
+    here.replaceChildren(icon("folder"), herePath, rowCopyButton(current));
+    upRow.hidden = parent === null;
+    upPath.textContent = parent ? `\u200e${parent}\u200e` : "";
     currentBtn.disabled = current === origin;
+    backBtn.disabled = backStack.length === 0;
+    forwardBtn.disabled = forwardStack.length === 0;
+    // 行き先をツールチップに出す（「..」の隣で上へ / 下への向きと取り違えないように）
+    setNavLabel(backBtn, t("pathbar.back"), backStack[backStack.length - 1]);
+    setNavLabel(forwardBtn, t("pathbar.forward"), forwardStack[forwardStack.length - 1]);
+    // ルートで履歴もないときだけ行ごと隠す
+    navRow.hidden = upRow.hidden && backBtn.disabled && forwardBtn.disabled;
     updateFavBtn();
     const rootPath = defaultRoot();
     rootBtn.disabled = !rootPath || current === rootPath;
@@ -834,6 +943,58 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       primaryBtn.title = current === origin ? t("pathbar.here") : current;
     }
     renderSide();
+  }
+
+  /** 一覧上のフルパス: 区切りごとのボタン（押すとその階層へ）。長いときは今いる側を見せる */
+  function renderHerePath() {
+    herePath.textContent = "";
+    const drive = current.match(/^([A-Za-z]:\/)(.*)$/);
+    const root = drive ? drive[1] : "/";
+    const segs = (drive ? drive[2] : current.slice(1)).split("/").filter(Boolean);
+    const parts = [{ label: root, target: root }];
+    let target = root;
+    for (const seg of segs) {
+      target = joinPath(target, seg);
+      parts.push({ label: seg, target });
+    }
+    parts.forEach((part, i) => {
+      // ルートの「/」「C:/」の後ろには区切りを重ねない
+      if (i > 1) {
+        const sep = document.createElement("span");
+        sep.className = "pathbar-here-sep";
+        sep.textContent = "/";
+        herePath.append(sep);
+      }
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pathbar-here-seg";
+      b.textContent = part.label;
+      b.title = part.target;
+      b.tabIndex = -1;
+      if (i === parts.length - 1) b.setAttribute("aria-current", "location");
+      else b.onclick = () => void navigate(part.target);
+      herePath.append(b);
+    });
+    requestAnimationFrame(() => { herePath.scrollLeft = herePath.scrollWidth; });
+  }
+
+  function setNavLabel(b: HTMLButtonElement, label: string, dest: string | undefined) {
+    const text = dest === undefined ? label : `${label}: ${dest}`;
+    b.title = text;
+    b.setAttribute("aria-label", text);
+  }
+
+  function goBack() {
+    const p = backStack.pop();
+    if (p === undefined) return;
+    forwardStack.push(current);
+    void navigate(p, false);
+  }
+  function goForward() {
+    const p = forwardStack.pop();
+    if (p === undefined) return;
+    backStack.push(current);
+    void navigate(p, false);
   }
 
   function computeRows() {
@@ -873,7 +1034,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       const name = document.createElement("span");
       name.className = "pathbar-row-name";
       name.textContent = row.entry.name;
-      item.append(icon(row.entry.isDir ? "folder" : "file"), name);
+      item.append(icon(row.entry.isDir ? "folder" : "file"), name, rowCopyButton(row.path));
       if (row.entry.isDir) item.append(icon("chevron", "pathbar-row-chevron"));
       item.onmousemove = () => {
         if (selected === i) return;
@@ -885,6 +1046,28 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     });
     if (listing?.truncated) list.append(message(t("exp.truncated"), "is-muted"));
     updateSelection(true);
+  }
+
+  /** 行ごとのパスのコピー。行のクリック（フォルダーを開く / ファイルを表示）には渡さない */
+  function rowCopyButton(path: string) {
+    const label = t("ctx.copyPath");
+    const b = iconButton("copy", label, () => {
+      void copyText(path).then(() => {
+        if (closed || !b.isConnected) return;
+        b.classList.add("is-done");
+        b.title = t("pathbar.copied");
+        b.replaceChildren(icon("check"));
+        window.setTimeout(() => {
+          b.classList.remove("is-done");
+          b.title = label;
+          b.replaceChildren(icon("copy"));
+        }, 1200);
+      });
+    });
+    b.classList.add("pathbar-row-copy");
+    b.tabIndex = -1;
+    b.addEventListener("click", (e) => e.stopPropagation());
+    return b;
   }
 
   function message(text: string, cls: string) {
@@ -912,8 +1095,13 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     }
   }
 
-  async function navigate(path: string) {
+  /** record: 通常の移動は履歴に積み、新しい移動で「進む」を捨てる（戻る / 進む自身は false） */
+  async function navigate(path: string, record = true) {
     const target = normPath(path);
+    if (record && target !== normPath(current)) {
+      backStack.push(current);
+      forwardStack.length = 0;
+    }
     const my = ++token;
     closeFavMenu();
     current = target;
@@ -1010,6 +1198,12 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
         activate(rows[selected]);
         return;
       case "ArrowRight":
+        // Alt+→ / Alt+← はブラウザーと同じく履歴の進む / 戻る
+        if (e.altKey) {
+          e.preventDefault();
+          goForward();
+          return;
+        }
         if (!inFilter || filter.selectionStart !== filter.value.length) return;
         if (rows[selected]?.entry.isDir) {
           e.preventDefault();
@@ -1018,6 +1212,11 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
         return;
       case "ArrowLeft":
       case "Backspace":
+        if (e.key === "ArrowLeft" && e.altKey) {
+          e.preventDefault();
+          goBack();
+          return;
+        }
         if (!inFilter || filter.value) return;
         e.preventDefault();
         {

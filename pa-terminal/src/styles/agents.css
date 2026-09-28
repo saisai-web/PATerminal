@@ -510,6 +510,84 @@
 }
 .pathbar-filter input::placeholder { color: var(--dim); opacity: 0.8; }
 
+/* 一覧の上: 表示中フォルダーのフルパスと「..」（1つ上の階層へ） */
+.pathbar-here {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 6px 2px;
+  padding: 2px 4px 2px 8px;
+  border-bottom: 1px solid var(--line);
+  min-height: 28px;
+}
+.pathbar-here > .pathbar-icon { color: var(--accent); }
+.pathbar-here .pathbar-row-copy { margin-right: 20px; } /* 行のコピーボタンと縦に揃える */
+.pathbar-here-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow-x: auto; /* 長いときは今いる側（右端）までスクロールして見せる */
+  scrollbar-width: none;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.pathbar-here-path::-webkit-scrollbar { display: none; }
+/* フルパスの区切りごとのボタン: 押すとその階層へ */
+.pathbar-here-seg {
+  flex: none;
+  padding: 2px 3px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+}
+.pathbar-here-seg:hover:not([aria-current]) { background: var(--hover); color: var(--text); text-decoration: underline; }
+.pathbar-here-seg[aria-current] { color: var(--text); font-weight: 600; cursor: default; }
+.pathbar-here-sep { flex: none; color: var(--dim); opacity: 0.6; }
+/* 戻る / 進む / ..（上へ）を1行に並べる */
+.pathbar-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 2px 6px 0;
+}
+.pathbar-nav[hidden] { display: none; }
+.pathbar-up-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin: 0;
+  padding: 0 8px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pathbar-up-row[hidden] { display: none; }
+.pathbar-up-row:hover { background: var(--hover); color: var(--text); }
+.pathbar-up-name { flex: none; color: var(--text); font-weight: 600; }
+.pathbar-up-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .pathbar-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -538,6 +616,12 @@
 .pathbar-row:not(.is-dir) .pathbar-row-name { color: var(--dim); }
 .pathbar-row[aria-selected="true"] .pathbar-row-name { color: var(--text); }
 .pathbar-row-chevron { width: 12px; height: 12px; color: var(--dim); opacity: 0.6; }
+/* 行ごとのパスのコピー: 常に表示する（ホバー時だけにしない） */
+.pathbar-row-copy { width: 24px; height: 24px; margin-right: -2px; }
+.pathbar-row-copy .pathbar-icon { width: 14px; height: 14px; }
+.pathbar-row-copy.is-done { color: var(--accent); }
+/* 矢印のないファイル行でも、フォルダー行のボタンと縦に揃える（矢印 12px + gap 8px） */
+.pathbar-row:not(.is-dir) .pathbar-row-copy { margin-right: 18px; }
 
 /* 大きさ変更ハンドル: アンカーの反対側の辺・右辺・その角 */
 .pathbar-grip { position: absolute; z-index: 3; }

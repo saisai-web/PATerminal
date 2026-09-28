@@ -11,6 +11,7 @@ import { pickFolderFromOs } from "./features/sidebar/new-session-location";
 import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
 import { initGitWatch } from "./features/git/git-watch";
+import { initGitEnvNotice } from "./features/git/git-env-notice";
 import { closeGitWindow, initGitWindow } from "./features/git/git-window";
 import { initWsGit } from "./features/sidebar/ws-git";
 import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
@@ -306,6 +307,18 @@ async function resolveWatchCwd(): Promise<string | null> {
 }
 
 initGitWatch({ resolveWatchCwd });
+initGitEnvNotice({
+  // 復旧コマンド（sudo 等）は同時入力でほかのペインへ流さず、Enter も送らない
+  insert: (text) => {
+    const ws = getActiveWs();
+    const fid = getFocusedId();
+    const pane = fid ? ws?.panes.get(fid) : undefined;
+    if (!pane) return false;
+    pane.write(text);
+    pane.focus();
+    return true;
+  },
+});
 initGitWindow({
   createIssueSession: ({ issueNumber, issueTitle, cwd, note }) => {
     const name = `#${issueNumber} ${issueTitle}`;
