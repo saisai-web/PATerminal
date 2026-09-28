@@ -17,6 +17,8 @@ import { isLocked } from "../license/license";
 import { closePullDialog, getPullDialogRoot, isPullDialogOpen } from "./pull-dialog";
 import { setQuickPhraseRepo } from "../quick-phrases/quick-phrases";
 import { syncWorktreeDialogWithWatch } from "./worktree-dialog";
+import { renderGitEnvProblem } from "./git-env-notice";
+import type { GitProblem } from "./git-env-notice";
 
 type WatchDeps = {
   /** 監視すべき cwd（フォーカス中ペインのシェルの実 cwd）。ポーリングごとに解決する */
@@ -32,7 +34,13 @@ export function initGitWatch(d: WatchDeps): void {
 }
 
 export type GitFile = { path: string; adds: number; dels: number; status: string };
-type GitChanges = { repo: boolean; root: string | null; files: GitFile[] };
+type GitChanges = {
+  repo: boolean;
+  root: string | null;
+  files: GitFile[];
+  /** git が環境のせいで動かない（Xcode ライセンス未同意・未導入など）ときの復旧案内 */
+  problem?: GitProblem | null;
+};
 
 let gitRoot: string | null = null;
 let gitCwd: string | null = null; // 直近に監視した cwd（コミット・スタッシュのスコープに使う）
@@ -109,6 +117,8 @@ async function pollGit(refreshIfBusy: boolean): Promise<void> {
       // cwd・変更一覧・ブランチを同じ監視時点のスナップショットとしてまとめて反映する
       gitCwd = res?.repo && cwd ? cwd : null;
       applyChanges(res);
+      // 応答が無いとき（監視先なし・invoke 失敗）は判断材料が無いので案内をそのままにする
+      if (res) renderGitEnvProblem(res.problem ?? null);
       renderBranches(br);
       // 操作ボタンは変更件数（Commit / Stash）とブランチ・リモート（Push / Fetch / Pull）の
       // 両方で決まるので、両方を反映し終えてから決め直す。applyChanges の中で呼ぶと

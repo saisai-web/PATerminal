@@ -897,6 +897,16 @@ export const en = {
   "tutorial.hint.body": "Tours of session split view, quick phrases, prompt and conversation history, and Git & Worktree are available anytime from “Tour” in the top bar.",
   "tutorial.hint.try": "Press “Tour” whenever you want to learn more",
   "tutorial.gotIt": "Got it",
+  "gitEnv.title": "Git can't run on this computer",
+  "gitEnv.xcodeLicense": "macOS is blocking git because the Xcode license hasn't been accepted (common right after an Xcode update). Run this command in a terminal and enter your Mac password.",
+  "gitEnv.developerTools": "The Xcode Command Line Tools, which provide git on macOS, are missing or broken. Run this command and follow the installer.",
+  "gitEnv.notInstalled": "Git was not found. Install it with the command below (or from git-scm.com). PATerminal picks it up automatically once it is installed.",
+  "gitEnv.dubiousOwnership": "Git refuses to use this folder because another user owns it (common on other drives, external disks, and network shares). If you trust this folder, run this command.",
+  "gitEnv.longPaths": "A path in this repository is longer than Windows allows by default. Run this command to let Git use long paths.",
+  "gitEnv.insert": "Type in terminal",
+  "gitEnv.insertTitle": "Types the command into the focused terminal. Check it, then press Enter to run it.",
+  "gitEnv.copy": "Copy",
+  "gitEnv.copied": "Copied",
 } as const;
 
 export type MsgKey = keyof typeof en;

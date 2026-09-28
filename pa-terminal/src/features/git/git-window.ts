@@ -11,6 +11,7 @@
 // 色は必ず CSS 変数経由（テーマ切替から漏れるため hex ハードコード禁止）。
 
 import { t } from "../../i18n";
+import { renderGitEnvNoticeTexts } from "./git-env-notice";
 import { isLocked, onLicenseChange, requireFeature } from "../license/license";
 import { getCurrentBranch, getGitRoot, updateGitWatch } from "./git-watch";
 import { pollLog, renderGitLogTexts, renderGitSection, historyViewShown } from "./git-log";
@@ -241,6 +242,7 @@ export function renderGitWindowTexts(): void {
   renderPrOverlayTexts();
   if (isWorktreeDialogOpen()) renderWorktreeDialogTexts();
   renderGitOpenBadge(Number(statusCountEl.textContent) || 0);
+  renderGitEnvNoticeTexts();
   applyView();
 }
 
