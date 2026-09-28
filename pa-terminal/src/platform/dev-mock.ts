@@ -166,9 +166,16 @@ if (!w.__TAURI_INTERNALS__) {
           return "/mock/pair-signals";
         case "plugin:notification|is_permission_granted":
           return true;
-        case "plugin:path|resolve_directory":
-          // homeDir()（場所フライアウトの「ホーム」）用。OSC 7 の既定 cwd と同じ値を返す
-          return w.__mockHostOs === "windows" ? "C:/Users/user" : "/home/user";
+        case "plugin:path|resolve_directory": {
+          // homeDir()（場所フライアウトの「ホーム」）は OSC 7 の既定 cwd と同じ値。
+          // フォルダーブラウザーの「場所」に出す既知フォルダーはホーム配下の名前で返す
+          const homePath = w.__mockHostOs === "windows" ? "C:/Users/user" : "/home/user";
+          const known: Record<number, string> = {
+            1: "Music", 6: "Documents", 7: "Downloads", 8: "Pictures", 10: "Videos", 18: "Desktop",
+          };
+          const name = known[args.directory as number];
+          return name ? `${homePath}/${name}` : homePath;
+        }
         case "plugin:dialog|open": {
           const dialogOpts = args.options as { directory?: boolean; filters?: unknown[] } | undefined;
           // テストから開いたダイアログの条件を確認できるよう全種類を記録する。
