@@ -67,9 +67,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 26px;
+  min-height: 26px;
   min-width: 0;
-  padding: 0 8px;
+  padding: 3px 8px;
+  box-sizing: border-box;
   background: color-mix(in srgb, var(--chrome) 65%, var(--pane-bg));
   border-top: 1px solid var(--line);
   font-size: 11.5px;
@@ -101,21 +102,22 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-color) 25%, transparent);
 }
 
+/* パスは「…」で省略しない: バーの幅いっぱいまで1行で出し、収まらなければ "/" の後ろで折り返す */
 .pane-pathbar-path {
   flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 0;
-  height: 20px;
-  padding: 0 6px 0 5px;
+  min-height: 20px;
+  padding: 1px 6px 1px 5px;
   background: none;
   border: 1px solid transparent;
   border-radius: 5px;
   color: var(--dim);
   font: inherit;
+  text-align: start;
   cursor: pointer;
-  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
 }
 .pane-pathbar-path:hover,
 .pane-pathbar-path[aria-expanded="true"] {
@@ -126,25 +128,10 @@
 .pane-pathbar-path[aria-expanded="true"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
 .pane-pathbar-path:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pane-pathbar-path > .pathbar-icon { color: var(--accent); }
+.pane-pathbar-text { min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
+.pane-pathbar-parent { opacity: 0.8; }
+.pane-pathbar-leaf { color: var(--text); font-weight: 600; }
 
-.pane-pathbar-parent {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: rtl; /* 長い親パスは先頭側を省略する */
-  opacity: 0.8;
-}
-.pane-pathbar-parent:empty { display: none; }
-.pane-pathbar-leaf {
-  flex: none;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text);
-  font-weight: 600;
-}
 .pathbar-caret {
   flex: none;
   width: 12px !important;
@@ -154,6 +141,137 @@
 }
 .pane-pathbar-path:hover .pathbar-caret { opacity: 0.9; }
 .pane-pathbar-path[aria-expanded="true"] .pathbar-caret { opacity: 0.9; transform: rotate(180deg); }
+
+/* ── 上のペインバーの Git 操作（features/agents/pane-git.ts）: ブランチ・同期・変更数と Fetch / Pull / Push ── */
+.pane-bar-head { container-type: inline-size; }
+.pane-git {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+.pane-git[hidden] { display: none; }
+.pane-git-branch {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 20px;
+  padding: 0 5px 0 5px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text);
+  font: 600 11px "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.pane-git-branch:hover,
+.pane-git-branch[aria-expanded="true"] { background: var(--hover); border-color: var(--line); }
+.pane-git-branch[aria-expanded="true"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.pane-git-branch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-git-branch > .pathbar-icon { width: 13px; height: 13px; color: var(--ws-color-purple, var(--accent)); }
+.pane-git.is-detached .pane-git-branch > .pathbar-icon { color: var(--ws-color-yellow); }
+.pane-git-branch:hover .pathbar-caret { opacity: 0.9; }
+.pane-git-branch[aria-expanded="true"] .pathbar-caret { opacity: 0.9; transform: rotate(180deg); }
+.pane-git-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-git-sync { flex: none; display: inline-flex; gap: 3px; }
+.pane-git-sync[hidden] { display: none; }
+.pane-git-chip {
+  padding: 0 4px;
+  border-radius: 4px;
+  font: 600 10px ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 15px;
+}
+.pane-git-chip.is-ahead { color: var(--diff-add-fg); background: color-mix(in srgb, var(--diff-add-fg) 14%, transparent); }
+.pane-git-chip.is-behind { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pane-git-dirty {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ws-color-yellow);
+  font: 600 10.5px ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.pane-git-dirty::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pane-git-dirty[hidden] { display: none; }
+.pane-git-spacer { flex: 1 1 auto; min-width: 4px; }
+.pane-git-act {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px 0 5px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  --act-color: var(--dim);
+  color: var(--act-color);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+.pane-git-act[hidden] { display: none; }
+.pane-git-act > .pathbar-icon { width: 13px; height: 13px; }
+.pane-git-act:hover:not(:disabled) { background: var(--hover); border-color: var(--line); color: var(--text); }
+.pane-git-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-git-act:disabled { opacity: 0.45; cursor: default; }
+.pane-git-count:empty { display: none; }
+.pane-git-count {
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--act-color);
+  color: var(--pane-bg);
+  font: 700 9.5px ui-monospace, Menlo, monospace;
+  line-height: 14px;
+  text-align: center;
+}
+.pane-git-act.is-attn {
+  --act-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.pane-git-act.is-attn:hover:not(:disabled) { color: var(--act-color); background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); }
+.pane-git-act.is-push { --act-color: var(--diff-add-fg); }
+.pane-git-act.is-push:hover:not(:disabled) { color: var(--act-color); }
+.pane-git-act.is-running > .pathbar-icon { animation: pane-git-spin 0.9s linear infinite; }
+.pane-git-act.is-running.is-pull > .pathbar-icon,
+.pane-git-act.is-running.is-push > .pathbar-icon { animation: pane-git-bob 0.8s ease-in-out infinite alternate; }
+.pane-git.is-busy .pane-git-branch { cursor: progress; }
+@keyframes pane-git-spin { to { transform: rotate(360deg); } }
+@keyframes pane-git-bob { from { transform: translateY(-1.5px); } to { transform: translateY(1.5px); } }
+@media (prefers-reduced-motion: reduce) {
+  .pane-git-act.is-running > .pathbar-icon { animation: none; }
+}
+/* 狭いペイン: ボタンは記号と件数だけにし、ブランチ名に幅を残す */
+@container (max-width: 520px) {
+  .pane-git-act-label { display: none; }
+  .pane-git-act { padding: 0 4px; }
+}
+/* さらに狭いとき: ↑↓ の件数は Push / Pull ボタンの件数に任せ、Fetch と変更数も畳む */
+@container (max-width: 420px) {
+  .pane-git-sync, .pane-git-act.is-fetch { display: none; }
+}
+@container (max-width: 280px) {
+  .pane-git-dirty { display: none; }
+}
 
 .pathbar-icon,
 .pathbar-caret,
@@ -620,3 +738,156 @@
 .pathbar-fav-row:focus-within .pathbar-fav-remove { opacity: 1; }
 .pathbar-fav-remove:hover { background: var(--hover); color: var(--alarm); }
 .pathbar-favs .pathbar-msg { padding: 14px 12px; font-size: 11.5px; line-height: 1.5; }
+
+/* ── ブランチ一覧のポップオーバー（ペインバーのブランチ名から。バーの上に開く） ── */
+.pgit-pop {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  font-size: 12.5px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 36px var(--shadow), 0 2px 6px var(--shadow);
+  color: var(--text);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: pgit-pop-in 0.14s ease-out;
+}
+@keyframes pgit-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pgit-pop { animation: none; }
+}
+.pgit-pop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pgit-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 9px;
+  background: color-mix(in srgb, var(--pane-bg) 45%, var(--chrome));
+  border-bottom: 1px solid var(--line);
+}
+.pgit-head-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.pgit-head-top > .pathbar-icon { color: var(--ws-color-purple, var(--accent)); }
+.pgit-head-top strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 12.5px "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+}
+.pgit-head-repo {
+  flex: none;
+  margin-left: auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 10.5px;
+}
+.pgit-head-sync { padding-left: 21px; color: var(--dim); font-size: 11px; }
+.pgit-filter { flex: none; padding: 8px 8px 4px; }
+.pgit-filter input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--pane-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.pgit-filter input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.pgit-filter input::placeholder { color: var(--dim); opacity: 0.8; }
+.pgit-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 2px 6px 6px; }
+.pgit-section {
+  padding: 8px 8px 3px;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pgit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pgit-row[aria-selected="true"] { background: var(--active-bg); }
+.pgit-row > .pathbar-icon { width: 13px; height: 13px; color: var(--dim); }
+.pgit-row.is-current > .pathbar-icon { color: var(--accent); stroke-width: 2; }
+.pgit-row.is-create > .pathbar-icon { color: var(--accent); }
+.pgit-row.is-create .pgit-row-name { color: var(--accent); font-family: inherit; }
+.pgit-row.is-blocked { cursor: not-allowed; opacity: 0.55; }
+.pgit-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  font-size: 11.5px;
+}
+.pgit-row.is-current .pgit-row-name { font-weight: 700; }
+.pgit-row-dir { color: var(--dim); }
+.pgit-row-meta { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.pgit-tag {
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 15px;
+}
+.pgit-tag.is-current { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.pgit-note { padding: 18px 12px; color: var(--dim); text-align: center; }
+.pgit-note.is-error { color: var(--alarm); white-space: pre-wrap; text-align: left; }
+.pgit-actions {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--pane-bg) 45%, var(--chrome));
+  border-top: 1px solid var(--line);
+}
+.pgit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.pgit-action > .pathbar-icon { width: 13px; height: 13px; color: var(--dim); }
+.pgit-action:hover:not(:disabled) { background: var(--hover); }
+.pgit-action:disabled { opacity: 0.4; cursor: default; }
+.pgit-action:first-child { margin-right: auto; }
+.pgit-action.is-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.pgit-action.is-primary > .pathbar-icon { color: var(--on-accent); }
+.pgit-action.is-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, var(--text)); }

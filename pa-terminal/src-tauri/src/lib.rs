@@ -91,6 +91,7 @@ pub fn run() {
             crate::git::commit::git_commit,
             crate::git::branch::git_branches,
             crate::git::branch::git_switch_branch,
+            crate::git::branch::git_create_branch,
             crate::git::branch::git_push,
             crate::git::branch::git_fetch,
             crate::git::branch::git_pull,

@@ -8,6 +8,9 @@
 // 前回から変更量が動いた worktree をそのセッションの表示対象にし、
 // 動きが無い間は直前の対象を保つ（複数の dirty worktree 間で往復させない）。
 //
+// 同じスイープの結果はペインごとにも onPaneGit で流し、ペイン下部のバーの Git 表示
+// （features/agents/pane-git.ts）が追加の git 呼び出し無しで使う。
+//
 // 更新は renderSidebar() を呼ばず、既存の .ws-git 要素だけを外科的に差し替える
 // （inline-edit ガードで握り潰されず、DnD 中の DOM 破壊も起きない）。
 // 色は必ず CSS 変数経由（テーマ切替から漏れるため hex ハードコード禁止）。
@@ -37,15 +40,33 @@ type WsGitDeps = {
   getTargets: () => WsGitTarget[];
   /** pty_cwd で読めたシェルの実 cwd。OSC 7 が来ないシェルの cd をペイン表示へ反映する */
   onPaneCwd?: (paneId: string, cwd: string) => void;
+  /** ペインごとのサマリ（リポジトリ外・取得失敗・ロック中は null）。ペインバーの Git 表示が読む */
+  onPaneGit?: (paneId: string, git: PaneGitSummary | null) => void;
 };
 
-type GitSummary = {
+export type GitSummary = {
   repo: boolean;
   root: string | null;
   branch: string | null;
+  detached?: boolean;
+  upstream?: string | null;
+  ahead?: number;
+  behind?: number;
   fileCount: number;
   adds: number;
   dels: number;
+};
+
+/** ペインバーへ渡す1ペイン分の git 状態（スイープの git_summary をそのまま流用する） */
+export type PaneGitSummary = {
+  cwd: string;
+  root: string;
+  branch: string | null;
+  detached: boolean;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  fileCount: number;
 };
 
 type WsGitInfo = {
@@ -105,6 +126,7 @@ async function sweep(): Promise<void> {
         patchBadge(id, null);
       }
     }
+    for (const tg of deps.getTargets()) for (const p of tg.panes) deps.onPaneGit?.(p.paneId, null);
     return;
   }
   if (busy) return; // 前回のスイープが終わっていなければスキップ
@@ -149,7 +171,7 @@ async function resolveCwd(tg: WsGitPaneTarget): Promise<string | null> {
 
 /** ペイン順に直列取得。同じ cwd のペインは git を1回だけ呼ぶ */
 async function resolveCandidates(tg: WsGitTarget): Promise<Candidate[]> {
-  const byCwd = new Map<string, { busy: boolean; focused: boolean }>();
+  const byCwd = new Map<string, { busy: boolean; focused: boolean; paneIds: string[] }>();
   for (const pane of tg.panes) {
     // await 中にペインが閉じられたらその結果は使わない
     const current = deps
@@ -158,19 +180,25 @@ async function resolveCandidates(tg: WsGitTarget): Promise<Candidate[]> {
       ?.panes.some((x) => x.paneId === pane.paneId);
     if (!current) continue;
     const cwd = await resolveCwd(pane);
-    if (!cwd) continue;
+    if (!cwd) {
+      deps.onPaneGit?.(pane.paneId, null);
+      continue;
+    }
     const existing = byCwd.get(cwd);
     if (existing) {
       existing.busy ||= pane.busy;
       existing.focused ||= pane.focused;
+      existing.paneIds.push(pane.paneId);
     } else {
-      byCwd.set(cwd, { busy: pane.busy, focused: pane.focused });
+      byCwd.set(cwd, { busy: pane.busy, focused: pane.focused, paneIds: [pane.paneId] });
     }
   }
 
   const byRoot = new Map<string, Candidate>();
   for (const [cwd, state] of byCwd) {
     const res = await invoke<GitSummary>("git_summary", { cwd }).catch(() => null);
+    const paneGit = toPaneGit(cwd, res);
+    for (const id of state.paneIds) deps.onPaneGit?.(id, paneGit);
     if (!res?.repo || !res.root) continue;
     const candidate: Candidate = {
       cwd,
@@ -200,6 +228,21 @@ async function resolveCandidates(tg: WsGitTarget): Promise<Candidate[]> {
     }
   }
   return [...byRoot.values()];
+}
+
+/** git_summary の応答をペインバー用に詰め直す（リポジトリ外は null） */
+export function toPaneGit(cwd: string, res: GitSummary | null): PaneGitSummary | null {
+  if (!res?.repo || !res.root) return null;
+  return {
+    cwd,
+    root: res.root,
+    branch: res.branch,
+    detached: res.detached ?? false,
+    upstream: res.upstream ?? null,
+    ahead: res.ahead ?? 0,
+    behind: res.behind ?? 0,
+    fileCount: res.fileCount,
+  };
 }
 
 function summarySig(info: WsGitInfo): string {

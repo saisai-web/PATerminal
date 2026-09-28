@@ -35,7 +35,7 @@ pub(crate) struct GitRefs {
 const SEP: char = '\u{1f}';
 
 /// "ahead 2, behind 1" / "gone" / "" を数に分解する
-fn parse_track(track: &str) -> (u32, u32, bool) {
+pub(crate) fn parse_track(track: &str) -> (u32, u32, bool) {
     let mut ahead = 0;
     let mut behind = 0;
     for part in track.split(',') {

@@ -25,6 +25,7 @@ import { getTheme } from "../features/settings/settings-panel";
 import { renderSidebar } from "../features/sidebar/sidebar";
 import { resumeCommandFor } from "../features/agents/agents";
 import { syncPathBar } from "../features/agents/path-bar";
+import { buildPaneGit } from "../features/agents/pane-git";
 import { normPath } from "../features/explorer/paths";
 import { getFocusedId, getHostOs, panes } from "../workspace/state";
 import { XTERM_MINIMUM_CONTRAST_RATIO, xtermThemeFor } from "../features/settings/themes";
@@ -163,7 +164,6 @@ export class Pane {
   private readonly restoreText?: string;
   /** true ならセッション復元起動（run ではなく resumeRun を使う） */
   private readonly resumed: boolean;
-  private readonly cwdEl: HTMLButtonElement;
   /** セッションメモはツリー先頭 leaf のペインバーだけに表示する。 */
   private readonly noteEl: HTMLDivElement;
   private webglLoaded = false;
@@ -226,14 +226,6 @@ export class Pane {
         scheduleSave();
       });
     };
-    this.cwdEl = document.createElement("button");
-    this.cwdEl.type = "button";
-    this.cwdEl.className = "pane-cwd";
-    this.cwdEl.dataset.paneId = this.id;
-    this.cwdEl.dataset.i18nTitle = "move.title";
-    this.cwdEl.title = t("move.title");
-    this.cwdEl.setAttribute("aria-haspopup", "dialog");
-    this.cwdEl.textContent = this.cwd ?? "";
     const close = document.createElement("button");
     close.className = "pane-close";
     close.textContent = "close";
@@ -241,7 +233,9 @@ export class Pane {
       e.stopPropagation();
       void closePane(this.ws, this.id);
     };
-    head.append(label, this.cwdEl, close);
+    // ブランチの表示・切り替えと Pull / Push / Fetch（リポジトリ外では隠れる）
+    // フォルダーは下のパスバーに出す（上のバーにはパスを出さない）
+    head.append(label, buildPaneGit(this), close);
     this.noteEl = document.createElement("div");
     this.noteEl.className = "pane-note";
     this.noteEl.hidden = true;
@@ -632,7 +626,6 @@ export class Pane {
     // 最初の通知 = 起動ディレクトリ。以降の cd では動かさない
     if (this.initialCwd === undefined) this.initialCwd = path;
     this.cwd = path;
-    this.cwdEl.textContent = path;
     syncPathBar(this);
     scheduleSave();
     renderSidebar();

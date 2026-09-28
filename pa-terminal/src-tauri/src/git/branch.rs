@@ -115,6 +115,21 @@ pub(crate) async fn git_switch_branch(root: String, branch: String) -> Result<St
     git_result(run_git(&["-C", &root, "switch", "--no-guess", &branch])?)
 }
 
+/// 現在の HEAD から新しいローカルブランチを作って切り替える（ペインバーのブランチ一覧から）。
+/// 同名ブランチがある場合は Git 自身に拒否させる。
+#[tauri::command]
+pub(crate) async fn git_create_branch(root: String, branch: String) -> Result<String, String> {
+    if branch.is_empty() || branch.len() > 1024 || branch.starts_with('-') {
+        return Err("invalid branch name".into());
+    }
+    let full_ref = format!("refs/heads/{branch}");
+    let valid = run_git(&["check-ref-format", &full_ref])?;
+    if !valid.status.success() {
+        return Err("invalid branch name".into());
+    }
+    git_result(run_git(&["-C", &root, "switch", "-c", &branch])?)
+}
+
 /// 現在ブランチを upstream へ Push。upstream が無い初回は origin（無ければ唯一の
 /// リモート）へ Push し、upstream を同時に設定する。
 #[tauri::command]
@@ -209,7 +224,8 @@ pub(crate) async fn git_pull(root: String, branch: String) -> Result<String, Str
 
 #[cfg(test)]
 mod tests {
-    use super::{git_branches, git_fetch, git_switch_branch};
+    use super::{git_branches, git_create_branch, git_fetch, git_switch_branch};
+    use crate::git::status::git_summary;
     use crate::testutil::{test_git, TempRepo};
     use std::fs;
 
@@ -241,7 +257,19 @@ mod tests {
             test_git(&repo.0, &["branch", "--show-current"]),
             "feature/local"
         );
-        assert!(git_switch_branch(root, "missing".into()).await.is_err());
+        assert!(git_switch_branch(root.clone(), "missing".into()).await.is_err());
+
+        git_create_branch(root.clone(), "feature/new".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            test_git(&repo.0, &["branch", "--show-current"]),
+            "feature/new"
+        );
+        assert!(git_create_branch(root.clone(), "feature/new".into())
+            .await
+            .is_err());
+        assert!(git_create_branch(root, "bad..name".into()).await.is_err());
     }
 
     #[tokio::test]
@@ -281,5 +309,17 @@ mod tests {
         assert_ne!(before, remote_head);
         assert_eq!(test_git(&local, &["rev-parse", "origin/main"]), remote_head);
         assert_eq!(test_git(&local, &["rev-parse", "HEAD"]), before);
+
+        // ペインバーの同期表示: fetch 後は upstream に対して 1 コミット遅れている
+        let summary = serde_json::to_value(
+            git_summary(local.to_string_lossy().into_owned())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(summary["branch"], "main");
+        assert_eq!(summary["upstream"], "origin/main");
+        assert_eq!(summary["ahead"], 0);
+        assert_eq!(summary["behind"], 1);
     }
 }

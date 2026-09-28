@@ -14,8 +14,12 @@ export default async function ({ browser, check, BASE_URL }) {
     window.__mockAgentSessionId = id;
   }, { kind, id });
   const open = async (page, path = "/tmp") => {
-    // ペインバーのフォルダー移動アイコンは廃止。ペインバーの cwd 表示から開く
-    await page.locator(".pane.is-focused .pane-cwd").click();
+    // 上のペインバーの cwd 表示は廃止。下のパスバーのブラウザー「ここへ移動」と同じ入口を直接呼ぶ
+    await page.evaluate(async () => {
+      const { panes, getFocusedId } = await import("/src/workspace/state.ts");
+      const { openDirectoryChange } = await import("/src/features/agents/change-directory.ts");
+      openDirectoryChange(panes.get(getFocusedId()));
+    });
     await page.locator("#move-directory-path").fill(path);
   };
   const unchanged = (page) => page.evaluate(() =>
@@ -155,20 +159,6 @@ export default async function ({ browser, check, BASE_URL }) {
     return panes.has(before.sibling) && !panes.has(before.target) && ws.panes.size === 2 &&
       ws.root.ratio === before.ratio && ws.root.b.pane.cwd === "/tmp";
   }, splitState));
-  await split.locator(".pane-cwd").first().click();
-  await split.waitForSelector("#move-directory-panel");
-  check("clicking an unfocused pane's folder name opens its own working folder",
-    await split.locator("#move-directory-path").inputValue() === "/home/user");
-  await split.keyboard.press("Escape");
-  // Keyboard activation does not fire mousedown/setFocused: the folder action
-  // must still address its own pane instead of using the global focused ID.
-  const destinationFolder = split.locator(".pane-cwd").last();
-  await destinationFolder.focus();
-  await destinationFolder.press("Enter");
-  await split.waitForSelector("#move-directory-panel");
-  check("folder names support keyboard activation and target the correct pane",
-    await split.locator("#move-directory-path").inputValue() === "/tmp");
-  await split.keyboard.press("Escape");
   await split.close();
 
   const special = await createPage();

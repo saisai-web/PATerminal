@@ -775,6 +775,13 @@ if (!w.__TAURI_INTERNALS__) {
           if (r?.error) throw new Error(r.error);
           return r?.out ?? `Switched to branch '${String(args.branch)}' (mock)`;
         }
+        case "git_create_branch": {
+          if (!Array.isArray(w.__gitCreateBranchCalls)) w.__gitCreateBranchCalls = [];
+          (w.__gitCreateBranchCalls as unknown[]).push({ root: args.root, branch: args.branch });
+          const r = w.__mockGitCreateBranchResult as { error?: string; out?: string } | undefined;
+          if (r?.error) throw new Error(r.error);
+          return r?.out ?? `Switched to a new branch '${String(args.branch)}' (mock)`;
+        }
         case "git_checkout_remote": {
           if (!Array.isArray(w.__gitCheckoutRemoteCalls)) w.__gitCheckoutRemoteCalls = [];
           (w.__gitCheckoutRemoteCalls as unknown[]).push({ root: args.root, branch: args.branch });

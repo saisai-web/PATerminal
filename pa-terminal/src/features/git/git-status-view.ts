@@ -119,7 +119,9 @@ function buildFileRow(f: GitFile): HTMLDivElement {
   if (slash > 0) {
     const dir = document.createElement("span");
     dir.className = "gw-file-dir";
-    dir.textContent = f.path.slice(0, slash);
+    // "/" の後ろで折り返せるようにする（長いパスも省略せず全体を見せる）
+    const parts = f.path.slice(0, slash).split("/");
+    parts.forEach((part, i) => dir.append(i < parts.length - 1 ? `${part}/` : part, document.createElement("wbr")));
     name.append(dir);
   }
   name.title = f.path;

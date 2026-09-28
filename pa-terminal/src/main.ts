@@ -6,6 +6,7 @@ import { initAgentWatch } from "./features/agents/watch";
 import { initAutoNote } from "./features/history/auto-note";
 import { initDirectoryChange, moveTerminalTo } from "./features/agents/change-directory";
 import { initPathBar } from "./features/agents/path-bar";
+import { setPaneGit } from "./features/agents/pane-git";
 import { pickFolderFromOs } from "./features/sidebar/new-session-location";
 import { openFileViewer } from "./features/explorer/file-viewer";
 import { initTakeover } from "./features/agents/takeover";
@@ -337,6 +338,7 @@ initWsGit({
     const pane = panes.get(paneId);
     if (pane?.alive) pane.setCwd(cwd, { fromPoll: true });
   },
+  onPaneGit: setPaneGit,
 });
 
 // ---- 実行中エージェントの検知（復元時の会話再開 + 終了バナー） ----

@@ -3,11 +3,13 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  /* ファイル一覧は最長のパスが収まる幅まで広げ（上限は全体の 45%）、それでも長いパスは
+     省略せずに折り返して全体を見せる */
+  grid-template-columns: fit-content(max(250px, 45%)) minmax(0, 1fr);
   background: var(--pane-bg);
 }
 .commit-file-nav {
-  min-width: 0;
+  min-width: 250px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -49,10 +51,11 @@
 .commit-file-nav-path {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
+.commit-file-nav-dir { color: var(--dim); }
+.commit-file-nav-item.is-active .commit-file-nav-dir { color: color-mix(in srgb, var(--text) 60%, var(--dim)); }
 .commit-file-nav-stats { flex: none; display: flex; gap: 6px; font-size: 10px; }
 .commit-patches {
   position: relative;
