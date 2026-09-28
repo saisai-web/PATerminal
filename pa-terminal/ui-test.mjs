@@ -56,6 +56,7 @@ import finderOpen from "./ui-tests/44-finder-open.mjs";
 import changeDirectory from "./ui-tests/44-change-directory.mjs";
 import pathBar from "./ui-tests/46-path-bar.mjs";
 import tutorial from "./ui-tests/47-tutorial.mjs";
+import gitEnvNotice from "./ui-tests/48-git-env-notice.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -94,6 +95,7 @@ const independentSuites = [
   ["ws-git-badge", wsGitBadge],
   ["git-actions", gitActions],
   ["git-panel", gitPanel],
+  ["git-env-notice", gitEnvNotice],
   ["last-pane", lastPane],
   ["activity", activity],
   ["session-trash", sessionTrash],

@@ -47,6 +47,8 @@ fn executable_search_dirs() -> Vec<PathBuf> {
         // Store / winget が置くシム
         push_search_dir(&mut dirs, local.join("Microsoft").join("WindowsApps"));
         push_search_dir(&mut dirs, local.join("Microsoft").join("WinGet").join("Links"));
+        // Git for Windows の「自分だけにインストール」
+        push_search_dir(&mut dirs, local.join("Programs").join("Git").join("cmd"));
     }
     if let Some(program_data) = std::env::var_os("ProgramData").map(PathBuf::from) {
         push_search_dir(&mut dirs, program_data.join("chocolatey").join("bin"));

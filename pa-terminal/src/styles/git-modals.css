@@ -405,3 +405,67 @@
   cursor: pointer;
 }
 #git-toast > button:hover { background: var(--pane-bg); }
+
+/* git が環境のせいで動かないときの復旧案内（git-env-notice.ts）。閉じるまで残る。
+   操作結果のトースト（#git-toast）と同じ角に出るので、トーストが1段手前に来る */
+#git-env-notice {
+  position: fixed;
+  inset-inline-end: 20px;
+  bottom: 20px;
+  z-index: 194;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(440px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 16px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--alarm);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px var(--shadow);
+}
+#git-env-notice[hidden] { display: none; }
+#git-env-notice .git-toast-icon { color: var(--alarm); }
+.git-env-detail {
+  margin-top: 6px;
+  color: var(--dim);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.git-env-command {
+  display: block;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: "SFMono-Regular", "Cascadia Mono", "Menlo", "Consolas", monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.git-env-command[hidden],
+.git-env-actions[hidden] { display: none; }
+.git-env-actions { display: flex; gap: 8px; margin-top: 10px; }
+.git-env-actions > button,
+#git-env-notice > .git-env-close {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.git-env-actions > button { padding: 4px 10px; font-size: 12px; }
+.git-env-actions > button:hover,
+#git-env-notice > .git-env-close:hover { background: var(--pane-bg); }
+#git-env-notice > .git-env-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 18px;
+}

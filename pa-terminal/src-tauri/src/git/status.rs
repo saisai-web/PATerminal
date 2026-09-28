@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use super::run::run_git;
+use super::run::{classify_git_error, classify_git_failure, run_git, GitProblemInfo};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,25 +25,32 @@ pub(crate) struct GitChanges {
     pub(crate) repo: bool,
     pub(crate) root: Option<String>,
     pub(crate) files: Vec<GitFile>,
+    /// git が環境のせいで動かないときの復旧案内（リポジトリ外とは区別する）
+    pub(crate) problem: Option<GitProblemInfo>,
 }
 
 pub(crate) const GIT_MAX_FILES: usize = 200;
 
 #[tauri::command]
 pub(crate) async fn git_changes(cwd: String) -> Result<GitChanges, String> {
-    let none = GitChanges {
+    let none = |problem: Option<GitProblemInfo>| GitChanges {
         repo: false,
         root: None,
         files: vec![],
+        problem,
     };
     if !PathBuf::from(&cwd).is_dir() {
-        return Ok(none);
+        return Ok(none(None));
     }
-    let Ok(out) = run_git(&["-C", &cwd, "rev-parse", "--show-toplevel"]) else {
-        return Ok(none); // git 未インストールでも壊さない
+    let out = match run_git(&["-C", &cwd, "rev-parse", "--show-toplevel"]) {
+        Ok(out) => out,
+        // git 未インストールでも壊さない（案内だけ出す）
+        Err(e) => return Ok(none(classify_git_error(&e).map(|p| p.info()))),
     };
     if !out.status.success() {
-        return Ok(none); // リポジトリ外
+        // リポジトリ外なら None。Xcode ライセンス未同意などは空にせず案内する
+        let problem = classify_git_failure(&String::from_utf8_lossy(&out.stderr));
+        return Ok(none(problem.map(|p| p.info())));
     }
     let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
 
@@ -140,6 +147,7 @@ pub(crate) async fn git_changes(cwd: String) -> Result<GitChanges, String> {
         repo: true,
         root: Some(root),
         files,
+        problem: None,
     })
 }
 
