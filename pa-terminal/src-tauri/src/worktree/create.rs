@@ -1,7 +1,7 @@
 //! worktree の作成（変更ストリップの Worktree モーダルと Issue 実行が共有する）。
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -30,6 +30,8 @@ pub(crate) struct WorktreeBranches {
     /// ローカルブランチを優先し、無ければそのリモート追跡ブランチ、それも無ければ
     /// main / master の順で探す。見つからなければ None。
     default_ref: Option<String>,
+    /// リポジトリ外モードで worktree をまとめるフォルダ名（作成先プレビュー用）
+    repo_folder: String,
 }
 
 /// 既定ブランチの参照を候補の中から選ぶ。
@@ -109,6 +111,7 @@ pub(crate) async fn git_worktree_branches(root: String) -> Result<WorktreeBranch
     Ok(WorktreeBranches {
         branches,
         default_ref,
+        repo_folder: repo_folder_name(&root),
     })
 }
 
@@ -122,6 +125,41 @@ pub(crate) struct WorktreeResult {
     inherited: usize,
     /// 引き継ぎで一部失敗したときの内容。worktree 自体はできているので致命扱いにしない
     inherit_warning: Option<String>,
+}
+
+/// リポジトリ外モードで worktree をまとめるフォルダ名（= メイン worktree のフォルダ名）。
+/// どの worktree から作っても同じリポジトリの名前になるよう、porcelain の先頭レコードを見る。
+fn repo_folder_name(root: &str) -> String {
+    let main = run_git(&["-C", root, "worktree", "list", "--porcelain"])
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .next()
+                .and_then(|line| line.strip_prefix("worktree "))
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| root.to_string());
+    let name = Path::new(main.trim_end_matches(['/', '\\']))
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // bare リポジトリ（`repo.git`）は `.git` を外した名前でまとめる
+    worktree_dir_name(name.strip_suffix(".git").unwrap_or(&name))
+}
+
+/// 指定の格納先の下にリポジトリ名のフォルダを挟む（`~/worktrees` → `~/worktrees/<repo>`）。
+/// 格納先が既にリポジトリ名で終わっている指定は二重にしない。
+fn grouped_by_repo(directory: PathBuf, repo_folder: &str) -> PathBuf {
+    if repo_folder.is_empty()
+        || directory
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy() == repo_folder)
+    {
+        return directory;
+    }
+    directory.join(repo_folder)
 }
 
 /// 格納先ディレクトリの解決。2つ目が `Some` のときだけルートの `.gitignore` を触る
@@ -139,7 +177,11 @@ fn worktree_destination(
                 Some(directory),
             ))
         }
-        "outside" => Ok((resolved_external_directory(root_path, directory)?, None)),
+        "outside" => {
+            let directory = resolved_external_directory(root_path, directory)?;
+            let repo_folder = repo_folder_name(&root_path.to_string_lossy());
+            Ok((grouped_by_repo(directory, &repo_folder), None))
+        }
         _ => Err("invalid worktree location".into()),
     }
 }
@@ -479,9 +521,12 @@ fn tracking_remote_for(root: &str, branch: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_worktree, git_worktree_branches, worktree_from_pr};
+    use super::{
+        create_worktree, git_worktree_branches, grouped_by_repo, repo_folder_name, worktree_from_pr,
+    };
     use crate::testutil::{test_git, TempRepo};
     use crate::worktree::list::{git_worktree_list, git_worktree_remove};
+    use crate::worktree::path::worktree_dir_name;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -560,7 +605,8 @@ mod tests {
         .await
         .unwrap();
 
-        let target = outside.join("feature-pr-head");
+        // クローン先のフォルダ名（local）でまとめる
+        let target = outside.join("local").join("feature-pr-head");
         assert_eq!(PathBuf::from(&result.path), target);
         assert!(!result.reused);
         assert_eq!(test_git(&target, &["branch", "--show-current"]), "feature/pr-head");
@@ -649,7 +695,7 @@ mod tests {
         .await
         .unwrap();
 
-        let target = outside.join("already-local");
+        let target = outside.join("local").join("already-local");
         assert_eq!(PathBuf::from(&result.path), target);
         assert!(!result.reused);
         assert_eq!(test_git(&target, &["branch", "--show-current"]), "already/local");
@@ -785,8 +831,17 @@ mod tests {
         .await
         .unwrap();
 
-        let target = outside.join("feature-outside");
+        // 格納先の下にリポジトリ名のフォルダを挟んでまとめる
+        let repo_folder = worktree_dir_name(&repo.0.file_name().unwrap().to_string_lossy());
+        let target = outside.join(&repo_folder).join("feature-outside");
         assert_eq!(PathBuf::from(&result.path), target);
+        // 作った worktree から作っても、まとめ先はメイン worktree の名前になる
+        assert_eq!(repo_folder_name(&result.path), repo_folder);
+        // 格納先が既にリポジトリ名で終わっていれば二重にしない
+        assert_eq!(
+            grouped_by_repo(outside.join(&repo_folder), &repo_folder),
+            outside.join(&repo_folder)
+        );
         assert_eq!(
             test_git(&target, &["branch", "--show-current"]),
             "feature/outside"

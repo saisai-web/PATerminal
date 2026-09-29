@@ -153,7 +153,7 @@ export const ja: Dict = {
   "agent.worktreeInside": "リポジトリ配下",
   "agent.worktreeOutside": "リポジトリ外",
   "agent.worktreeDirectoryExternal": "格納先（絶対パス / ~ / ..）",
-  "agent.worktreeExternalHint": "リポジトリ外に作るので、.gitignoreは変更しません。",
+  "agent.worktreeExternalHint": "リポジトリ外に作るので、.gitignoreは変更しません。リポジトリ名のフォルダーにまとめて作ります。",
   "agent.worktreeExisting": "既存のworktree",
   "agent.worktreeSource": "作成元",
   "agent.worktreeSourceBranch": "ブランチ",

@@ -153,7 +153,7 @@ export const ru: Dict = {
   "agent.worktreeInside": "Внутри репозитория",
   "agent.worktreeOutside": "Вне репозитория",
   "agent.worktreeDirectoryExternal": "Расположение (абсолютный путь, ~ или ..)",
-  "agent.worktreeExternalHint": "Расположение вне репозитория, поэтому .gitignore не меняется.",
+  "agent.worktreeExternalHint": "Расположение вне репозитория, поэтому .gitignore не меняется. Worktree собираются там в папке с именем репозитория.",
   "agent.worktreeExisting": "Существующие worktree",
   "agent.worktreeSource": "Создать из",
   "agent.worktreeSourceBranch": "Ветка",

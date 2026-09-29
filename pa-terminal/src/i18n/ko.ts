@@ -153,7 +153,7 @@ export const ko: Dict = {
   "agent.worktreeInside": "저장소 안",
   "agent.worktreeOutside": "저장소 밖",
   "agent.worktreeDirectoryExternal": "저장 위치 (절대 경로 / ~ / ..)",
-  "agent.worktreeExternalHint": "저장소 밖에 만들기 때문에 .gitignore는 바꾸지 않습니다.",
+  "agent.worktreeExternalHint": "저장소 밖에 만들기 때문에 .gitignore는 바꾸지 않습니다. worktree는 그 아래 저장소 이름의 폴더에 모아 둡니다.",
   "agent.worktreeExisting": "기존 worktree",
   "agent.worktreeSource": "만들 대상",
   "agent.worktreeSourceBranch": "브랜치",

@@ -165,7 +165,7 @@ export const en = {
   "agent.worktreeInside": "Under the repository",
   "agent.worktreeOutside": "Outside the repository",
   "agent.worktreeDirectoryExternal": "Location (absolute path, ~ or ..)",
-  "agent.worktreeExternalHint": "The location is outside the repository, so .gitignore is left untouched.",
+  "agent.worktreeExternalHint": "The location is outside the repository, so .gitignore is left untouched. Worktrees are grouped there in a folder named after the repository.",
   "agent.worktreeExisting": "Existing worktrees",
   "agent.worktreeSource": "Create from",
   "agent.worktreeSourceBranch": "Branch",

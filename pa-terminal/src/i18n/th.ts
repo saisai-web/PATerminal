@@ -153,7 +153,7 @@ export const th: Dict = {
   "agent.worktreeInside": "ในรีโพซิทอรี",
   "agent.worktreeOutside": "นอกรีโพซิทอรี",
   "agent.worktreeDirectoryExternal": "ที่เก็บ (พาธเต็ม, ~ หรือ ..)",
-  "agent.worktreeExternalHint": "ที่เก็บอยู่นอกรีโพซิทอรี จึงไม่แก้ไข .gitignore",
+  "agent.worktreeExternalHint": "ที่เก็บอยู่นอกรีโพซิทอรี จึงไม่แก้ไข .gitignore worktree จะถูกรวมไว้ในโฟลเดอร์ชื่อเดียวกับรีโพซิทอรี",
   "agent.worktreeExisting": "worktree ที่มีอยู่",
   "agent.worktreeSource": "สร้างจาก",
   "agent.worktreeSourceBranch": "สาขา",

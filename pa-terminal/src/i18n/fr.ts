@@ -153,7 +153,7 @@ export const fr: Dict = {
   "agent.worktreeInside": "Dans le dépôt",
   "agent.worktreeOutside": "Hors du dépôt",
   "agent.worktreeDirectoryExternal": "Emplacement (chemin absolu, ~ ou ..)",
-  "agent.worktreeExternalHint": "L'emplacement est hors du dépôt, le .gitignore n'est donc pas modifié.",
+  "agent.worktreeExternalHint": "L'emplacement est hors du dépôt, le .gitignore n'est donc pas modifié. Les worktrees y sont regroupés dans un dossier portant le nom du dépôt.",
   "agent.worktreeExisting": "Worktrees existants",
   "agent.worktreeSource": "Créer à partir de",
   "agent.worktreeSourceBranch": "Branche",

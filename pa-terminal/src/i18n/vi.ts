@@ -153,7 +153,7 @@ export const vi: Dict = {
   "agent.worktreeInside": "Trong kho",
   "agent.worktreeOutside": "Ngoài kho",
   "agent.worktreeDirectoryExternal": "Vị trí (đường dẫn tuyệt đối, ~ hoặc ..)",
-  "agent.worktreeExternalHint": "Vị trí nằm ngoài kho nên .gitignore không bị thay đổi.",
+  "agent.worktreeExternalHint": "Vị trí nằm ngoài kho nên .gitignore không bị thay đổi. Các worktree được gom vào một thư mục mang tên kho ở đó.",
   "agent.worktreeExisting": "Worktree hiện có",
   "agent.worktreeSource": "Tạo từ",
   "agent.worktreeSourceBranch": "Nhánh",

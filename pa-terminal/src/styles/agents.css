@@ -267,7 +267,7 @@
 }
 /* さらに狭いとき: ↑↓ の件数は Push / Pull ボタンの件数に任せ、Fetch と変更数も畳む */
 @container (max-width: 420px) {
-  .pane-git-sync, .pane-git-act.is-fetch { display: none; }
+  .pane-git-sync, .pane-git-act.is-fetch, .pane-git-act.is-worktree { display: none; }
 }
 @container (max-width: 280px) {
   .pane-git-dirty { display: none; }

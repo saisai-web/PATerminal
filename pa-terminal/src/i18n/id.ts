@@ -153,7 +153,7 @@ export const id: Dict = {
   "agent.worktreeInside": "Di dalam repositori",
   "agent.worktreeOutside": "Di luar repositori",
   "agent.worktreeDirectoryExternal": "Lokasi (jalur absolut, ~ atau ..)",
-  "agent.worktreeExternalHint": "Lokasinya di luar repositori, jadi .gitignore tidak diubah.",
+  "agent.worktreeExternalHint": "Lokasinya di luar repositori, jadi .gitignore tidak diubah. Worktree dikelompokkan di sana dalam folder bernama sesuai repositori.",
   "agent.worktreeExisting": "Worktree yang ada",
   "agent.worktreeSource": "Buat dari",
   "agent.worktreeSourceBranch": "Branch",

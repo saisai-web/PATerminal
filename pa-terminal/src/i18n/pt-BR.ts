@@ -153,7 +153,7 @@ export const ptBR: Dict = {
   "agent.worktreeInside": "Dentro do repositório",
   "agent.worktreeOutside": "Fora do repositório",
   "agent.worktreeDirectoryExternal": "Local (caminho absoluto, ~ ou ..)",
-  "agent.worktreeExternalHint": "O local fica fora do repositório, então o .gitignore não é alterado.",
+  "agent.worktreeExternalHint": "O local fica fora do repositório, então o .gitignore não é alterado. Os worktrees ficam agrupados lá em uma pasta com o nome do repositório.",
   "agent.worktreeExisting": "Worktrees existentes",
   "agent.worktreeSource": "Criar a partir de",
   "agent.worktreeSourceBranch": "Branch",

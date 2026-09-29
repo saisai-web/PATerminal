@@ -94,9 +94,9 @@ export default async function ({ browser, check, BASE_URL }) {
   check("finishing saves the tour as done and remembers the basics tour",
     await page.evaluate(() => JSON.parse(window.__savedSession).settings.tours?.includes("basics")));
 
-  // 上部バーの「ツアー」（Worktree の右隣）から一覧を開き、各編を選べる
-  check("toolbar: the tour button sits right after Worktree", await page.evaluate(() =>
-    document.querySelector("#worktree-open").nextElementSibling?.id === "tutorial-open" &&
+  // 上部バーの「ツアー」（Git の右隣）から一覧を開き、各編を選べる
+  check("toolbar: the tour button sits right after Git", await page.evaluate(() =>
+    document.querySelector("#git-open").nextElementSibling?.id === "tutorial-open" &&
     document.querySelector("#tutorial-open .toolbar-label").textContent === "ツアー"));
   check("settings no longer has a Help section",
     (await page.locator('.settings-nav-item[data-section="help"]').count()) === 0);

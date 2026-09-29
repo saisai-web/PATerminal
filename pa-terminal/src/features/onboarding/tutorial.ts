@@ -194,7 +194,13 @@ function activeSessions(): number {
 
 const gitOpen = () => shown("#git-window");
 const gitRepo = () => gitOpen() && !$("#git-window")!.classList.contains("is-norepo");
-const worktreeReady = () => !($("#worktree-open") as HTMLButtonElement | null)?.disabled;
+/** フォーカス中ペインのバーにある Worktree ボタン（リポジトリ外・狭いペインでは見えない） */
+const worktreeButton = () =>
+  focusedPane()?.el.querySelector<HTMLButtonElement>(":scope > .pane-bar .pane-git-act.is-worktree") ?? null;
+const worktreeReady = () => {
+  const button = worktreeButton();
+  return visible(button) && !button.disabled;
+};
 
 // ---- 各編の定義 ----
 
@@ -516,14 +522,14 @@ const TOURS: TourDef[] = [
         key: "tutorial.git.wtInfo",
         icon: "worktree",
         skip: worktreeReady,
-        task: () => single("#worktree-open"),
+        task: () => single(worktreeButton()),
       },
       {
         id: "wtOpen",
         key: "tutorial.git.wtOpen",
         icon: "worktree",
         skip: () => !worktreeReady(),
-        task: () => single("#worktree-open"),
+        task: () => single(worktreeButton()),
         done: () => shown("#worktree-panel"),
         try: true,
       },

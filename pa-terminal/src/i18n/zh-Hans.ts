@@ -153,7 +153,7 @@ export const zhHans: Dict = {
   "agent.worktreeInside": "仓库内",
   "agent.worktreeOutside": "仓库外",
   "agent.worktreeDirectoryExternal": "存放位置（绝对路径 / ~ / ..）",
-  "agent.worktreeExternalHint": "存放在仓库外，因此不会修改 .gitignore。",
+  "agent.worktreeExternalHint": "存放在仓库外，因此不会修改 .gitignore。worktree 会集中放在以仓库命名的文件夹中。",
   "agent.worktreeExisting": "已有的 worktree",
   "agent.worktreeSource": "创建来源",
   "agent.worktreeSourceBranch": "分支",

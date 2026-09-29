@@ -12,6 +12,10 @@ const { browser, check, BASE_URL } = ctx;
 const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.addInitScript(() => {
+  window.__mockGitSummary = {
+    repo: true, root: "/repo", branch: "main", detached: false,
+    upstream: null, ahead: 0, behind: 0, fileCount: 0, adds: 0, dels: 0,
+  };
   window.__mockLicense = {
     official: true,
     state: "locked",
@@ -134,14 +138,10 @@ await page.waitForTimeout(200);
 check("Git button opens the purchase modal instead of the Git window",
   await overlayVisible() && await page.locator("#git-window-overlay").isHidden());
 await closeOverlay();
-check("toolbar Worktree button stays clickable with the lock mark",
-  await page.locator("#worktree-open").isEnabled() &&
-    await page.locator("#worktree-open").evaluate((el) => el.classList.contains("is-locked")));
-await page.click("#worktree-open");
-await page.waitForTimeout(200);
-check("toolbar Worktree button opens the purchase modal instead of the worktree modal",
-  await overlayVisible() && await page.locator("#worktree-overlay").isHidden());
-await closeOverlay();
+// ペインバーの Git 操作（Worktree を含む）はロック中は出さない（リポジトリ内でも）
+check("pane bar Git controls including Worktree are hidden while locked",
+  await page.locator(".pane .pane-git-act.is-worktree:visible").count() === 0 &&
+    await page.locator("#toolbar #worktree-open").count() === 0);
 
 // --- 購入ボタンはチェックアウト URL を開く ---
 await page.click("#broadcast");

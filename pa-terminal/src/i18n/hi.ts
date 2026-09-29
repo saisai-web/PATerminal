@@ -153,7 +153,7 @@ export const hi: Dict = {
   "agent.worktreeInside": "रिपॉज़िटरी के भीतर",
   "agent.worktreeOutside": "रिपॉज़िटरी के बाहर",
   "agent.worktreeDirectoryExternal": "स्थान (पूर्ण पथ, ~ या ..)",
-  "agent.worktreeExternalHint": "स्थान रिपॉज़िटरी के बाहर है, इसलिए .gitignore नहीं बदला जाता।",
+  "agent.worktreeExternalHint": "स्थान रिपॉज़िटरी के बाहर है, इसलिए .gitignore नहीं बदला जाता। worktree वहाँ रिपॉज़िटरी के नाम वाले फ़ोल्डर में रखे जाते हैं।",
   "agent.worktreeExisting": "मौजूदा worktree",
   "agent.worktreeSource": "इससे बनाएं",
   "agent.worktreeSourceBranch": "ब्रांच",

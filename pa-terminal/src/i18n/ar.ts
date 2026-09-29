@@ -153,7 +153,7 @@ export const ar: Dict = {
   "agent.worktreeInside": "داخل المستودع",
   "agent.worktreeOutside": "خارج المستودع",
   "agent.worktreeDirectoryExternal": "الموقع (مسار مطلق أو ~ أو ..)",
-  "agent.worktreeExternalHint": "الموقع خارج المستودع، لذلك لن يتم تعديل ملف .gitignore.",
+  "agent.worktreeExternalHint": "الموقع خارج المستودع، لذلك لن يتم تعديل ملف .gitignore. تُجمع مجلدات worktree هناك داخل مجلد يحمل اسم المستودع.",
   "agent.worktreeExisting": "أشجار العمل الموجودة",
   "agent.worktreeSource": "الإنشاء من",
   "agent.worktreeSourceBranch": "فرع",

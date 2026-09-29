@@ -21,6 +21,8 @@ export type WorktreeBranches = {
   branches: WorktreeBranch[];
   /** リポジトリの既定ブランチ（origin/HEAD → main / master）。無ければ null */
   defaultRef?: string | null;
+  /** リポジトリ外モードで worktree をまとめるフォルダ名（メイン worktree のフォルダ名） */
+  repoFolder?: string;
 };
 
 /**
@@ -158,13 +160,15 @@ export function worktreeDirFor(location: WorktreeLocation): string {
 
 /**
  * 作成される場所のプレビュー。実際の解決（~ 展開・.. の畳み込み）は Rust 側が行うので、
- * ここでは打った文字をそのまま組み立てて見せる。
+ * ここでは打った文字をそのまま組み立てて見せる。リポジトリ外モードは Rust と同じく
+ * 格納先の下に `repoFolder` を挟む（格納先が既にその名前で終わっていれば挟まない）。
  */
 export function worktreePreviewPath(
   root: string,
   location: WorktreeLocation,
   directory: string,
   branch: string,
+  repoFolder = "",
 ): string {
   const base = root.replace(/[\\/]+$/, "");
   const dir = directory.trim();
@@ -172,8 +176,9 @@ export function worktreePreviewPath(
   if (location === "outside") {
     if (!dir) return base;
     // 絶対パス・~ 始まりはそのまま、相対はリポジトリルート基準
-    const head = /^([/\\]|~|[A-Za-z]:)/.test(dir) ? dir : `${base}/${dir}`;
-    return `${head.replace(/[\\/]+$/, "")}/${leaf}`;
+    const head = (/^([/\\]|~|[A-Za-z]:)/.test(dir) ? dir : `${base}/${dir}`).replace(/[\\/]+$/, "");
+    const grouped = repoFolder && head.split(/[\\/]/).pop() !== repoFolder ? `${head}/${repoFolder}` : head;
+    return `${grouped}/${leaf}`;
   }
   const parts = [dir, leaf].filter(Boolean).join("/");
   return base && parts ? `${base}/${parts}` : base;

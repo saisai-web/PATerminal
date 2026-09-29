@@ -153,7 +153,7 @@ export const tr: Dict = {
   "agent.worktreeInside": "Depo içinde",
   "agent.worktreeOutside": "Depo dışında",
   "agent.worktreeDirectoryExternal": "Konum (mutlak yol, ~ veya ..)",
-  "agent.worktreeExternalHint": "Konum deponun dışında olduğu için .gitignore değiştirilmez.",
+  "agent.worktreeExternalHint": "Konum deponun dışında olduğu için .gitignore değiştirilmez. Worktree'ler orada deponun adını taşıyan bir klasörde toplanır.",
   "agent.worktreeExisting": "Mevcut worktree'ler",
   "agent.worktreeSource": "Şuradan oluştur",
   "agent.worktreeSourceBranch": "Dal",

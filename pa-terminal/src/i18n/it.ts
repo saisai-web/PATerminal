@@ -153,7 +153,7 @@ export const it: Dict = {
   "agent.worktreeInside": "Dentro il repository",
   "agent.worktreeOutside": "Fuori dal repository",
   "agent.worktreeDirectoryExternal": "Posizione (percorso assoluto, ~ o ..)",
-  "agent.worktreeExternalHint": "La posizione è fuori dal repository, quindi il .gitignore non viene modificato.",
+  "agent.worktreeExternalHint": "La posizione è fuori dal repository, quindi il .gitignore non viene modificato. I worktree vengono raggruppati lì in una cartella con il nome del repository.",
   "agent.worktreeExisting": "Worktree esistenti",
   "agent.worktreeSource": "Crea da",
   "agent.worktreeSourceBranch": "Ramo",
