@@ -367,8 +367,8 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
 }
 
 /** サイドバー余白（項目の外）と仮想の Whole 枠の作成メニュー。
-    at が無い余白操作では、新規セッションを表示中セッションと同じ階層へ作る。
-    Whole 枠は at=0 を渡し、セッションもグループも最上位の先頭へ作る。
+    新規セッションはどちらからでも Whole 直下（最上位の先頭）へ作り、表示中セッションの
+    所属グループには引かれない。グループは Whole 枠なら at=0 で先頭、余白なら最上位の末尾へ作る。
     どちらもフォームを出さず自動採番の名前で即時作成する */
 export function openListCtxMenu(x: number, y: number, at?: number) {
   closeGroupMenu();
@@ -382,7 +382,7 @@ export function openListCtxMenu(x: number, y: number, at?: number) {
   // 明示する。これが無いと active セッションの group へ補完されてしまう。
   attachRootCreate(
     session,
-    (cwd) => quickCreateWorkspace(at === undefined ? { cwd } : { after: null, at, cwd }),
+    (cwd) => quickCreateWorkspace({ after: null, at: at ?? 0, cwd }),
     { menuItem: true },
   );
   const group = document.createElement("button");
