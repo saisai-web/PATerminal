@@ -392,8 +392,9 @@ await page.waitForTimeout(150);
 await page.locator("#ctx-menu button", { hasText: "グループを解散" }).click();
 await page.waitForTimeout(200);
 
-// 余白メニューのセッション作成もフォームを出さず、表示中セッションの直後へ即時作成する
-await page.locator(".ws-item", { hasText: "Session 1" }).locator(".ws-name").click();
+// 余白メニューのセッション作成もフォームを出さず、表示中セッションがグループ内でも
+// Whole 直下（最上位の先頭）へ即時作成する
+await page.locator(".ws-item", { hasText: "api" }).locator(".ws-name").click();
 await page.waitForTimeout(100);
 const itemsBeforeBlankSession = await page.locator(".ws-item").count();
 await page.mouse.click(listBox.x + listBox.width / 2, listBox.y + listBox.height - 6, { button: "right" });
@@ -405,12 +406,10 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 const blankSessionName = (await page.locator(".ws-item.is-active .ws-name").textContent()) ?? "";
 const rootItemNames = await page.locator(".ws-whole-members > .ws-item .ws-name").allTextContents();
-const blankSessionIndex = rootItemNames.indexOf(blankSessionName);
-const session1Index = rootItemNames.indexOf("Session 1");
-check("blank-area create-session makes an auto-named sibling without a form",
+check("blank-area create-session makes an auto-named session at the top of Whole",
   !(await page.locator("#ws-new-form").isVisible()) &&
     /^Session \d+$/.test(blankSessionName) &&
-    blankSessionIndex === session1Index + 1 &&
+    rootItemNames[0] === blankSessionName &&
     (await page.locator(".ws-item").count()) === itemsBeforeBlankSession + 1,
   `name="${blankSessionName}" root=${JSON.stringify(rootItemNames)}`);
 const blankItem = page.locator(".ws-item", { hasText: blankSessionName });
