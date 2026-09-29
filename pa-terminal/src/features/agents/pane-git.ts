@@ -1,9 +1,11 @@
 // ============================================================
 // ペイン上部のバー（タイトル・cwd の行）の Git 操作
 //
-// バーには「⎇ ブランチ ↑push ↓pull」「変更数」と Fetch / Pull（ahead があれば Push）を出し、
+// バーには「⎇ ブランチ ↑push ↓pull」「変更数」と Worktree / Commit / Fetch / Pull（ahead があれば Push）を出し、
 // ブランチ名のクリックでブランチ一覧のポップオーバーを開いて切り替え・リモートからの
-// チェックアウト・新規作成をその場で行う。
+// チェックアウト・新規作成をその場で行う。Worktree はそのペインのリポジトリを対象に
+// 作成モーダル（worktree-dialog）を開く。Commit は Git ウィンドウのファイルステータスを開いて
+// コミットメッセージ欄へ移る（ペインの mousedown で git 監視がそのペインへ追従済み）。
 //
 // - 状態はサイドバーのセッション git バッジと同じ5秒スイープ（ws-git の git_summary）から
 //   ペインごとに受け取る。このモジュール自身は定期実行しない（CLAUDE.md: 定期サブプロセスを
@@ -20,6 +22,9 @@ import { t } from "../../i18n";
 import type { Pane } from "../../terminal/pane";
 import { panes } from "../../workspace/state";
 import { isActionBusy, runGitAction } from "../git/git-actions";
+import { focusCommitMessage } from "../git/git-status-view";
+import { openWorktreeDialog } from "../git/worktree-dialog";
+import { requireFeature } from "../license/license";
 import { toPaneGit, updateWsGit } from "../sidebar/ws-git";
 import type { GitSummary, PaneGitSummary } from "../sidebar/ws-git";
 
@@ -45,6 +50,8 @@ const ICONS = {
   plus: "M8 3.5v9M3.5 8h9",
   cloud: "M4.5 12.5h7a2.5 2.5 0 0 0 .3-5A3.5 3.5 0 0 0 5 6.6a3 3 0 0 0-.5 5.9z",
   caret: "M4.5 10 8 6.5l3.5 3.5",
+  commit: "M1.5 8h4M10.5 8h4" + CIRCLE(8, 8),
+  worktree: "M2 5V4a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5zM8 7v4M6 9h4",
 } as const;
 
 function icon(name: keyof typeof ICONS, className = "pathbar-icon"): SVGSVGElement {
@@ -104,6 +111,16 @@ export function buildPaneGit(pane: Pane): HTMLDivElement {
   const spacer = document.createElement("span");
   spacer.className = "pane-git-spacer";
 
+  const worktreeBtn = actButton("worktree", t("agent.worktree"), "is-worktree");
+  worktreeBtn.onclick = (e) => {
+    e.stopPropagation();
+    openWorktree(pane, worktreeBtn);
+  };
+  const commitBtn = actButton("commit", t("agent.commit"), "is-commit");
+  commitBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (!commitBtn.disabled && !isActionBusy()) focusCommitMessage();
+  };
   const fetchBtn = actButton("fetch", t("pgit.fetch"), "is-fetch");
   fetchBtn.onclick = (e) => {
     e.stopPropagation();
@@ -119,7 +136,7 @@ export function buildPaneGit(pane: Pane): HTMLDivElement {
     e.stopPropagation();
     runPull(pane, pullBtn);
   };
-  el.append(branch, dirty, spacer, fetchBtn, pushBtn, pullBtn);
+  el.append(branch, dirty, spacer, worktreeBtn, commitBtn, fetchBtn, pushBtn, pullBtn);
   return el;
 }
 
@@ -191,6 +208,14 @@ export function renderPaneGit(pane: Pane): void {
   const fetch = el.querySelector<HTMLButtonElement>(".pane-git-act.is-fetch")!;
   fetch.disabled = busy;
   fetch.title = t("pgit.fetchTitle");
+
+  const commit = el.querySelector<HTMLButtonElement>(".pane-git-act.is-commit")!;
+  commit.disabled = busy || s.fileCount === 0;
+  commit.title = t("agent.commitTitle");
+
+  const worktree = el.querySelector<HTMLButtonElement>(".pane-git-act.is-worktree")!;
+  worktree.disabled = busy;
+  worktree.title = t("agent.worktreeTitle");
 }
 
 function syncChip(arrow: string, n: number, cls: string): HTMLSpanElement {
@@ -254,6 +279,14 @@ function runPush(pane: Pane, button: HTMLElement | null): void {
   if (!s) return;
   const { root } = s;
   void run(pane, button, async () => (await invoke<string>("git_push", { root })) || t("agent.pushDone"));
+}
+
+/** そのペインのリポジトリで Worktree の作成モーダルを開く（Git ウィンドウは開かない） */
+function openWorktree(pane: Pane, opener: HTMLElement): void {
+  const s = states.get(pane.id);
+  if (!s || isActionBusy()) return;
+  if (!requireFeature()) return; // ソフトロック中は購入案内（Git ウィンドウと同じ扱い）
+  void openWorktreeDialog({ root: s.root, opener });
 }
 
 function runFetch(pane: Pane, button: HTMLElement | null): void {
@@ -358,7 +391,14 @@ function openBranchPop(pane: Pane, anchor: HTMLButtonElement): void {
   pullBtn.disabled = !s.upstream || isActionBusy();
   pullBtn.title = s.upstream ? t("pgit.pullTitle", { upstream: s.upstream }) : t("pgit.noUpstream");
   pullBtn.classList.toggle("is-primary", s.behind > 0);
-  actions.append(fetchBtn, pullBtn);
+  const worktreeBtn = popAction("worktree", t("agent.worktree"), () => {
+    close(false);
+    const bar = pane.el.querySelector<HTMLElement>(":scope > .pane-bar .pane-git-act.is-worktree");
+    openWorktree(pane, bar ?? anchor);
+  });
+  worktreeBtn.title = t("agent.worktreeTitle");
+  worktreeBtn.disabled = isActionBusy();
+  actions.append(worktreeBtn, fetchBtn, pullBtn);
   if (s.upstream && s.ahead > 0) {
     const pushBtn = popAction("push", `${t("pgit.push")} ${s.ahead}`, () => {
       close();

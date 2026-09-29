@@ -24,7 +24,7 @@ check("toolbar controls use icons with a short label, accessible names and toolt
 const toolbarLabels = await page.locator("#toolbar button:visible .toolbar-label").allTextContents();
 check("toolbar labels sit under the icons in toolbar order",
   JSON.stringify(toolbarLabels) === JSON.stringify(
-    ["右に分割", "下に分割", "セッション分割", "一斉入力", "定型文", "ペア", "入力履歴", "履歴", "Git", "Worktree", "ツアー"]),
+    ["右に分割", "下に分割", "セッション分割", "一斉入力", "定型文", "ペア", "入力履歴", "履歴", "Git", "ツアー"]),
   JSON.stringify(toolbarLabels));
 check("toolbar has a Git button with an icon",
   await page.locator("#toolbar #git-open").isVisible() &&

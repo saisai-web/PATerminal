@@ -15,7 +15,6 @@ import { getGitRoot } from "./git-watch";
 import { isActionBusy, runGitAction } from "./git-actions";
 import { t } from "../../i18n";
 import { isPullDialogOpen } from "./pull-dialog";
-import { requireFeature } from "../license/license";
 import { createWorktreeProgress, worktreeResultMessage } from "./worktree-progress";
 import {
   defaultBaseRef,
@@ -40,7 +39,6 @@ export function initWorktreeDialog(d: WorktreeDialogDeps): void {
 }
 
 const worktreeBtn = document.querySelector<HTMLButtonElement>("#git-worktree")!;
-const worktreeToolbarBtn = document.querySelector<HTMLButtonElement>("#worktree-open")!;
 const worktreeOverlay = document.querySelector<HTMLDivElement>("#worktree-overlay")!;
 const worktreePanel = document.querySelector<HTMLDivElement>("#worktree-panel")!;
 const worktreeCloseBtn = document.querySelector<HTMLButtonElement>("#worktree-close")!;
@@ -78,6 +76,8 @@ const worktreeProgress = createWorktreeProgress(worktreePanel, "worktree");
 type WorktreeSource = "branch" | "pr";
 
 let worktreeDialogRoot: string | null = null;
+/** リポジトリ外モードのまとめ先フォルダ名（git_worktree_branches が返す。取得前は空） */
+let worktreeRepoFolder = "";
 /** Git ウィンドウの Worktree ボタンから開いたか（PR 側から開いたときは false） */
 let worktreeFollowsWatch = false;
 let worktreeBeforeOpenSession: (() => void) | null = null;
@@ -146,6 +146,7 @@ function updateWorktreePreview(): void {
         worktreeLocationMode(),
         worktreeDirectoryEl.value,
         worktreeBranchName(),
+        worktreeRepoFolder,
       )
     : root;
 }
@@ -272,6 +273,8 @@ type WorktreeDialogOptions = {
   pr?: { prs: PrSummary[]; number: number };
   /** 作成に成功してセッションを開く直前に呼ぶ（呼び出し元の画面を閉じるため） */
   beforeOpenSession?: () => void;
+  /** 閉じたときに focus を戻すボタン（ペインバーの Worktree ボタンなど） */
+  opener?: HTMLElement;
 };
 
 /**
@@ -283,8 +286,10 @@ export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): P
   const root = options.root ?? getGitRoot();
   if (!root || isActionBusy()) return;
   worktreeDialogRoot = root;
+  worktreeRepoFolder = "";
   worktreeFollowsWatch = options.root === undefined;
   worktreeBeforeOpenSession = options.beforeOpenSession ?? null;
+  worktreeOpener = options.opener ?? null;
   worktreeRootEl.textContent = root;
   worktreeBaseSel.innerHTML = "";
   worktreeBranchEl.value = getWorktreePrefs().autoBranchName && !options.pr
@@ -325,6 +330,7 @@ export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): P
     }
     // 作業中のブランチではなく、リポジトリの既定ブランチを起点にする
     worktreeBaseSel.value = defaultBaseRef(result);
+    worktreeRepoFolder = result.repoFolder ?? "";
     if (result.branches.length === 0) {
       worktreeErrorEl.textContent = t("agent.worktreeNoBranches");
       worktreeErrorEl.hidden = false;
@@ -344,8 +350,8 @@ export async function openWorktreeDialog(options: WorktreeDialogOptions = {}): P
   }
 }
 
-/** Git ウィンドウかツールバーの Worktree ボタンから開いたか（閉じたときそこへ focus を戻す） */
-let worktreeOpenedFromButton = false;
+/** 閉じたときに focus を戻すボタン（Git ウィンドウ / ペインバーの Worktree ボタン） */
+let worktreeOpener: HTMLElement | null = null;
 
 export function closeWorktreeDialog(): void {
   if (isActionBusy()) return;
@@ -357,20 +363,15 @@ export function closeWorktreeDialog(): void {
   worktreeDialogRoot = null;
   worktreeBeforeOpenSession = null;
   // PR 画面など別の場所から開いたときは、そちらの focus を奪わない
-  const opener = worktreeBtn.offsetParent !== null ? worktreeBtn : worktreeToolbarBtn;
-  if (opener.offsetParent !== null && !opener.disabled && worktreeOpenedFromButton) opener.focus();
-  worktreeOpenedFromButton = false;
+  const opener = worktreeOpener;
+  worktreeOpener = null;
+  if (opener?.isConnected && opener.offsetParent !== null && !(opener as HTMLButtonElement).disabled) {
+    opener.focus();
+  }
 }
 
 worktreeBtn.onclick = () => {
-  worktreeOpenedFromButton = true;
-  void openWorktreeDialog();
-};
-// ツールバーの Worktree ボタン: Git ウィンドウを開かず、作成モーダルだけを出す
-worktreeToolbarBtn.onclick = () => {
-  if (!requireFeature()) return; // ソフトロック中は購入案内（Git ウィンドウと同じ扱い）
-  worktreeOpenedFromButton = true;
-  void openWorktreeDialog();
+  void openWorktreeDialog({ opener: worktreeBtn });
 };
 worktreeCloseBtn.onclick = closeWorktreeDialog;
 worktreeCancelBtn.onclick = closeWorktreeDialog;

@@ -149,6 +149,31 @@ export default async function ({ browser, check, BASE_URL }) {
     (await page.locator(".pgit-pop").count()) === 0 &&
       await page.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")));
 
+  // Commit は Worktree と Fetch の間。Git ウィンドウのファイルステータスを開いてメッセージ欄へ
+  await page.evaluate(() => {
+    window.__mockGitChanges = {
+      repo: true, root: "/repo/app", files: [{ path: "src/app.ts", adds: 1, dels: 0, status: "M" }],
+    };
+  });
+  check("commit: sits between Worktree and Fetch in the pane bar",
+    (await page.locator(".pane-git .is-worktree + .is-commit + .is-fetch").count()) === 1 &&
+      await page.locator(".pane-git .is-commit").isEnabled());
+  await page.locator(".pane-git .is-commit").click();
+  await page.waitForFunction(() => document.activeElement?.id === "commit-message", undefined, { timeout: 5000 })
+    .catch(() => {});
+  check("commit: opens the Git window on file status with the message focused",
+    await page.locator("#git-window-overlay").isVisible() &&
+      await page.locator("#gw-view-status").isVisible() &&
+      await page.evaluate(() => document.activeElement?.id === "commit-message"));
+  await page.locator("#gw-close").click();
+  await page.evaluate(() => {
+    window.__mockGitSummary = { ...window.__mockGitSummary, fileCount: 0 };
+  });
+  await page.waitForFunction(() => document.querySelector(".pane-git .is-commit")?.disabled === true,
+    undefined, { timeout: 8000 }).catch(() => {});
+  check("commit: disabled when there are no changes",
+    await page.locator(".pane-git .is-commit").isDisabled());
+
   // リポジトリ外へ出たら Git 部分を隠す（フォルダーボタンは残る）
   await page.evaluate(() => {
     window.__mockGitSummary = { repo: false, root: null, branch: null, fileCount: 0, adds: 0, dels: 0 };
