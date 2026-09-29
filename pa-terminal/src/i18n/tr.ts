@@ -887,7 +887,7 @@ export const tr: Dict = {
   "tutorial.git.close.body": "Son olarak paralel çalışma için kullanışlı olan Worktree'ye bakalım.",
   "tutorial.git.close.try": "Kapat düğmesine basın",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree, aynı deponun başka bir dalını kendi klasörüne çıkararak paralel çalışmanızı sağlar. Bir Git deposu klasöründeyken kullanılabilir.",
+  "tutorial.git.wtInfo.body": "Worktree, aynı deponun başka bir dalını kendi klasörüne çıkararak paralel çalışmanızı sağlar. Bir Git deposu klasöründeyken kullanılabilir. Düğme, bölmenin üst çubuğundaki Git denetimlerinde bulunur.",
   "tutorial.git.wtOpen.title": "Worktree oluşturun",
   "tutorial.git.wtOpen.body": "Bir daldan veya PR'den yeni bir worktree oluşturun ve klasöründe yeni bir oturum açın.",
   "tutorial.git.wtOpen.try": "“Worktree” düğmesine tıklayın",

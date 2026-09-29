@@ -887,7 +887,7 @@ export const ja: Dict = {
   "tutorial.git.close.body": "最後に、並行作業に便利な Worktree を見てみましょう。",
   "tutorial.git.close.try": "閉じるボタンを押しましょう",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree は、同じリポジトリの別ブランチを別フォルダーに作り、並行して作業する仕組みです。Git リポジトリのフォルダーにいる時に使えます。",
+  "tutorial.git.wtInfo.body": "Worktree は、同じリポジトリの別ブランチを別フォルダーに作り、並行して作業する仕組みです。Git リポジトリのフォルダーにいる時に使えます。ボタンはペイン上部のバーの Git 欄にあります。",
   "tutorial.git.wtOpen.title": "Worktree を作る",
   "tutorial.git.wtOpen.body": "ブランチや PR から新しい worktree を作り、そのフォルダーで新しいセッションを開けます。",
   "tutorial.git.wtOpen.try": "「Worktree」をクリック",

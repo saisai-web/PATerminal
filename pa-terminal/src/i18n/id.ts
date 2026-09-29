@@ -887,7 +887,7 @@ export const id: Dict = {
   "tutorial.git.close.body": "Terakhir, mari lihat Worktree, yang praktis untuk kerja paralel.",
   "tutorial.git.close.try": "Tekan tombol tutup",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree men-checkout branch lain dari repositori yang sama ke foldernya sendiri agar Anda bisa bekerja paralel. Tersedia saat Anda berada di folder repositori Git.",
+  "tutorial.git.wtInfo.body": "Worktree men-checkout branch lain dari repositori yang sama ke foldernya sendiri agar Anda bisa bekerja paralel. Tersedia saat Anda berada di folder repositori Git. Tombolnya ada di kontrol Git pada bilah atas panel.",
   "tutorial.git.wtOpen.title": "Buat worktree",
   "tutorial.git.wtOpen.body": "Buat worktree baru dari branch atau PR dan buka sesi baru di foldernya.",
   "tutorial.git.wtOpen.try": "Klik “Worktree”",

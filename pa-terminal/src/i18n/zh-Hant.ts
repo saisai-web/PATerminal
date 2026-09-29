@@ -887,7 +887,7 @@ export const zhHant: Dict = {
   "tutorial.git.close.body": "最後，來看看便於平行作業的 Worktree。",
   "tutorial.git.close.try": "按下關閉按鈕",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree 會把同一個存放庫的另一個分支簽出到獨立的資料夾，方便平行作業。位於 Git 存放庫資料夾時即可使用。",
+  "tutorial.git.wtInfo.body": "Worktree 會把同一個存放庫的另一個分支簽出到獨立的資料夾，方便平行作業。位於 Git 存放庫資料夾時即可使用。按鈕位於窗格頂部列的 Git 區域。",
   "tutorial.git.wtOpen.title": "建立 Worktree",
   "tutorial.git.wtOpen.body": "從分支或 PR 建立新的 worktree，並在其資料夾中開啟新的工作階段。",
   "tutorial.git.wtOpen.try": "點擊「Worktree」",

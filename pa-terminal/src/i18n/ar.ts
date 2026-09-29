@@ -887,7 +887,7 @@ export const ar: Dict = {
   "tutorial.git.close.body": "أخيرًا، لنلقِ نظرة على Worktree المفيد للعمل المتوازي.",
   "tutorial.git.close.try": "اضغط زر الإغلاق",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "يستخرج worktree فرعًا آخر من المستودع نفسه في مجلد مستقل لتعمل بالتوازي. يتاح عندما تكون في مجلد مستودع Git.",
+  "tutorial.git.wtInfo.body": "يستخرج worktree فرعًا آخر من المستودع نفسه في مجلد مستقل لتعمل بالتوازي. يتاح عندما تكون في مجلد مستودع Git. يوجد الزر ضمن عناصر Git في الشريط العلوي للجزء.",
   "tutorial.git.wtOpen.title": "أنشئ worktree",
   "tutorial.git.wtOpen.body": "أنشئ worktree جديدًا من فرع أو PR وافتح جلسة جديدة في مجلده.",
   "tutorial.git.wtOpen.try": "انقر «Worktree»",

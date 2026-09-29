@@ -892,7 +892,7 @@ export const ptBR: Dict = {
   "tutorial.git.close.body": "Por fim, vamos ver o Worktree, prático para trabalhar em paralelo.",
   "tutorial.git.close.try": "Clique no botão de fechar",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Um worktree faz checkout de outra branch do mesmo repositório em uma pasta própria para você trabalhar em paralelo. Fica disponível quando você está na pasta de um repositório Git.",
+  "tutorial.git.wtInfo.body": "Um worktree faz checkout de outra branch do mesmo repositório em uma pasta própria para você trabalhar em paralelo. Fica disponível quando você está na pasta de um repositório Git. O botão fica nos controles de Git da barra superior do painel.",
   "tutorial.git.wtOpen.title": "Crie um worktree",
   "tutorial.git.wtOpen.body": "Crie um novo worktree a partir de uma branch ou PR e abra uma nova sessão na pasta dele.",
   "tutorial.git.wtOpen.try": "Clique em “Worktree”",

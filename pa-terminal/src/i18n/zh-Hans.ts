@@ -887,7 +887,7 @@ export const zhHans: Dict = {
   "tutorial.git.close.body": "最后，来看看便于并行工作的 Worktree。",
   "tutorial.git.close.try": "按关闭按钮",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree 会将同一仓库的另一个分支检出到单独的文件夹，便于并行工作。在 Git 仓库文件夹中时可用。",
+  "tutorial.git.wtInfo.body": "Worktree 会将同一仓库的另一个分支检出到单独的文件夹，便于并行工作。在 Git 仓库文件夹中时可用。按钮位于窗格顶部栏的 Git 区域。",
   "tutorial.git.wtOpen.title": "创建 Worktree",
   "tutorial.git.wtOpen.body": "从分支或 PR 创建新的 worktree，并在其文件夹中打开新会话。",
   "tutorial.git.wtOpen.try": "点击“Worktree”",

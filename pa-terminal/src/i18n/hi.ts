@@ -887,7 +887,7 @@ export const hi: Dict = {
   "tutorial.git.close.body": "अंत में, समानांतर काम के लिए उपयोगी Worktree देखते हैं।",
   "tutorial.git.close.try": "बंद करें बटन दबाएँ",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree उसी रिपॉज़िटरी की किसी अन्य ब्रांच को अलग फ़ोल्डर में चेकआउट करता है, ताकि आप समानांतर काम कर सकें। यह Git रिपॉज़िटरी फ़ोल्डर में होने पर उपलब्ध है।",
+  "tutorial.git.wtInfo.body": "Worktree उसी रिपॉज़िटरी की किसी अन्य ब्रांच को अलग फ़ोल्डर में चेकआउट करता है, ताकि आप समानांतर काम कर सकें। यह Git रिपॉज़िटरी फ़ोल्डर में होने पर उपलब्ध है। बटन पेन की ऊपरी बार के Git हिस्से में है।",
   "tutorial.git.wtOpen.title": "Worktree बनाएँ",
   "tutorial.git.wtOpen.body": "किसी ब्रांच या PR से नया worktree बनाएँ और उसके फ़ोल्डर में नया सत्र खोलें।",
   "tutorial.git.wtOpen.try": "“Worktree” पर क्लिक करें",

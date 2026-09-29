@@ -887,7 +887,7 @@ export const ko: Dict = {
   "tutorial.git.close.body": "마지막으로 병렬 작업에 편리한 Worktree를 살펴봅시다.",
   "tutorial.git.close.try": "닫기 버튼을 누르세요",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree는 같은 저장소의 다른 브랜치를 별도 폴더에 체크아웃해 병렬로 작업하는 방식입니다. Git 저장소 폴더에 있을 때 사용할 수 있습니다.",
+  "tutorial.git.wtInfo.body": "Worktree는 같은 저장소의 다른 브랜치를 별도 폴더에 체크아웃해 병렬로 작업하는 방식입니다. Git 저장소 폴더에 있을 때 사용할 수 있습니다. 버튼은 창 위쪽 바의 Git 영역에 있습니다.",
   "tutorial.git.wtOpen.title": "Worktree 만들기",
   "tutorial.git.wtOpen.body": "브랜치나 PR에서 새 worktree를 만들고 그 폴더에서 새 세션을 엽니다.",
   "tutorial.git.wtOpen.try": "'Worktree' 클릭",

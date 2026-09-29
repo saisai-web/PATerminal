@@ -916,7 +916,7 @@ export const en = {
   "tutorial.git.close.body": "Finally, let's look at Worktree, which is handy for working in parallel.",
   "tutorial.git.close.try": "Press the close button",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "A worktree checks out another branch of the same repository into its own folder so you can work in parallel. It's available while you're in a Git repository folder.",
+  "tutorial.git.wtInfo.body": "A worktree checks out another branch of the same repository into its own folder so you can work in parallel. It's available while you're in a Git repository folder. The button is in the Git controls of the pane's top bar.",
   "tutorial.git.wtOpen.title": "Create a worktree",
   "tutorial.git.wtOpen.body": "Create a new worktree from a branch or PR and open a new session in its folder.",
   "tutorial.git.wtOpen.try": "Click “Worktree”",

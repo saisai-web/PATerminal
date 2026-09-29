@@ -887,7 +887,7 @@ export const vi: Dict = {
   "tutorial.git.close.body": "Cuối cùng, hãy xem Worktree, rất tiện cho làm việc song song.",
   "tutorial.git.close.try": "Bấm nút đóng",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree checkout một nhánh khác của cùng kho vào thư mục riêng để bạn làm việc song song. Có thể dùng khi bạn đang ở trong thư mục kho Git.",
+  "tutorial.git.wtInfo.body": "Worktree checkout một nhánh khác của cùng kho vào thư mục riêng để bạn làm việc song song. Có thể dùng khi bạn đang ở trong thư mục kho Git. Nút nằm trong phần Git ở thanh trên cùng của khung.",
   "tutorial.git.wtOpen.title": "Tạo worktree",
   "tutorial.git.wtOpen.body": "Tạo worktree mới từ một nhánh hoặc PR và mở phiên mới trong thư mục của nó.",
   "tutorial.git.wtOpen.try": "Nhấp “Worktree”",

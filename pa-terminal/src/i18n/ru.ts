@@ -887,7 +887,7 @@ export const ru: Dict = {
   "tutorial.git.close.body": "Напоследок посмотрим Worktree — удобный инструмент для параллельной работы.",
   "tutorial.git.close.try": "Нажмите кнопку закрытия",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree извлекает другую ветку того же репозитория в отдельную папку, чтобы вы могли работать параллельно. Доступно, когда вы находитесь в папке репозитория Git.",
+  "tutorial.git.wtInfo.body": "Worktree извлекает другую ветку того же репозитория в отдельную папку, чтобы вы могли работать параллельно. Доступно, когда вы находитесь в папке репозитория Git. Кнопка находится среди элементов Git на верхней панели области.",
   "tutorial.git.wtOpen.title": "Создайте worktree",
   "tutorial.git.wtOpen.body": "Создайте новый worktree из ветки или PR и откройте в его папке новый сеанс.",
   "tutorial.git.wtOpen.try": "Нажмите «Worktree»",

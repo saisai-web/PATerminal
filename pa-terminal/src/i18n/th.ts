@@ -887,7 +887,7 @@ export const th: Dict = {
   "tutorial.git.close.body": "สุดท้าย มาดู Worktree ที่สะดวกสำหรับการทำงานคู่ขนาน",
   "tutorial.git.close.try": "กดปุ่มปิด",
   "tutorial.git.wtInfo.title": "Worktree",
-  "tutorial.git.wtInfo.body": "Worktree จะเช็กเอาต์สาขาอื่นของรีโพซิทอรีเดียวกันไปไว้ในโฟลเดอร์แยก เพื่อให้ทำงานคู่ขนานได้ ใช้ได้เมื่ออยู่ในโฟลเดอร์รีโพซิทอรี Git",
+  "tutorial.git.wtInfo.body": "Worktree จะเช็กเอาต์สาขาอื่นของรีโพซิทอรีเดียวกันไปไว้ในโฟลเดอร์แยก เพื่อให้ทำงานคู่ขนานได้ ใช้ได้เมื่ออยู่ในโฟลเดอร์รีโพซิทอรี Git ปุ่มอยู่ในส่วน Git ของแถบด้านบนของบานหน้าต่าง",
   "tutorial.git.wtOpen.title": "สร้าง Worktree",
   "tutorial.git.wtOpen.body": "สร้าง worktree ใหม่จากสาขาหรือ PR แล้วเปิดเซสชันใหม่ในโฟลเดอร์นั้น",
   "tutorial.git.wtOpen.try": "คลิก “Worktree”",
