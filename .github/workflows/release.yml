@@ -426,3 +426,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ID: ${{ needs.prepare-release.outputs.release_id }}
         run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -f make_latest=true >/dev/null
+
+  # Latest へ昇格した版だけを winget へ出す（prerelease・タグなし実行は promote-release ごとスキップ）
+  publish-winget:
+    needs: [prepare-release, promote-release]
+    uses: ./.github/workflows/winget.yml
+    with:
+      release_tag: ${{ needs.prepare-release.outputs.release_tag }}
+    secrets: inherit
