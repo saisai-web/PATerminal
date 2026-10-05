@@ -1,0 +1,52 @@
+name: winget
+
+# 検証済みで Latest に昇格した Release の Windows インストーラ (NSIS) を
+# microsoft/winget-pkgs へ新バージョンとして PR する。release.yml の promote-release
+# 後に呼ばれる。取りこぼした版は workflow_dispatch でタグを指定して出し直せる。
+#
+# 必要な secret: WINGET_TOKEN（public_repo スコープの classic PAT）。
+# PR は saisai-web/winget-pkgs の fork 経由で作られる。未設定ならスキップする
+# （リリース本体は既に完了しているので、ここで失敗させない）。
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Published stable Release tag to submit to winget (e.g. v1.4.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: require winget token
+        id: token
+        shell: bash
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [[ -z "${WINGET_TOKEN:-}" ]]; then
+            echo "::warning::WINGET_TOKEN is not configured; skipping the winget submission"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # winget に載せるのは NSIS の版付きインストーラ1本だけ（0.2.5 の初回登録と同じ）。
+      # MSI と、README 用のバージョン無し別名 (PATerminal-Windows-x64-setup.exe) は除外する。
+      - uses: vedantmgoyal9/winget-releaser@v2
+        if: steps.token.outputs.present == 'true'
+        with:
+          identifier: paralellterminal.PATerminal
+          release-tag: ${{ inputs.release_tag }}
+          installers-regex: '^PATerminal_[0-9][^_]*_x64-setup\.exe$'
+          fork-user: saisai-web
+          token: ${{ secrets.WINGET_TOKEN }}
