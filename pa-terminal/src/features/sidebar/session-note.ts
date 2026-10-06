@@ -3,7 +3,7 @@ import { normalizeWorkspaceNote, WORKSPACE_NOTE_MAX_LENGTH } from "../../workspa
 import { isLocked, lockClass, requireFeature } from "../license/license";
 
 // ============================================================
-// セッションの一言メモ欄（1行表示 + クリックで開く編集ポップオーバー）
+// セッションの一言メモ欄（最大3行表示 + クリックで開く編集ポップオーバー）
 // ============================================================
 
 let notePopoverEl: HTMLDivElement | null = null;
@@ -61,7 +61,7 @@ window.addEventListener("resize", () => closeNotePopover());
 
 /**
  * セッション項目に常設する一言メモ欄を作る。
- * 欄自体は1行のボタン表示（長文は … で省略・全文は title）で、クリックすると
+ * 欄自体は最大3行のボタン表示（収まらない分は … で省略・全文は title）で、クリックすると
  * 欄の直下に編集ポップオーバー（セッション名 + textarea + ヒント / 文字数）を開く。
  * Enter・外側クリック・blur = 保存して閉じる / Shift+Enter = 改行 /
  * Escape = 取り消して閉じる。IME の変換確定 Enter は編集を継続する。
@@ -85,12 +85,15 @@ export function createSessionNoteField(
   display.className = "ws-note-display";
   display.setAttribute("aria-label", t("ws.noteViewTitle"));
   display.setAttribute("aria-haspopup", "dialog");
+  const text = document.createElement("span");
+  text.className = "ws-note-text";
+  display.append(text);
 
   let committed = normalizeWorkspaceNote(current) ?? "";
   const setDisplay = (value: string) => {
     const empty = !value;
     display.classList.toggle("is-empty", empty);
-    display.textContent = empty ? t("ws.notePlaceholder") : value;
+    text.textContent = empty ? t("ws.notePlaceholder") : value;
     display.title = empty ? t("ws.noteViewTitle") : value; // 省略時も全文を読めるように
   };
   setDisplay(committed);
@@ -171,9 +174,10 @@ export function createSessionNoteField(
     notePopoverOwner = display;
     notePopoverCommit = () => save(ta.value);
     notePopoverDiscard = () => setDisplay(committed);
-    // 欄の直下に、欄と同じ幅感で開く（開いた後は右下からカード全体をリサイズできる）
+    // 欄の直下に、欄の約3倍の幅で大きく開く（高さは CSS の初期値。画面に収まらない分は
+    // CSS の viewport 上限で縮み、開いた後は右下からカード全体をリサイズできる）
     const rect = field.getBoundingClientRect();
-    pop.style.width = `${Math.min(320, Math.max(240, Math.round(rect.width)))}px`;
+    pop.style.width = `${3 * Math.min(320, Math.max(240, Math.round(rect.width)))}px`;
     pop.style.left = `${Math.max(0, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8))}px`;
     pop.style.top = `${Math.max(0, Math.min(rect.bottom + 4, window.innerHeight - pop.offsetHeight - 8))}px`;
     // 下端・右端まで拡大したらカードを反対側へ逃がし、リサイズハンドルと内容を画面内に保つ。
