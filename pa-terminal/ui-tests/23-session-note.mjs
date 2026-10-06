@@ -2,7 +2,7 @@ export default async function (ctx) {
 const { browser, check, BASE_URL } = ctx;
 
 // ============================================================
-// セッションごとのメモ: サイドバー1行表示 + 先頭ペイン最大2行表示 /
+// セッションごとのメモ: サイドバー最大3行表示 + 先頭ペイン最大2行表示 /
 // IME / 改行 / 検索 / 保存 / 削除履歴 / 再起動復元
 // ============================================================
 
@@ -151,8 +151,19 @@ check("Enter saves the normalized note and closes the editor",
   await page.locator(".ws-note-popover").count() === 0 &&
     (await display.textContent()) === "PR #90 のレビュー\nCI 待ち\n確認" &&
     !(await display.evaluate((el) => el.classList.contains("is-empty"))));
-check("sidebar keeps its one-line note presentation",
-  await display.evaluate((el) => getComputedStyle(el).whiteSpace) === "nowrap");
+// 行数制限は button ではなく中の span に掛かる（WebKit は button の line-clamp を無視する）
+const noteRows = () => display.evaluate((el) => {
+  const text = el.querySelector(".ws-note-text");
+  const style = getComputedStyle(text);
+  return {
+    clamp: style.webkitLineClamp,
+    rows: el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight),
+  };
+});
+const threeLineRows = await noteRows();
+check("sidebar shows a three-line note on three lines",
+  threeLineRows.clamp === "3" && Math.abs(threeLineRows.rows - 3) < 0.1,
+  JSON.stringify(threeLineRows));
 
 const paneNote = page.locator(".pane-note:not([hidden])");
 const paneNoteStyle = await paneNote.evaluate((el) => {
@@ -200,9 +211,18 @@ await display.click();
 check("reopened editor starts from the saved note with its length",
   await editor.inputValue() === "PR #90 のレビュー\nCI 待ち\n確認" &&
     (await page.locator(".ws-note-popover .ws-note-popover-count").textContent()) === "21/120");
+await editor.fill("1行目\n2行目\n3行目\n4行目\n5行目");
+const fiveLineRows = await noteRows();
+check("sidebar clamps a longer note to three lines and keeps the full text in the title",
+  Math.abs(fiveLineRows.rows - 3) < 0.1 &&
+    await display.getAttribute("title") === "1行目\n2行目\n3行目\n4行目\n5行目",
+  JSON.stringify(fiveLineRows));
 await editor.fill("破棄される編集");
+const oneLineRows = await noteRows();
 check("editing mirrors into the note row before saving",
   (await display.textContent()) === "破棄される編集");
+check("a short note stays on one line",
+  Math.abs(oneLineRows.rows - 1) < 0.1, JSON.stringify(oneLineRows));
 await page.keyboard.press("Escape");
 check("Escape discards the edit and restores the row",
   await page.locator(".ws-note-popover").count() === 0 &&

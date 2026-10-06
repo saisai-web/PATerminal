@@ -571,7 +571,7 @@
   50% { opacity: 0.35; }
 }
 
-/* 行間は grid の gap で取る（各行は1行固定なので margin ではなくここで揃える） */
+/* 行間は grid の gap で取る（メモだけ最大3行、ほかは1行固定なので margin ではなくここで揃える） */
 .ws-meta { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .ws-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ws-name {
@@ -649,8 +649,9 @@
   pointer-events: none;
   transform: translateY(-50%);
 }
-/* メモの1行表示。クリックで直下に編集ポップオーバーを開く（欄内では編集しない）。
-   以前の常設 input と同じ一行の高さ・見た目を保ち、長文は … で省く（全文は title） */
+/* メモの表示欄。クリックで直下に編集ポップオーバーを開く（欄内では編集しない）。
+   改行と折り返しを活かして最大3行まで見せ、収まらない分は … で省く（全文は title）。
+   短いメモ・未入力は1行のままなので、メモのないセッションの高さは変わらない */
 .ws-note-display {
   display: block;
   box-sizing: border-box;
@@ -668,8 +669,15 @@
   border-radius: 0;
   cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+/* 行数制限は中の span に掛ける（WebKit は button 自体の -webkit-line-clamp を無視する） */
+.ws-note-text {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 .ws-note-display.is-empty { color: var(--dim); }
 .ws-note-display:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -686,7 +694,8 @@
   flex-direction: column;
   gap: 6px;
   box-sizing: border-box;
-  width: 240px;
+  width: 720px;
+  height: 360px;
   min-width: 180px;
   min-height: 112px;
   max-width: calc(100vw - 16px);
@@ -712,7 +721,7 @@
   flex: 1 1 4.8em;
   box-sizing: border-box;
   width: 100%;
-  /* 初期表示では120字上限（3〜4行）を見渡せ、カード縮小時だけ内側スクロールへ退避する */
+  /* カードの高さに追従して広がり、カード縮小時だけ内側スクロールへ退避する */
   min-height: 3em;
   resize: none;
   padding: 6px 8px;
