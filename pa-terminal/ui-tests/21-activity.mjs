@@ -167,6 +167,21 @@ await pageAct.waitForTimeout(400);
   check("repeated idle without work stays quiet",
     !(await hasClass("wb", "is-attn")) && (await notifCount()) === 1,
     `notifs=${await notifCount()}`);
+  // セッションを見て回るだけの再描画: 開いた時と離れた時の再描画が Rust の静止判定
+  // （2秒）より短い間隔で続くと1回の busy に繋がる。合計が outputBusyMs を超えても、
+  // フォーカス通知のたびに計測をやり直すので、実行中にも完了の注意ドットにもならない
+  await emit("pty:act", { id: idB, busy: true, busyMs: 0 });
+  await pageAct.waitForTimeout(100);
+  await pageAct.locator('.ws-item[data-ws-id="wb"] .ws-head').click();
+  await pageAct.waitForTimeout(100);
+  await pageAct.locator('.ws-item[data-ws-id="wa"] .ws-head').click();
+  await pageAct.waitForTimeout(100);
+  check("redraws chained by session switches do not show running",
+    (await statusText("wb")) === "完了" && !(await hasClass("wb", "is-busy")));
+  await emit("pty:act", { id: idB, busy: false, busyMs: 400 });
+  await pageAct.waitForTimeout(150);
+  check("looking through sessions adds no attention",
+    !(await hasClass("wb", "is-attn")) && (await statusText("wb")) === "完了");
   await pageAct.locator('.ws-item[data-ws-id="wb"] .ws-head').click();
 
   // ベル（非アクティブ = wa）→ 完了扱いのオレンジ + 通知

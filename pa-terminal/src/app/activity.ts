@@ -94,6 +94,18 @@ function scheduleOutputBusy(pane: Pane): void {
 }
 
 /**
+ * アプリ側の操作（セッション切替のフォーカス通知・リサイズ・ホイール）が TUI に再描画を
+ * 起こさせる時に呼ぶ。Rust の idle は最後の出力から 2 秒後なので、開いた時の再描画と
+ * 離れる時の再描画が 2 秒以内に続くと1回の busy に繋がり、合計 1 秒強で
+ * OUTPUT_BUSY_MS を超えてしまう。セッションを数秒ずつ見て回るだけで「完了」の注意
+ * ドットと通知が出ていた。再描画の原因が新しく入ったら、連続出力の計測をそこからやり直す。
+ * 既に実行中のペインや、出力が始まっていないペインには何もしない。
+ */
+export function restartOutputBusy(pane: Pane): void {
+  if (outputBusyTimers.has(pane.id)) scheduleOutputBusy(pane);
+}
+
+/**
  * 実際の作業が静止した時点で通知する。再描画だけの busy / idle は completed にならない
  * （pty:act 側のゲート）ので、静止後にさらに待つ必要はない。同じセッションの別ペインが
  * まだ作業中なら、そのセッション全体はまだ終わっていないので送らない。

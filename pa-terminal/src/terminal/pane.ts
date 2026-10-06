@@ -9,7 +9,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { copyText } from "../shared/clipboard";
-import { updateWsActivity } from "../app/activity";
+import { restartOutputBusy, updateWsActivity } from "../app/activity";
 import { updateGitWatch } from "../features/git/git-watch";
 import { MIN_FIT_COLS, MIN_FIT_ROWS, SNAPSHOT_LINES } from "../shared/constants";
 import { diag, diagPush } from "./diag";
@@ -109,21 +109,28 @@ function retryDelay(ms: number): Promise<void> {
  * これらを「操作」と数えると、開いただけ・見ただけのペインが実行中になって
  * 完了通知が量産される。
  */
-const UNSOLICITED_TERMINAL_DATA: RegExp[] = [
+const TERMINAL_REPLIES: RegExp[] = [
   /^\x1b\[[?>]/,
   /^\x1b\[\d+;\d+R$/,
   /^\x1b\[\d*n$/,
   /^\x1b\]/,
   /^\x1bP[\s\S]*\x1b\\$/,
+];
+/** 問い合わせへの応答と違い、これらは受け取った TUI に再描画を起こさせる側の入力。 */
+const REDRAW_TRIGGERS: RegExp[] = [
   /^\x1b\[[IO]$/,
   /^\x1b\[<\d+;\d+;\d+[Mm]$/,
   /^\x1b\[M[\s\S]{3}$/,
   /^(\x1b(\[|O)[ABCD])+$/,
 ];
 
+function isRedrawTrigger(data: string): boolean {
+  return data.charCodeAt(0) === 0x1b && REDRAW_TRIGGERS.some((re) => re.test(data));
+}
+
 export function isUnsolicitedTerminalData(data: string): boolean {
   if (data.charCodeAt(0) !== 0x1b) return false;
-  return UNSOLICITED_TERMINAL_DATA.some((re) => re.test(data));
+  return TERMINAL_REPLIES.some((re) => re.test(data)) || isRedrawTrigger(data);
 }
 
 export class Pane {
@@ -414,6 +421,8 @@ export class Pane {
       // だけで「実行中」にしない）。
       const marksActivity = !isUnsolicitedTerminalData(data);
       if (marksActivity) this.activityEngaged = true;
+      // フォーカス通知などへの再描画は、直前の再描画と繋がって「続いた出力」に見える。
+      else if (isRedrawTrigger(data)) restartOutputBusy(this);
       diag.data += data.length;
       diagPush(`d:${data.length <= 4 ? JSON.stringify(data) : data.length}`);
       if (this.ws.broadcast) {
@@ -430,6 +439,7 @@ export class Pane {
     // （= PTY が 80x24 のまま固定され、狭いペインで TUI が崩れる）
     const resizeSub = this.term.onResize(({ cols, rows }) => {
       requestResize(this.id, cols, rows);
+      restartOutputBusy(this); // SIGWINCH の再描画も同じく出力の継続に数えない
     });
     this.disposables.push(resizeSub);
 
