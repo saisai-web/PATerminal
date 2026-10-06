@@ -117,6 +117,7 @@ export const ja: Dict = {
   "agent.commitAndPush": "コミット後にPush",
   "agent.commit": "Commit",
   "agent.commitTitle": "コミット対象とメッセージを選ぶ",
+  "agent.diff": "Diff",
   "agent.commitDone": "コミットしました",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "作成元ブランチと格納先を選んでworktreeを作成",

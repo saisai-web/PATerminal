@@ -117,6 +117,7 @@ export const ko: Dict = {
   "agent.commitAndPush": "커밋 후 Push",
   "agent.commit": "Commit",
   "agent.commitTitle": "커밋할 변경과 메시지를 선택",
+  "agent.diff": "Diff",
   "agent.commitDone": "커밋했습니다.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "기준 브랜치와 위치를 골라 worktree 만들기",

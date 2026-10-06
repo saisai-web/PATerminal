@@ -129,6 +129,7 @@ export const en = {
   "agent.commitAndPush": "Push after commit",
   "agent.commit": "Commit",
   "agent.commitTitle": "Choose changes and write a commit message",
+  "agent.diff": "Diff",
   "agent.commitDone": "Committed.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Choose a base branch and location to create a worktree",

@@ -32,6 +32,7 @@
 }
 #git-window-overlay[hidden] { display: none; }
 #git-window {
+  position: relative; /* 大きさ変更ハンドル（.panel-grip）の基準 */
   width: min(1320px, 96vw);
   height: min(880px, 92vh);
   display: flex;
@@ -42,6 +43,11 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 18px 50px var(--shadow);
+}
+/* ハンドルで変えた大きさ（画面からはみ出さない範囲で当てる） */
+#git-window.is-sized {
+  width: min(var(--gw-w), calc(100vw - 16px));
+  height: min(var(--gw-h), calc(100vh - 16px));
 }
 
 /* ---- ヘッダー: リポジトリ・ブランチ・PR バッジ・操作ボタン ---- */
@@ -191,7 +197,23 @@
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
 }
+/* 端のハンドルで変えた幅。本文側には最低 420px を残す */
+#gw-body.is-side-sized {
+  grid-template-columns: clamp(140px, var(--gw-side-w), max(140px, calc(100% - 420px))) minmax(0, 1fr);
+}
+.gw-side-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: 6px;
+  z-index: 3;
+  cursor: col-resize;
+}
+.gw-side-grip:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 #gw-side {
+  position: relative;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -689,8 +711,9 @@
 .gw-list .wt-row { gap: 5px; padding: 10px 12px; }
 
 @media (max-width: 860px) {
-  #git-window { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
-  #gw-body { grid-template-columns: 190px minmax(0, 1fr); }
+  #git-window, #git-window.is-sized { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
+  #git-window > .panel-grip, .gw-side-grip { display: none; }
+  #gw-body, #gw-body.is-side-sized { grid-template-columns: 190px minmax(0, 1fr); }
   .gw-tool { width: 48px; }
   .gw-tool span { display: none; }
   #gw-view-status:not([hidden]) { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }

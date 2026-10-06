@@ -117,6 +117,7 @@ export const ptBR: Dict = {
   "agent.commitAndPush": "Fazer push após o commit",
   "agent.commit": "Commit",
   "agent.commitTitle": "Escolha as alterações e escreva uma mensagem de commit",
+  "agent.diff": "Diff",
   "agent.commitDone": "Commit feito.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Escolha uma branch base e um local para criar o worktree",

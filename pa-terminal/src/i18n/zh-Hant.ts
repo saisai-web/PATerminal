@@ -117,6 +117,7 @@ export const zhHant: Dict = {
   "agent.commitAndPush": "提交後 Push",
   "agent.commit": "Commit",
   "agent.commitTitle": "選擇變更並填寫提交訊息",
+  "agent.diff": "Diff",
   "agent.commitDone": "已提交。",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "選擇基底分支與位置以建立 worktree",

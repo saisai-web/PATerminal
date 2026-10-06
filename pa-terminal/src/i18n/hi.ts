@@ -117,6 +117,7 @@ export const hi: Dict = {
   "agent.commitAndPush": "कमिट के बाद पुश करें",
   "agent.commit": "Commit",
   "agent.commitTitle": "बदलाव चुनें और कमिट संदेश लिखें",
+  "agent.diff": "Diff",
   "agent.commitDone": "कमिट हो गया।",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "worktree बनाने के लिए बेस ब्रांच और स्थान चुनें",

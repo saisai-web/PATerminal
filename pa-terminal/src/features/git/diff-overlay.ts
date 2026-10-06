@@ -1,7 +1,12 @@
 // 作業ツリーのファイル差分とコミット全体の unified diff で共有するモーダル。
-// DOM と Escape / バックドロップの操作系を一箇所に保ち、layout()/refit には触れない。
+// DOM と Escape / × の操作系を一箇所に保ち、layout()/refit には触れない。
+// 外側（バックドロップ）を押しても閉じない: 差分を読みながら選択やドラッグをしていて
+// うっかり閉じないよう、閉じるのは × と Escape だけにする。
+// 複数ファイルの差分（.is-commit）は右辺・下辺・右下の角で大きさを変えられ、ファイル一覧の
+// 幅も境界のハンドルで変えられる。どちらもダブルクリックで既定へ戻し、localStorage に残す。
 
 import { t } from "../../i18n";
+import { attachPanelResize, attachSideResize } from "../../shared/drag-resize";
 
 export type FileDiff = { path: string; oldText?: string | null; newText: string };
 
@@ -44,6 +49,8 @@ const diffBodyEl = document.querySelector<HTMLDivElement>("#diff-body")!;
 const diffCloseBtn = document.querySelector<HTMLButtonElement>("#diff-close")!;
 
 const DIFF_MAX_LINES = 2000;
+
+attachPanelResize(diffPanel, { key: "pa.diffPanelSize", cssVar: "--diff", minW: 480, minH: 320 });
 
 // ---- 行単位 LCS diff。共通部分は前後2行だけ残して畳む ----
 
@@ -291,6 +298,12 @@ function renderMultiFileDiffBody(d: CommitDiff, labels: MultiFileLabels): HTMLDi
   const navList = document.createElement("div");
   navList.className = "commit-file-nav-list";
   nav.append(navTitle, navList);
+  attachSideResize(body, nav, {
+    key: "pa.diffNavWidth",
+    cssVar: "--commit-nav-w",
+    sizedClass: "is-nav-sized",
+    gripClass: "commit-file-nav-grip",
+  });
 
   const patches = document.createElement("div");
   patches.className = "commit-patches";
@@ -521,9 +534,6 @@ function closeDiffOverlay(): void {
 }
 
 diffCloseBtn.onclick = closeDiffOverlay;
-diffOverlay.addEventListener("pointerdown", (e) => {
-  if (e.target === diffOverlay) closeDiffOverlay();
-});
 diffPanel.addEventListener("keydown", (e) => e.stopPropagation());
 window.addEventListener(
   "keydown",

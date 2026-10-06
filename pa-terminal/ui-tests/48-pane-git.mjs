@@ -149,6 +149,97 @@ export default async function ({ browser, check, BASE_URL }) {
     (await page.locator(".pgit-pop").count()) === 0 &&
       await page.evaluate(() => document.activeElement?.classList.contains("xterm-helper-textarea")));
 
+  // Diff は Worktree の左隣。Git ウィンドウを開かずに未コミットの変更をまとめて見せる
+  await page.evaluate(() => {
+    window.__mockGitWorktreeDiff = {
+      patch: "diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1,2 @@\n one\n+" + "long ".repeat(120) + "\n",
+      adds: 1, dels: 0, truncated: false,
+    };
+  });
+  check("diff: sits immediately left of Worktree in the pane bar",
+    (await page.locator(".pane-git .is-diff + .is-worktree").count()) === 1 &&
+      await page.locator(".pane-git .is-diff").isEnabled());
+  await page.locator(".pane-git .is-diff").click();
+  await page.waitForFunction(() => document.querySelector("#diff-overlay")?.hidden === false, undefined, { timeout: 5000 })
+    .catch(() => {});
+  check("diff: opens the uncommitted changes of the pane's folder without the Git window",
+    await page.locator("#diff-overlay").isVisible() &&
+      await page.locator("#git-window-overlay").isHidden() &&
+      (await page.locator("#diff-stats").textContent()) === "+1-0" &&
+      (await page.evaluate(() => window.__gitWorktreeDiffCalls?.length)) === 1,
+    JSON.stringify(await page.evaluate(() => window.__gitWorktreeDiffCalls)));
+  // 外側を押しても閉じない（閉じるのは × と Escape だけ）
+  await page.mouse.click(6, 6);
+  check("diff: clicking outside the panel keeps it open", await page.locator("#diff-overlay").isVisible());
+
+  // 長い行はモーダル内で折り返し、横スクロールを出さない
+  const wrap = await page.evaluate(() => {
+    const patches = document.querySelector("#diff-body .commit-patches");
+    const code = [...document.querySelectorAll("#diff-body .commit-diff-line.add .commit-line-code")]
+      .find((el) => el.textContent.length > 300);
+    return {
+      scrolls: patches.scrollWidth > patches.clientWidth,
+      lines: Math.round(code.getBoundingClientRect().height / parseFloat(getComputedStyle(code).lineHeight)),
+    };
+  });
+  check("diff: a long changed line wraps inside the modal instead of scrolling sideways",
+    !wrap.scrolls && wrap.lines > 1, JSON.stringify(wrap));
+
+  // 右下の角でパネルの大きさを、境界のハンドルでファイル一覧の幅を変えられる
+  const dragBy = async (selector, dx, dy) => {
+    const box = await page.locator(selector).boundingBox();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y + dy, { steps: 4 });
+    await page.mouse.up();
+  };
+  const panelBox = () => page.locator("#diff-panel").boundingBox();
+  const before = await panelBox();
+  await dragBy("#diff-panel .panel-grip.is-xy", -100, -60);
+  const shrunk = await panelBox();
+  check("diff: dragging the corner resizes the panel around the centre",
+    Math.abs(before.width - shrunk.width - 200) <= 2 && Math.abs(before.height - shrunk.height - 120) <= 2 &&
+      await page.locator("#diff-overlay").isVisible(),
+    JSON.stringify({ before, shrunk }));
+  const navW = () => page.locator("#diff-body .commit-file-nav").evaluate((el) => el.offsetWidth);
+  const navBefore = await navW();
+  await dragBy("#diff-body .commit-file-nav-grip", 80, 0);
+  const navAfter = await navW();
+  check("diff: dragging the file list edge changes its width", Math.abs(navAfter - navBefore - 80) <= 2,
+    JSON.stringify({ navBefore, navAfter }));
+  await dragBy("#diff-body .commit-file-nav-grip", -150, 0);
+  const narrowed = await page.evaluate(() => ({
+    nav: document.querySelector("#diff-body .commit-file-nav").offsetWidth,
+    patches: document.querySelector("#diff-body .commit-patches").offsetWidth,
+    body: document.querySelector("#diff-body .commit-diff").offsetWidth,
+  }));
+  check("diff: the file list can go below its default width and the diff takes the freed space",
+    Math.abs(narrowed.nav - (navAfter - 150)) <= 2 && narrowed.nav < navBefore &&
+      narrowed.nav + narrowed.patches === narrowed.body,
+    JSON.stringify(narrowed));
+  await dragBy("#diff-body .commit-file-nav-grip", navAfter - narrowed.nav, 0);
+
+  await page.keyboard.press("Escape");
+  check("diff: Escape closes the overlay", await page.locator("#diff-overlay").isHidden());
+  await page.locator(".pane-git .is-diff").click();
+  await page.waitForFunction(() => document.querySelector("#diff-overlay")?.hidden === false);
+  const reopened = await panelBox();
+  check("diff: the panel size and file list width are kept when reopened",
+    Math.abs(reopened.width - shrunk.width) <= 1 && Math.abs(reopened.height - shrunk.height) <= 1 &&
+      Math.abs((await navW()) - navAfter) <= 1,
+    JSON.stringify({ reopened, shrunk }));
+  await page.locator("#diff-panel .panel-grip.is-xy").dblclick();
+  await page.locator("#diff-body .commit-file-nav-grip").dblclick();
+  const reset = await panelBox();
+  check("diff: double-clicking the handles restores the default size",
+    Math.abs(reset.width - before.width) <= 1 && Math.abs(reset.height - before.height) <= 1 &&
+      Math.abs((await navW()) - navBefore) <= 1,
+    JSON.stringify({ reset, before }));
+  await page.locator("#diff-close").click();
+  check("diff: the close button closes the overlay", await page.locator("#diff-overlay").isHidden());
+
   // Commit は Worktree と Fetch の間。Git ウィンドウのファイルステータスを開いてメッセージ欄へ
   await page.evaluate(() => {
     window.__mockGitChanges = {
@@ -209,7 +300,7 @@ export default async function ({ browser, check, BASE_URL }) {
   });
   check("files: a long path is shown in full without an ellipsis",
     nav.text.endsWith("path-bar-git-integration.ts") && nav.fits && nav.wraps, JSON.stringify(nav));
-  check("files: the file list widens for long paths, up to 45% of the view",
-    nav.navW > 250 && nav.navW <= nav.bodyW * 0.45 + 1, JSON.stringify(nav));
+  check("files: the file list widens for long paths, up to 35% of the view",
+    nav.navW > 200 && nav.navW <= nav.bodyW * 0.35 + 1, JSON.stringify(nav));
   await page.close();
 }
