@@ -117,6 +117,7 @@ export const ru: Dict = {
   "agent.commitAndPush": "Сделать push после коммита",
   "agent.commit": "Commit",
   "agent.commitTitle": "Выберите изменения и напишите сообщение коммита",
+  "agent.diff": "Diff",
   "agent.commitDone": "Коммит создан.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Выберите базовую ветку и место для создания worktree",

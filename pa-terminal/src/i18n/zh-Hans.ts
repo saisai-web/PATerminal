@@ -117,6 +117,7 @@ export const zhHans: Dict = {
   "agent.commitAndPush": "提交后 Push",
   "agent.commit": "Commit",
   "agent.commitTitle": "选择变更并填写提交信息",
+  "agent.diff": "Diff",
   "agent.commitDone": "已提交。",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "选择基础分支与位置来创建 worktree",

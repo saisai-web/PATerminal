@@ -117,6 +117,7 @@ export const vi: Dict = {
   "agent.commitAndPush": "Push sau khi commit",
   "agent.commit": "Commit",
   "agent.commitTitle": "Chọn thay đổi và viết thông điệp commit",
+  "agent.diff": "Diff",
   "agent.commitDone": "Đã commit.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Chọn nhánh gốc và vị trí để tạo worktree",

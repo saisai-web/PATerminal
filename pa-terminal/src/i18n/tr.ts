@@ -117,6 +117,7 @@ export const tr: Dict = {
   "agent.commitAndPush": "Commit sonrası push",
   "agent.commit": "Commit",
   "agent.commitTitle": "Değişiklikleri seç ve bir commit mesajı yaz",
+  "agent.diff": "Diff",
   "agent.commitDone": "İşlendi.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Worktree oluşturmak için temel dal ve konum seç",

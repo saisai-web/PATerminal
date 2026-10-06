@@ -117,6 +117,7 @@ export const th: Dict = {
   "agent.commitAndPush": "Push หลัง commit",
   "agent.commit": "Commit",
   "agent.commitTitle": "เลือกการเปลี่ยนแปลงและเขียนข้อความคอมมิต",
+  "agent.diff": "Diff",
   "agent.commitDone": "คอมมิตแล้ว",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "เลือกสาขาตั้งต้นและตำแหน่งเพื่อสร้าง worktree",

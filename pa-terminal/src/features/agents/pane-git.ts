@@ -1,9 +1,10 @@
 // ============================================================
 // ペイン上部のバー（タイトル・cwd の行）の Git 操作
 //
-// バーには「⎇ ブランチ ↑push ↓pull」「変更数」と Worktree / Commit / Fetch / Pull（ahead があれば Push）を出し、
+// バーには「⎇ ブランチ ↑push ↓pull」「変更数」と Diff / Worktree / Commit / Fetch / Pull（ahead があれば Push）を出し、
 // ブランチ名のクリックでブランチ一覧のポップオーバーを開いて切り替え・リモートからの
-// チェックアウト・新規作成をその場で行う。Worktree はそのペインのリポジトリを対象に
+// チェックアウト・新規作成をその場で行う。Diff はそのペインの未コミットの変更をまとめて
+// 差分オーバーレイで開く（Git ウィンドウは開かない）。Worktree はそのペインのリポジトリを対象に
 // 作成モーダル（worktree-dialog）を開く。Commit は Git ウィンドウのファイルステータスを開いて
 // コミットメッセージ欄へ移る（ペインの mousedown で git 監視がそのペインへ追従済み）。
 //
@@ -21,7 +22,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import type { Pane } from "../../terminal/pane";
 import { panes } from "../../workspace/state";
-import { isActionBusy, runGitAction } from "../git/git-actions";
+import { openWorktreeDiffOverlay } from "../git/diff-overlay";
+import type { CommitDiff } from "../git/diff-overlay";
+import { isActionBusy, runGitAction, showGitMsg } from "../git/git-actions";
 import { focusCommitMessage } from "../git/git-status-view";
 import { openWorktreeDialog } from "../git/worktree-dialog";
 import { requireFeature } from "../license/license";
@@ -51,6 +54,7 @@ const ICONS = {
   cloud: "M4.5 12.5h7a2.5 2.5 0 0 0 .3-5A3.5 3.5 0 0 0 5 6.6a3 3 0 0 0-.5 5.9z",
   caret: "M4.5 10 8 6.5l3.5 3.5",
   commit: "M1.5 8h4M10.5 8h4" + CIRCLE(8, 8),
+  diff: "M8 2.5v5M5.5 5h5M5.5 12.5h5",
   worktree: "M2 5V4a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5zM8 7v4M6 9h4",
 } as const;
 
@@ -111,6 +115,11 @@ export function buildPaneGit(pane: Pane): HTMLDivElement {
   const spacer = document.createElement("span");
   spacer.className = "pane-git-spacer";
 
+  const diffBtn = actButton("diff", t("agent.diff"), "is-diff");
+  diffBtn.onclick = (e) => {
+    e.stopPropagation();
+    void openDiff(pane, diffBtn);
+  };
   const worktreeBtn = actButton("worktree", t("agent.worktree"), "is-worktree");
   worktreeBtn.onclick = (e) => {
     e.stopPropagation();
@@ -136,7 +145,7 @@ export function buildPaneGit(pane: Pane): HTMLDivElement {
     e.stopPropagation();
     runPull(pane, pullBtn);
   };
-  el.append(branch, dirty, spacer, worktreeBtn, commitBtn, fetchBtn, pushBtn, pullBtn);
+  el.append(branch, dirty, spacer, diffBtn, worktreeBtn, commitBtn, fetchBtn, pushBtn, pullBtn);
   return el;
 }
 
@@ -213,6 +222,10 @@ export function renderPaneGit(pane: Pane): void {
   commit.disabled = busy || s.fileCount === 0;
   commit.title = t("agent.commitTitle");
 
+  const diff = el.querySelector<HTMLButtonElement>(".pane-git-act.is-diff")!;
+  diff.disabled = s.fileCount === 0;
+  diff.title = t("agent.allChangesTitle");
+
   const worktree = el.querySelector<HTMLButtonElement>(".pane-git-act.is-worktree")!;
   worktree.disabled = busy;
   worktree.title = t("agent.worktreeTitle");
@@ -279,6 +292,23 @@ function runPush(pane: Pane, button: HTMLElement | null): void {
   if (!s) return;
   const { root } = s;
   void run(pane, button, async () => (await invoke<string>("git_push", { root })) || t("agent.pushDone"));
+}
+
+/** そのペインの未コミットの変更（Git ウィンドウの「すべての差分」と同じ内容）を差分オーバーレイで開く */
+async function openDiff(pane: Pane, button: HTMLElement): Promise<void> {
+  const s = states.get(pane.id);
+  if (!s || s.fileCount === 0 || button.classList.contains("is-running")) return;
+  const { cwd } = s;
+  button.classList.add("is-running");
+  try {
+    const d = await invoke<CommitDiff>("git_worktree_diff", { cwd });
+    // 取得中にペインが閉じたり cwd が変わったら古い差分は開かない
+    if (live(pane) && states.get(pane.id)?.cwd === cwd) openWorktreeDiffOverlay(d);
+  } catch (e) {
+    showGitMsg(String(e), "err");
+  } finally {
+    button.classList.remove("is-running");
+  }
 }
 
 /** そのペインのリポジトリで Worktree の作成モーダルを開く（Git ウィンドウは開かない） */

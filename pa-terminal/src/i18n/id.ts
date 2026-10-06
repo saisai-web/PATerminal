@@ -117,6 +117,7 @@ export const id: Dict = {
   "agent.commitAndPush": "Push setelah commit",
   "agent.commit": "Commit",
   "agent.commitTitle": "Pilih perubahan dan tulis pesan commit",
+  "agent.diff": "Diff",
   "agent.commitDone": "Sudah di-commit.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "Pilih branch dasar dan lokasi untuk membuat worktree",

@@ -3,13 +3,29 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  /* ファイル一覧は最長のパスが収まる幅まで広げ（上限は全体の 45%）、それでも長いパスは
-     省略せずに折り返して全体を見せる */
-  grid-template-columns: fit-content(max(250px, 45%)) minmax(0, 1fr);
+  /* ファイル一覧は最長のパスが収まる幅まで広げ（上限は全体の 35%）、それでも長いパスは
+     省略せずに折り返して全体を見せる。さらに広げたい・狭めたいときは境界のハンドルで変える */
+  grid-template-columns: fit-content(max(200px, 35%)) minmax(0, 1fr);
   background: var(--pane-bg);
 }
+/* 境界のハンドルで変えた幅。差分側には最低 240px を残す */
+.commit-diff.is-nav-sized {
+  grid-template-columns: clamp(120px, var(--commit-nav-w), max(120px, calc(100% - 240px))) minmax(0, 1fr);
+}
+.commit-diff.is-nav-sized .commit-file-nav { min-width: 0; }
+.commit-file-nav-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: 6px;
+  z-index: 3;
+  cursor: col-resize;
+}
+.commit-file-nav-grip:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .commit-file-nav {
-  min-width: 250px;
+  position: relative;
+  min-width: 200px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -148,7 +164,8 @@
 
 @media (max-width: 760px) {
   #diff-panel.is-commit { width: 98vw; height: 94vh; max-height: 94vh; }
-  .commit-diff { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .commit-diff, .commit-diff.is-nav-sized { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .commit-file-nav-grip { display: none; }
   .commit-file-nav { border-right: 0; border-bottom: 1px solid var(--line); }
   .commit-file-nav-title { padding: 6px 10px; }
   .commit-file-nav-list { display: flex; gap: 4px; padding: 5px; }

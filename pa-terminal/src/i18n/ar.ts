@@ -117,6 +117,7 @@ export const ar: Dict = {
   "agent.commitAndPush": "الدفع بعد الإيداع",
   "agent.commit": "Commit",
   "agent.commitTitle": "اختر التغييرات واكتب رسالة الإيداع",
+  "agent.diff": "Diff",
   "agent.commitDone": "تم الإيداع.",
   "agent.worktree": "Worktree",
   "agent.worktreeTitle": "اختر فرعًا أساسيًا وموقعًا لإنشاء worktree",

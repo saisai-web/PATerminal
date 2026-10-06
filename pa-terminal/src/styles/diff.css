@@ -38,6 +38,20 @@
   height: min(920px, 92vh);
   max-height: 92vh;
 }
+/* ハンドルで変えた大きさ（画面からはみ出さない範囲で当てる） */
+#diff-panel.is-commit.is-sized {
+  width: min(var(--diff-w), calc(100vw - 16px));
+  height: min(var(--diff-h), calc(100vh - 16px));
+  max-height: none;
+}
+/* 大きさ変更ハンドル（shared/drag-resize.ts）: 右辺・下辺・その角。diff は複数ファイルの差分だけ */
+.panel-grip { position: absolute; z-index: 3; }
+.panel-grip.is-x { top: 12px; bottom: 12px; right: 0; width: 6px; cursor: ew-resize; }
+.panel-grip.is-y { left: 12px; right: 12px; bottom: 0; height: 6px; cursor: ns-resize; }
+.panel-grip.is-xy { right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.panel-grip.is-x:hover, .panel-grip.is-y:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+#diff-panel { position: relative; }
+#diff-panel:not(.is-commit) .panel-grip { display: none; }
 #diff-head {
   flex: none;
   display: flex;
@@ -79,3 +93,12 @@
 }
 #diff-body.is-commit { overflow: hidden; padding: 0; }
 
+
+/* モーダル内では長い行を横スクロールさせず折り返す（Git ウィンドウ内の差分は横スクロールのまま） */
+#diff-body .diff-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+#diff-body .commit-file { width: auto; min-width: 0; }
+#diff-body .commit-file-head,
+#diff-body .commit-line-wide { min-width: 0; }
+#diff-body .commit-diff-line { grid-template-columns: 54px 54px 28px minmax(0, 1fr); }
+#diff-body .commit-line-code,
+#diff-body .commit-line-wide { white-space: pre-wrap; overflow-wrap: anywhere; }

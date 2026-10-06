@@ -247,6 +247,51 @@ if (logShown) {
   await pageLog.locator("#git-open").click();
   await pageLog.waitForSelector("#git-window-overlay:not([hidden])");
 
+  // ---- 大きさとサイドバーの幅: ハンドルで変えられ、縮めた分は本文側が広がる ----
+  {
+    const dragBy = async (selector, dx, dy) => {
+      const box = await pageLog.locator(selector).boundingBox();
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await pageLog.mouse.move(x, y);
+      await pageLog.mouse.down();
+      await pageLog.mouse.move(x + dx, y + dy, { steps: 4 });
+      await pageLog.mouse.up();
+    };
+    const sizes = () => pageLog.evaluate(() => ({
+      w: document.querySelector("#git-window").offsetWidth,
+      h: document.querySelector("#git-window").offsetHeight,
+      side: document.querySelector("#gw-side").offsetWidth,
+      body: document.querySelector("#gw-body").offsetWidth,
+      main: document.querySelector("#gw-body").offsetWidth - document.querySelector("#gw-side").offsetWidth,
+    }));
+    const before = await sizes();
+    await dragBy("#git-window > .panel-grip.is-xy", -80, -50);
+    const shrunk = await sizes();
+    check("dragging the corner resizes the Git window around the centre without closing it",
+      Math.abs(before.w - shrunk.w - 160) <= 2 && Math.abs(before.h - shrunk.h - 100) <= 2 &&
+        await pageLog.locator("#git-window-overlay").isVisible(),
+      JSON.stringify({ before, shrunk }));
+    await dragBy("#gw-side .gw-side-grip", -60, 0);
+    const narrow = await sizes();
+    check("dragging the sidebar edge narrows it and gives the width to the view",
+      Math.abs(shrunk.side - narrow.side - 60) <= 2 && Math.abs(narrow.main - shrunk.main - 60) <= 2,
+      JSON.stringify({ shrunk, narrow }));
+    await pageLog.locator("#gw-close").click();
+    await pageLog.locator("#git-open").click();
+    await pageLog.waitForSelector("#git-window-overlay:not([hidden])");
+    const reopened = await sizes();
+    check("the Git window keeps its size and sidebar width when reopened",
+      reopened.w === narrow.w && reopened.h === narrow.h && reopened.side === narrow.side,
+      JSON.stringify({ reopened, narrow }));
+    await pageLog.locator("#git-window > .panel-grip.is-xy").dblclick();
+    await pageLog.locator("#gw-side .gw-side-grip").dblclick();
+    const reset = await sizes();
+    check("double-clicking the handles restores the Git window's default size",
+      reset.w === before.w && reset.h === before.h && reset.side === before.side,
+      JSON.stringify({ reset, before }));
+  }
+
   // ---- 履歴ビュー（コミットグラフ）----
   await pageLog.locator("#gw-nav-history").click();
   await pageLog.waitForSelector("#gw-log .git-commit-row", { timeout: 3000 });

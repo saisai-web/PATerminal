@@ -30,6 +30,7 @@ import { fetchPrList, prsTabShown, renderPrList } from "./pr-tab";
 import { refreshPrBadge, renderPrBadge, renderPrOverlayTexts } from "./pr-overlay";
 import { renderWorktreeList, renderWorktreeListTexts } from "./worktree";
 import { isWorktreeDialogOpen, renderWorktreeDialogTexts } from "./worktree-dialog";
+import { attachPanelResize, attachSideResize } from "../../shared/drag-resize";
 
 type GitWindowDeps = {
   /** Issue の作業用にデフォルトシェルの新規セッションを開く */
@@ -269,6 +270,15 @@ refreshBtn.onclick = () => {
   refreshPrBadge();
   updateGitWatch();
 };
+
+// 大きさは右辺・下辺・右下の角で、サイドバーの幅はその端のハンドルで変えられる
+// （ダブルクリックで既定へ戻す。layout()/refit には触れない）
+attachPanelResize(windowEl, { key: "pa.gitWindowSize", cssVar: "--gw", minW: 640, minH: 400 });
+attachSideResize(
+  document.querySelector<HTMLElement>("#gw-body")!,
+  document.querySelector<HTMLElement>("#gw-side")!,
+  { key: "pa.gitWindowSideWidth", cssVar: "--gw-side-w", sizedClass: "is-side-sized", gripClass: "gw-side-grip" },
+);
 
 overlayEl.addEventListener("pointerdown", (e) => {
   if (e.target === overlayEl) closeGitWindow();
