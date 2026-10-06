@@ -190,6 +190,7 @@ export const de: Dict = {
   "ws.unarchiveTitle": "Sitzung aus dem Archiv holen",
   "ws.sortRecent": "Zuletzt",
   "ws.sortRecentTitle": "Nach letzter Nutzung sortieren",
+  "ws.recentInputTitle": "Eingabe in den letzten 7 Tagen (letzte Eingabe: {when})",
   "ws.notePlaceholder": "Kurze Notiz hinzufügen...",
   "ws.noteViewTitle": "Notiz anzeigen und bearbeiten",
   "ws.noteEditHint": "Enter zum Speichern · Shift+Enter für neue Zeile · Esc zum Abbrechen",

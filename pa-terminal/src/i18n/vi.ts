@@ -190,6 +190,7 @@ export const vi: Dict = {
   "ws.unarchiveTitle": "Bỏ lưu trữ phiên",
   "ws.sortRecent": "Gần đây",
   "ws.sortRecentTitle": "Sắp xếp theo lần dùng gần nhất",
+  "ws.recentInputTitle": "Có nhập trong 7 ngày qua (lần nhập gần nhất: {when})",
   "ws.notePlaceholder": "Thêm ghi chú ngắn...",
   "ws.noteViewTitle": "Xem và sửa ghi chú",
   "ws.noteEditHint": "Enter để lưu · Shift+Enter để xuống dòng · Esc để hủy",

@@ -190,6 +190,7 @@ export const ko: Dict = {
   "ws.unarchiveTitle": "세션 보관 해제",
   "ws.sortRecent": "최근순",
   "ws.sortRecentTitle": "최근 사용한 순으로 정렬",
+  "ws.recentInputTitle": "최근 7일 이내에 입력함 (마지막 입력: {when})",
   "ws.notePlaceholder": "짧은 메모 추가...",
   "ws.noteViewTitle": "메모 보기·편집",
   "ws.noteEditHint": "Enter 저장 · Shift+Enter 줄바꿈 · Esc 취소",

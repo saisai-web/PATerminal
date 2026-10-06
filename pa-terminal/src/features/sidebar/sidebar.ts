@@ -71,6 +71,7 @@ import {
   sortByRecentOp,
 } from "./session-sort";
 import { attachLocationPicker, attachRootCreate } from "./new-session-location";
+import { renderRecentInputBadge } from "./recent-input";
 
 const sidebarEl = document.querySelector<HTMLDivElement>("#sidebar")!;
 const sidebarCollapseBtn = document.querySelector<HTMLButtonElement>("#sidebar-collapse")!;
@@ -255,7 +256,16 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
   status.textContent = wsActivityText(activity);
   const head = document.createElement("div");
   head.className = "ws-head";
-  head.append(name, status);
+  head.append(name);
+  // 名前・メモ・cwd・ブランチが項目の横幅をいっぱいに使えるよう、所属グループ・直近使用・
+  // 稼働状態と右端の操作ボタン（ピン・アーカイブ・閉じる）は名前の上の1行にまとめる。
+  // 最近順は階層を描かないので、その行の先頭で所属グループを名乗らせる
+  const tags = document.createElement("div");
+  tags.className = "ws-tags";
+  const groupTag = isRecentSortActive() ? buildGroupTag(w) : null;
+  if (groupTag) tags.append(groupTag);
+  tags.append(status);
+  renderRecentInputBadge(tags, w);
   const noteInput = createSessionNoteField(
     w.name,
     w.note,
@@ -283,7 +293,7 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
   const subtitle = wsSubtitle(w);
   sub.textContent = compactWsPath(subtitle);
   sub.title = subtitle;
-  meta.append(head, noteInput, sub, buildWsGitEl(w.id));
+  meta.append(tags, head, noteInput, sub, buildWsGitEl(w.id));
 
   // 未ピン留め項目にはピン自体を出さない。ピン留めは右クリックメニューから行い、
   // 固定済みであることを示すときだけ解除ボタンとして表示する。
@@ -325,9 +335,12 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     void closeWorkspace(w);
   };
 
+  const actions = document.createElement("div");
+  actions.className = "ws-actions";
+  if (pin) actions.append(pin);
+  actions.append(archive, close);
+  tags.append(actions);
   item.append(av, meta);
-  if (pin) item.append(pin);
-  item.append(archive, close);
   item.onclick = (e) => {
     if (e.target instanceof HTMLInputElement) return; // インライン編集中は切り替えない
     // Shift = 範囲選択、Ctrl/Cmd = 増減。どちらもセッションは切り替えない
@@ -355,6 +368,30 @@ export function buildWsItem(w: Workspace): HTMLDivElement {
     openGroupMenu(w, e.clientX, e.clientY, name);
   };
   return item;
+}
+
+/** 最近順のフラット表示で、項目がどのグループのものかを示すパンくず。
+    色はトップレベルグループごとに決め、同じグループの項目を目で拾えるようにする。 */
+function buildGroupTag(w: Workspace): HTMLDivElement | null {
+  const group = groupById(w.group);
+  if (!group) return null;
+  let top = group;
+  const seen = new Set<string>();
+  for (let parent = groupById(top.parentId); parent && !seen.has(parent.id); parent = groupById(top.parentId)) {
+    seen.add(parent.id);
+    top = parent;
+  }
+  const tag = document.createElement("div");
+  tag.className = "ws-group-tag";
+  tag.style.setProperty(
+    "--group-color",
+    AVATAR_COLORS[Math.max(0, groups.indexOf(top)) % AVATAR_COLORS.length],
+  );
+  const label = document.createElement("span");
+  label.textContent = groupPath(group);
+  tag.append(label);
+  tag.title = label.textContent;
+  return tag;
 }
 
 function buildCreateButton(open: (x: number, y: number) => void): HTMLButtonElement {
@@ -852,7 +889,7 @@ sidebarReopenBtn.onclick = () => setSidebarOpen(true);
 // 最小幅よりさらに左へ押し込んで離すとたたむ。ドラッグ中は rAF で place のみ回し、
 // refit は確定時にまとめて行う（ペイン用ディバイダと同じ）。幅は保存しない
 const SIDEBAR_MIN_W = 150;
-const SIDEBAR_DEFAULT_W = 320; // sidebar.css の #sidebar { width } と同じ値
+const SIDEBAR_DEFAULT_W = 384; // sidebar.css の #sidebar { width } と同じ値
 const SIDEBAR_CLOSE_W = 90; // 要求幅がこれ未満のまま離したらたたむ
 
 sidebarResizeEl.addEventListener("pointerdown", (down) => {

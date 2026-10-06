@@ -190,6 +190,7 @@ export const hi: Dict = {
   "ws.unarchiveTitle": "सत्र को संग्रह से हटाएँ",
   "ws.sortRecent": "हाल की",
   "ws.sortRecentTitle": "हाल के उपयोग के क्रम में लगाएँ",
+  "ws.recentInputTitle": "पिछले 7 दिनों में इनपुट किया गया (अंतिम इनपुट: {when})",
   "ws.notePlaceholder": "छोटा नोट जोड़ें...",
   "ws.noteViewTitle": "नोट देखें और संपादित करें",
   "ws.noteEditHint": "सहेजने के लिए Enter · नई पंक्ति के लिए Shift+Enter · रद्द करने के लिए Esc",

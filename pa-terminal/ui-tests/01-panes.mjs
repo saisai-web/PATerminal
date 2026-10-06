@@ -10,7 +10,7 @@ check("initial single pane cannot be closed", !(await page.locator(".pane-close"
 const wsCount0 = await page.locator(".ws-item").count();
 check("sidebar shows 1 session", wsCount0 === 1, `items=${wsCount0}`);
 const sidebarBox0 = await page.locator("#sidebar").boundingBox();
-check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0) - 320) < 2,
+check("sidebar uses the wider default width", Math.abs((sidebarBox0?.width ?? 0) - 384) < 2,
   `width=${Math.round(sidebarBox0?.width ?? 0)}px`);
 check("the old right panel and change strip are gone",
   (await page.locator("#explorer, #exp-reopen, #agent-panel, #explorer-toggle").count()) === 0);

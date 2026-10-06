@@ -190,6 +190,7 @@ export const ar: Dict = {
   "ws.unarchiveTitle": "إلغاء أرشفة الجلسة",
   "ws.sortRecent": "الأحدث",
   "ws.sortRecentTitle": "ترتيب حسب آخر استخدام",
+  "ws.recentInputTitle": "تم الإدخال خلال آخر 7 أيام (آخر إدخال: {when})",
   "ws.notePlaceholder": "أضف ملاحظة قصيرة...",
   "ws.noteViewTitle": "عرض الملاحظة وتحريرها",
   "ws.noteEditHint": "Enter للحفظ · Shift+Enter لسطر جديد · Esc للإلغاء",

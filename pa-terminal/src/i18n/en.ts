@@ -207,6 +207,7 @@ export const en = {
   "ws.unarchiveTitle": "Remove session from archive",
   "ws.sortRecent": "Recent",
   "ws.sortRecentTitle": "Sort by last used",
+  "ws.recentInputTitle": "Typed in the last 7 days (last input: {when})",
   "ws.notePlaceholder": "Add a short note...",
   "ws.noteViewTitle": "View & edit note",
   "ws.noteEditHint": "Enter to save · Shift+Enter for new line · Esc to cancel",

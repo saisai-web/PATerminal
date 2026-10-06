@@ -190,6 +190,7 @@ export const tr: Dict = {
   "ws.unarchiveTitle": "Oturumu arşivden çıkar",
   "ws.sortRecent": "Son",
   "ws.sortRecentTitle": "Son kullanıma göre sırala",
+  "ws.recentInputTitle": "Son 7 gün içinde giriş yapıldı (son giriş: {when})",
   "ws.notePlaceholder": "Kısa bir not ekle...",
   "ws.noteViewTitle": "Notu görüntüle ve düzenle",
   "ws.noteEditHint": "Kaydetmek için Enter · Yeni satır için Shift+Enter · İptal için Esc",

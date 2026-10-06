@@ -190,6 +190,7 @@ export const ja: Dict = {
   "ws.unarchiveTitle": "セッションをアーカイブから戻す",
   "ws.sortRecent": "最近順",
   "ws.sortRecentTitle": "最近操作した順に並べ替え",
+  "ws.recentInputTitle": "直近7日以内に入力あり（最終入力: {when}）",
   "ws.notePlaceholder": "ここにメモを書く…",
   "ws.noteViewTitle": "メモを表示・編集",
   "ws.noteEditHint": "Enter で保存・Shift+Enter で改行・Esc で取り消し",

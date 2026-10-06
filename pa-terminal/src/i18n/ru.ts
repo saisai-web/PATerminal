@@ -190,6 +190,7 @@ export const ru: Dict = {
   "ws.unarchiveTitle": "Вернуть сеанс из архива",
   "ws.sortRecent": "Недавние",
   "ws.sortRecentTitle": "Сортировать по последнему использованию",
+  "ws.recentInputTitle": "Ввод за последние 7 дня (последний ввод: {when})",
   "ws.notePlaceholder": "Добавьте короткую заметку...",
   "ws.noteViewTitle": "Просмотр и изменение заметки",
   "ws.noteEditHint": "Enter — сохранить · Shift+Enter — новая строка · Esc — отменить",
