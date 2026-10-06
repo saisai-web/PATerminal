@@ -17,7 +17,7 @@ import { isLocked } from "../features/license/license";
 import { markSpawned, registerPane, requestResize, unregisterPane } from "./resize";
 import { PaneScrollbar } from "./scrollbar";
 import { withTerminalScrollback } from "./agent-launch";
-import { broadcastWrite, setFocused } from "./focus";
+import { broadcastWorkspaces, broadcastWrite, setFocused } from "./focus";
 import { t } from "../i18n";
 import { startInlineEdit } from "../shared/inline-edit";
 import { scheduleSave } from "../app/session";
@@ -31,6 +31,7 @@ import { getFocusedId, getHostOs, panes } from "../workspace/state";
 import { XTERM_MINIMUM_CONTRAST_RATIO, xtermThemeFor } from "../features/settings/themes";
 import { closePane } from "./tree";
 import { updateWsGit } from "../features/sidebar/ws-git";
+import { markWorkspaceInput } from "../features/sidebar/recent-input";
 import type { PaneSpec, Rect, ShellKind, Workspace } from "../workspace/types";
 
 export function shellForKind(kind: ShellKind): string | undefined {
@@ -416,6 +417,8 @@ export class Pane {
       if (marksActivity) this.activityEngaged = true;
       diag.data += data.length;
       diagPush(`d:${data.length <= 4 ? JSON.stringify(data) : data.length}`);
+      // 一斉入力は送信先のセッションにも同じ打鍵が届くので、全部を「直近使用」にする
+      if (marksActivity) for (const w of broadcastWorkspaces(this.ws)) markWorkspaceInput(w);
       if (this.ws.broadcast) {
         broadcastWrite(this.ws, data, marksActivity);
       } else {

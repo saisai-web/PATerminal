@@ -2,7 +2,7 @@
 #sidebar {
   position: relative; /* #sidebar-resize の基準 */
   /* 既定幅は sidebar.ts の SIDEBAR_DEFAULT_W と同じ値にする（ダブルクリックで戻す先） */
-  width: 320px;
+  width: 384px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -185,7 +185,9 @@
 }
 #ws-archive-badge[hidden] { display: none; }
 
-#ws-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+/* 上の余白は .ws-whole-group の margin で取る（padding だと固定した Whole 行の上に
+   スクロール中の項目が覗く） */
+#ws-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 6px; }
 
 /* キーボードでのセッション移動の案内。一覧と足元のボタンの間に小さく出すだけ */
 #ws-switch-hint {
@@ -241,17 +243,27 @@
 
 /* --- セッショングループ --- */
 .ws-whole-group {
+  margin-top: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 4px;
 }
+/* 一覧をどこまでスクロールしても Whole 行（最近順・件数・+）は上端に残す。
+   枠の内側余白まで覆って、下を流れる項目が見出しの脇や上から覗かないようにする */
 .ws-whole-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
   min-height: 26px;
-  padding: 3px 4px 5px;
+  margin: -4px -4px 4px;
+  padding: 7px 8px 5px;
+  border-radius: 7px 7px 0 0;
   color: var(--dim);
+  background: var(--chrome);
+  box-shadow: 0 1px 0 var(--line);
   user-select: none;
 }
 .ws-whole-name {
@@ -578,6 +590,54 @@
   white-space: nowrap;
 }
 .ws-status[hidden] { display: none; }
+/* 名前の上の1行: [所属グループ（最近順のみ）] [直近使用] [稼働状態] … [ピン] [アーカイブ] [×]。
+   操作ボタンをこの行へ寄せ、名前・メモ・cwd・ブランチは項目の右端まで使う */
+.ws-tags { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ws-actions { flex: none; display: flex; align-items: center; margin-left: auto; }
+/* 直近7日以内に打鍵したセッションの「直近使用」バッジ（今日 / 昨日 / 3日前）。
+   状態ラベル（枠線ピル）と見分けられるよう、枠なしの淡いアクセント地にする */
+.ws-recent-input {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px 0 4px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.ws-recent-input svg { width: 10px; height: 10px; flex: none; }
+/* 最近順のフラット表示で各項目の上に出す所属グループ（Parent / Child）。
+   長いパスはここだけ縮め、バッジ類は常に全文を残す */
+.ws-group-tag {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.ws-group-tag::before {
+  content: "";
+  flex: none;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--group-color, var(--dim));
+}
+.ws-group-tag span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ws-item.is-busy .ws-status { color: var(--accent); }
 .ws-item.is-wait .ws-status { color: var(--alarm); }
 .ws-note-field { position: relative; min-width: 0; }
@@ -726,16 +786,17 @@
   flex: none;
   font: inherit; color: var(--dim); background: none; border: 0; cursor: pointer;
   font-size: var(--control-icon-size);
-  min-width: 28px;
-  min-height: 28px;
-  padding: 2px;
+  min-width: 24px;
+  min-height: 22px;
+  padding: 0 2px;
+  line-height: 1;
 }
 .ws-pin {
   opacity: 0.9;
 }
 .ws-archive {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 22px;
   display: grid;
   place-items: center;
   opacity: 0.8;

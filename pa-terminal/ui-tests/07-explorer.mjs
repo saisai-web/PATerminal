@@ -134,7 +134,7 @@ await page.waitForTimeout(300);
 await page.dblclick("#sidebar-resize");
 await page.waitForTimeout(300);
 const sbBoxReset = await page.locator("#sidebar").boundingBox();
-check("dblclick resets sidebar width to default", Math.abs(sbBoxReset.width - 320) < 2,
+check("dblclick resets sidebar width to default", Math.abs(sbBoxReset.width - 384) < 2,
   `width=${Math.round(sbBoxReset.width)}px`);
 
 // --- 44. 詳細フォーム（Cmd/Ctrl+T）の既定の場所は表示中ペインのディレクトリ ---

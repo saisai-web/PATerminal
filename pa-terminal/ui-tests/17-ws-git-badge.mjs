@@ -46,8 +46,8 @@ if (badgeShown) {
   await pageBadge.evaluate(() => {
     window.__mockGitSummary = {
       repo: true,
-      root: "/repo/extraordinarily-long-repository-name",
-      branch: "feature/extraordinarily-long-branch-name",
+      root: "/repo/extraordinarily-long-repository-name-that-outgrows-the-wide-sidebar",
+      branch: "feature/extraordinarily-long-branch-name-that-still-wraps-in-the-wide-sidebar",
       fileCount: 12, adds: 420, dels: 108,
     };
   });

@@ -190,6 +190,7 @@ export const ptBR: Dict = {
   "ws.unarchiveTitle": "Desarquivar sessão",
   "ws.sortRecent": "Recentes",
   "ws.sortRecentTitle": "Ordenar por uso recente",
+  "ws.recentInputTitle": "Com entrada nos últimos 7 dias (última entrada: {when})",
   "ws.notePlaceholder": "Adicione uma nota curta...",
   "ws.noteViewTitle": "Ver e editar a nota",
   "ws.noteEditHint": "Enter para salvar · Shift+Enter para nova linha · Esc para cancelar",

@@ -190,6 +190,7 @@ export const th: Dict = {
   "ws.unarchiveTitle": "นำเซสชันออกจากคลัง",
   "ws.sortRecent": "ล่าสุด",
   "ws.sortRecentTitle": "เรียงตามการใช้งานล่าสุด",
+  "ws.recentInputTitle": "มีการป้อนข้อมูลใน 7 วันที่ผ่านมา (ป้อนล่าสุด: {when})",
   "ws.notePlaceholder": "เพิ่มโน้ตสั้น ๆ...",
   "ws.noteViewTitle": "ดูและแก้ไขบันทึก",
   "ws.noteEditHint": "Enter เพื่อบันทึก · Shift+Enter เพื่อขึ้นบรรทัดใหม่ · Esc เพื่อยกเลิก",

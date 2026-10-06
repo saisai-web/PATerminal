@@ -190,6 +190,7 @@ export const zhHant: Dict = {
   "ws.unarchiveTitle": "取消封存工作階段",
   "ws.sortRecent": "最近",
   "ws.sortRecentTitle": "依最近操作排序",
+  "ws.recentInputTitle": "最近 7 天內有輸入（上次輸入：{when}）",
   "ws.notePlaceholder": "新增簡短備註...",
   "ws.noteViewTitle": "檢視與編輯備註",
   "ws.noteEditHint": "Enter 儲存 · Shift+Enter 換行 · Esc 取消",

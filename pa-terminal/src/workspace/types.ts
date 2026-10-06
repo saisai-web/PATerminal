@@ -94,6 +94,8 @@ export type Workspace = {
   archived?: boolean;
   /** 最後にアクティブ化した時刻（ms）。「最近操作した順」の並べ替えに使う */
   lastOpAt?: number;
+  /** 最後にターミナルへ打鍵した時刻（ms、分単位の粗さ）。「直近使用」バッジに使う */
+  lastInputAt?: number;
   /** サイドバー項目のテーマ対応背景色 */
   backgroundColor?: WorkspaceBackgroundColor;
   /** このセッションで行われた claude / codex の会話（古い順） */
@@ -130,6 +132,8 @@ export type SerializedWorkspace = {
   archived?: boolean;
   /** 最後にアクティブ化した時刻（ms）。再起動後も「最近操作した順」を保つ */
   lastOpAt?: number;
+  /** 最後にターミナルへ打鍵した時刻（ms）。再起動後も「直近使用」バッジを保つ */
+  lastInputAt?: number;
   backgroundColor?: WorkspaceBackgroundColor;
   agentHistory?: AgentConversationRef[];
   /** WorkspaceGroup.id。復元時にグループが無ければトップレベルへ退避する */

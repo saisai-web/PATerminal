@@ -190,6 +190,7 @@ export const id: Dict = {
   "ws.unarchiveTitle": "Keluarkan sesi dari arsip",
   "ws.sortRecent": "Terbaru",
   "ws.sortRecentTitle": "Urutkan menurut penggunaan terakhir",
+  "ws.recentInputTitle": "Ada input dalam 7 hari terakhir (input terakhir: {when})",
   "ws.notePlaceholder": "Tambahkan catatan singkat...",
   "ws.noteViewTitle": "Lihat & edit catatan",
   "ws.noteEditHint": "Enter untuk menyimpan · Shift+Enter untuk baris baru · Esc untuk batal",

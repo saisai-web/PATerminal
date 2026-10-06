@@ -111,6 +111,7 @@ function serializeWorkspace(ws: Workspace): SerializedWorkspace | null {
     pinned: ws.pinned || undefined,
     archived: ws.archived || undefined,
     lastOpAt: ws.lastOpAt,
+    lastInputAt: ws.lastInputAt,
     backgroundColor: ws.backgroundColor,
     agentHistory: ws.agentHistory?.length ? ws.agentHistory : undefined,
     group: ws.group,
@@ -245,6 +246,7 @@ export function restoreDeletedWorkspace(saved: DeletedWorkspace): boolean {
     ws.noteTouched = saved.noteTouched === true || undefined;
     ws.pinned = saved.pinned === true || undefined;
     ws.archived = saved.archived === true || undefined;
+    ws.lastInputAt = Number.isFinite(saved.lastInputAt) ? saved.lastInputAt : undefined;
     ws.backgroundColor = normalizeWorkspaceBackgroundColor(saved.backgroundColor);
     ws.group = groupById(saved.group) ? saved.group : undefined;
     ws.sidebarOrder = Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined;
@@ -378,6 +380,7 @@ export async function boot() {
           ws.pinned = s.pinned === true || undefined;
           ws.archived = s.archived === true || undefined;
           ws.lastOpAt = Number.isFinite(s.lastOpAt) ? s.lastOpAt : undefined;
+          ws.lastInputAt = Number.isFinite(s.lastInputAt) ? s.lastInputAt : undefined;
           ws.backgroundColor = normalizeWorkspaceBackgroundColor(s.backgroundColor);
           ws.group = validIds.has(s.group ?? "") ? s.group : undefined;
           ws.sidebarOrder = Number.isFinite(s.sidebarOrder) ? s.sidebarOrder : undefined;

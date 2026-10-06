@@ -190,6 +190,7 @@ export const fr: Dict = {
   "ws.unarchiveTitle": "Désarchiver la session",
   "ws.sortRecent": "Récentes",
   "ws.sortRecentTitle": "Trier par utilisation récente",
+  "ws.recentInputTitle": "Saisie au cours des 7 derniers jours (dernière saisie : {when})",
   "ws.notePlaceholder": "Ajouter une courte note...",
   "ws.noteViewTitle": "Afficher et modifier la note",
   "ws.noteEditHint": "Entrée pour enregistrer · Maj+Entrée pour un saut de ligne · Échap pour annuler",

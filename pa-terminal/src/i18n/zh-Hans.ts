@@ -190,6 +190,7 @@ export const zhHans: Dict = {
   "ws.unarchiveTitle": "取消归档会话",
   "ws.sortRecent": "最近",
   "ws.sortRecentTitle": "按最近操作排序",
+  "ws.recentInputTitle": "最近 7 天内有输入（上次输入：{when}）",
   "ws.notePlaceholder": "添加简短备注...",
   "ws.noteViewTitle": "查看和编辑备注",
   "ws.noteEditHint": "Enter 保存 · Shift+Enter 换行 · Esc 取消",
