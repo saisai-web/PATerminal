@@ -69,7 +69,8 @@ struct ModePayload {
 const DROPPED_MARK: &str =
     "\r\n\u{1b}[2m── 中略（バックグラウンド中の大量出力を省略）──\u{1b}[0m\r\n";
 
-/// 出力が止まってから「静止した」とみなすまでの時間
+/// 出力が止まってから「静止した」とみなすまでの時間。
+/// 変えるときは src/app/activity.ts の ACT_IDLE_MS も揃える（実行中判定の待ち時間に足している）
 const ACT_IDLE: Duration = Duration::from_millis(2000);
 
 /// 非表示ペインで溜め込む上限。スクロールバックを大きく超える分は復元結果が変わらない

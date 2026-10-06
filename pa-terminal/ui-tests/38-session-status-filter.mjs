@@ -8,7 +8,7 @@ const { browser, check, BASE_URL } = ctx;
 const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.addInitScript(() => {
-  // 打鍵なしの出力は製品では3秒続いてから実行中になる。ここでは遷移だけ短時間で検証する。
+  // 打鍵なしの出力は製品では3秒続いてから（静止判定の2秒を足した5秒後に）実行中になる。ここでは遷移だけ短時間で検証する。
   window.__activityTuning = { outputBusyMs: 20 };
   window.__mockSessionLoad = JSON.stringify({
     version: 4,
