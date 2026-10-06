@@ -490,6 +490,9 @@
 .pathbar-side-item:focus-within .pathbar-side-remove { opacity: 1; }
 .pathbar-side-remove:hover { background: var(--hover); color: var(--alarm); }
 .pathbar-side-remove > .pathbar-icon { width: 12px; height: 12px; }
+/* 「場所」列の行ごとのパスのコピー: 一覧の行と同じく常に表示し、右端に揃える */
+.pathbar-side-item .pathbar-side-copy { width: 22px; height: 22px; margin-right: 0; border-radius: 5px; }
+.pathbar-side-item .pathbar-side-copy .pathbar-icon { width: 13px; height: 13px; }
 
 .pathbar-filter { flex: none; padding: 8px 8px 6px; }
 .pathbar-filter input {

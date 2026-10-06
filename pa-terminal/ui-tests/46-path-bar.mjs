@@ -394,6 +394,81 @@ export default async function ({ browser, check, BASE_URL }) {
     (await page.locator(".pathbar-pop").count()) === 1);
   await page.keyboard.press("Escape");
 
+  // 左列（場所・お気に入り・最近使った場所）の行ごとのパスのコピー: 常に出ていて、押しても表示先は変わらない
+  const sideSeed = await page.evaluate(async () => {
+    const fav = await import("/src/features/explorer/explorer.ts");
+    const recent = await import("/src/features/sidebar/recent-dirs.ts");
+    const seed = { favorites: fav.getExplorerFavorites().slice(), recent: recent.getRecentDirs().slice() };
+    fav.setExplorerFavorites([...seed.favorites, "/home/user/proj/src"]);
+    recent.recordRecentDir("/tmp/work");
+    return seed;
+  });
+  await page.locator(".pane-pathbar-path").click();
+  await page.waitForSelector(".pathbar-row");
+  await page.waitForSelector('.pathbar-side-item[title="/Applications"]');
+  const sideRows = await page.evaluate(() => {
+    const out = [];
+    let section = "";
+    for (const el of document.querySelector(".pathbar-side").children) {
+      if (el.classList.contains("pathbar-side-head")) {
+        section = el.textContent;
+        continue;
+      }
+      const buttons = [...el.querySelectorAll("button")];
+      const b = buttons.at(-1);
+      const r = b.getBoundingClientRect();
+      out.push({
+        section,
+        path: el.title,
+        copy: b.classList.contains("pathbar-side-copy") && b.title === "パスをコピー",
+        visible: r.width > 0 && getComputedStyle(b).visibility === "visible" && getComputedStyle(b).opacity === "1",
+        right: Math.round(r.right),
+        remove: buttons.length === 2 && buttons[0].classList.contains("pathbar-side-remove"),
+        fits: r.left >= el.querySelector(".pathbar-side-name").getBoundingClientRect().right,
+      });
+    }
+    return out;
+  });
+  check("side copy: every place, favorite and recent row shows a copy-path button, without hovering",
+    ["場所", "お気に入り", "最近使った場所"].every((s) => sideRows.some((r) => r.section === s)) &&
+    sideRows.every((r) => r.copy && r.visible && r.fits), JSON.stringify(sideRows));
+  check("side copy: the buttons line up at the row end, and only favorites keep × beside them",
+    new Set(sideRows.map((r) => r.right)).size === 1 &&
+    sideRows.every((r) => r.remove === (r.section === "お気に入り")), JSON.stringify(sideRows));
+  const sideCrumb = () => page.evaluate(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent);
+  const clipboardIs = (p) => page.waitForFunction((p) => navigator.clipboard.readText().then((t) => t === p), p);
+  const crumbBeforeSide = await sideCrumb();
+  const recentRow = page.locator('.pathbar-side-item[title="/tmp/work"]');
+  await recentRow.locator(".pathbar-side-copy").click();
+  await clipboardIs("/tmp/work");
+  check("side copy: copies a recent place's full path without switching the listing",
+    (await sideCrumb()) === crumbBeforeSide && (await page.locator(".pathbar-pop").count()) === 1 &&
+    (await recentRow.locator(".pathbar-side-copy.is-done").count()) === 1);
+  const favRow = page.locator('.pathbar-side-item[title="/home/user/proj/src"]');
+  await favRow.locator(".pathbar-side-copy").click();
+  await clipboardIs("/home/user/proj/src");
+  check("side copy: copies a favorite's full path and keeps it in the favorites",
+    (await sideCrumb()) === crumbBeforeSide && (await favorites()).includes("/home/user/proj/src") &&
+    (await favRow.count()) === 1);
+  await page.locator(".pathbar-side-item", { hasText: "ホーム" }).locator(".pathbar-side-copy").click();
+  await clipboardIs("/home/user");
+  check("side copy: a place copies its absolute path, not the ~ form", (await sideCrumb()) === crumbBeforeSide);
+  // キーボード: ボタン上の Enter はコピーで、行の「表示先を切り替える」には渡さない
+  await page.locator('.pathbar-side-item[title="/Applications"] .pathbar-side-copy').focus();
+  await page.keyboard.press("Enter");
+  await clipboardIs("/Applications");
+  check("side copy: Enter on the focused button copies instead of opening the place",
+    (await sideCrumb()) === crumbBeforeSide);
+  await page.locator('.pathbar-side-item[title="/Applications"]').focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "Applications");
+  check("side copy: Enter on the row itself still switches the listing there", true);
+  await page.keyboard.press("Escape");
+  await page.evaluate(async (seed) => {
+    (await import("/src/features/explorer/explorer.ts")).setExplorerFavorites(seed.favorites);
+    (await import("/src/features/sidebar/recent-dirs.ts")).setRecentDirs(seed.recent);
+  }, sideSeed);
+
   // 新規セッション: 右下のボタンで表示中のフォルダーに作る（フォルダー行の操作はコピーだけ）
   const spawnsBefore = await page.evaluate(() => window.__ptySpawns.length);
   await page.locator(".pane-pathbar-path").click();

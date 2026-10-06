@@ -17,6 +17,7 @@
 // - ブラウザーは既定 960×640 で開き、端のハンドルで大きさを変えられる（localStorage に残す）。
 //   広い間は左に「場所」列（ターミナルのフォルダー・ホーム・お気に入り・最近使った場所）を出す。
 //   「場所」列の幅も右端のハンドルで変えられ、別キーで localStorage に残す。
+//   「場所」列の各行にも、一覧の行と同じパスのコピーボタンを常に出す。
 //   「場所」には OS のファイルマネージャーと同じよく使うフォルダーも並べる（macOS は Finder の
 //   アプリケーション・デスクトップ・書類・ダウンロード、Windows / Linux はエクスプローラーの
 //   デスクトップ・ダウンロード・ドキュメント・ピクチャ・ミュージック・ビデオ）。
@@ -729,7 +730,8 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       filter.focus();
     };
     item.onkeydown = (e) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
+      // 行内のボタン（コピー・解除）での Enter / Space は、そのボタンの操作に任せる
+      if (e.target !== item || (e.key !== "Enter" && e.key !== " ")) return;
       e.preventDefault();
       item.click();
     };
@@ -746,6 +748,11 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       };
       item.append(remove);
     }
+    // パスのコピーは一覧の行と同じく常に出し、どの行でも右端に揃える（解除はその左にホバーで出る）
+    const copy = rowCopyButton(path);
+    copy.classList.add("pathbar-side-copy");
+    copy.tabIndex = 0;
+    item.append(copy);
     return item;
   }
 
@@ -1048,7 +1055,8 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     updateSelection(true);
   }
 
-  /** 行ごとのパスのコピー。行のクリック（フォルダーを開く / ファイルを表示）には渡さない */
+  /** 行ごとのパスのコピー（一覧・表示中フォルダー・左列で共用）。
+      行のクリック（フォルダーを開く / ファイルを表示 / 表示先の切り替え）には渡さない */
   function rowCopyButton(path: string) {
     const label = t("ctx.copyPath");
     const b = iconButton("copy", label, () => {
