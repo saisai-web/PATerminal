@@ -52,19 +52,26 @@ const lastNotified = new Map<string, number>(); // wsId → epoch ms
 /**
  * 打鍵を伴わない PTY 出力を「実行中」と見なすまでの連続出力時間。
  * Rust の busy は1バイトの出力でも立つが、TUI はセッション切替（フォーカス通知・
- * リサイズ）や起動時の問い合わせだけでも再描画する。その burst は数百 ms で終わり、
- * 2 秒の静止判定を足しても 2.x 秒で idle になる。一方、claude / codex の実作業は
+ * リサイズ）や起動時の問い合わせだけでも再描画する。一方、claude / codex の実作業は
  * スピナー等で出力が途切れないので、これを超えて続いたときだけ実行中に切り替える。
  * ユーザーの打鍵（Pane.write）は従来どおり即座に実行中になる。
  */
 const OUTPUT_BUSY_MS = 3000;
+/**
+ * Rust が静止を知らせるまでの無出力時間（pty/stream.rs の ACT_IDLE と揃える）。
+ * idle は最後の出力の ACT_IDLE_MS 後にしか届かないので、busy から OUTPUT_BUSY_MS だけ
+ * 待つと 1 秒強の出力でも idle より先にタイマーが切れて実行中になってしまう。
+ * この分を足して待てば、OUTPUT_BUSY_MS 未満で終わった出力は必ず idle が先に取り消す。
+ */
+const ACT_IDLE_MS = 2000;
 const outputBusyTimers = new Map<string, number>(); // paneId → window.setTimeout の ID
 
-/** UI テストでは3秒待たずに遷移だけ検証する。製品では常に OUTPUT_BUSY_MS。 */
+/** UI テストでは待たずに遷移だけ検証する（モックには静止判定の遅れが無いので、指定値を
+    そのままタイマーに使う）。製品では常に OUTPUT_BUSY_MS + ACT_IDLE_MS。 */
 function outputBusyMs(): number {
   const tuning = (window as Window & { __activityTuning?: { outputBusyMs?: unknown } })
     .__activityTuning?.outputBusyMs;
-  return typeof tuning === "number" && tuning >= 0 ? tuning : OUTPUT_BUSY_MS;
+  return typeof tuning === "number" && tuning >= 0 ? tuning : OUTPUT_BUSY_MS + ACT_IDLE_MS;
 }
 
 function cancelOutputBusy(pane: Pane): void {
@@ -91,6 +98,18 @@ function scheduleOutputBusy(pane: Pane): void {
     updateWsActivity(pane.ws);
   }, outputBusyMs());
   outputBusyTimers.set(pane.id, timer);
+}
+
+/**
+ * アプリ側の操作（セッション切替のフォーカス通知・リサイズ・ホイール）が TUI に再描画を
+ * 起こさせる時に呼ぶ。Rust の idle は最後の出力から 2 秒後なので、開いた時の再描画と
+ * 離れる時の再描画が 2 秒以内に続くと1回の busy に繋がり、合計が OUTPUT_BUSY_MS を
+ * 超えうる。セッションを数秒ずつ見て回るだけで「完了」の注意ドットと通知が出ていた。
+ * 再描画の原因が新しく入ったら、連続出力の計測をそこからやり直す。
+ * 既に実行中のペインや、出力が始まっていないペインには何もしない。
+ */
+export function restartOutputBusy(pane: Pane): void {
+  if (outputBusyTimers.has(pane.id)) scheduleOutputBusy(pane);
 }
 
 /**

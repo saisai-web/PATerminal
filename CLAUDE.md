@@ -124,6 +124,13 @@ made a session show "running" when it was only opened, and every idle afterwards
   busy immediately.
 - Output without a keystroke becomes "running" only after it has continued for
   `OUTPUT_BUSY_MS`; a short burst never changes the label, attention dot, or timers.
+  Rust reports idle only `ACT_IDLE` (2 s) after the last byte, so the timer waits
+  `OUTPUT_BUSY_MS + ACT_IDLE_MS`; waiting only `OUTPUT_BUSY_MS` let about one second of output
+  count as work. Keep `ACT_IDLE_MS` in `activity.ts` equal to `ACT_IDLE` in `pty/stream.rs`.
+  The redraw from opening a session and the redraw from leaving it also join into one busy
+  period, so focus reports, mouse reports, and resizes restart that measurement
+  (`restartOutputBusy`); without it, merely looking through sessions produced "done" marks
+  and notifications.
 - An idle counts as a completion only if the pane was actually busy or a BEL arrived during
   output. Only completions set attention and send the notification, which goes out
   immediately; there is no extra idle wait, so do not add one back to hide false completions.
