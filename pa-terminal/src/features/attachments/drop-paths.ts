@@ -4,6 +4,8 @@
 // 横取りして `filedrop:drag` / `filedrop:drop` を送ってくる。座標は WebView 左上原点の
 // CSS px なので、そのまま elementFromPoint で落とし先のペインを決める。
 // パスをシェル向けに引用し、空白区切り・末尾の空白付きで入力する。
+// 開いているフォルダーブラウザー（features/agents/path-bar.ts）の上ではペインより先に
+// そちらへ渡し、ブラウザーがフォルダーへのコピーとして受け取る。
 // ============================================================
 
 import { listen } from "@tauri-apps/api/event";
@@ -15,8 +17,27 @@ import { getFocusedId, panes } from "../../workspace/state";
 type DragPayload = { kind: "enter" | "over" | "leave"; x: number; y: number };
 type DropPayload = { paths: string[]; x: number; y: number };
 
+/** ペインより優先する落とし先。座標が自分の上なら true を返して受け取る */
+export type FileDropZone = {
+  /** null はドラッグが離れた / 終わった */
+  hover: (point: { x: number; y: number } | null) => boolean;
+  drop: (paths: string[], x: number, y: number) => boolean;
+};
+
 const DROP_TARGET_CLASS = "is-drop-target";
 let hovered: Pane | null = null;
+let zone: FileDropZone | null = null;
+
+/** 開いている間だけ登録する。戻り値で解除（後から登録されたものが残っていれば触らない） */
+export function setFileDropZone(next: FileDropZone): () => void {
+  zone?.hover(null);
+  zone = next;
+  return () => {
+    if (zone !== next) return;
+    next.hover(null);
+    zone = null;
+  };
+}
 
 /** 座標直下の表示中ペイン。非表示セッションのレイヤは display:none なので当たらない */
 function paneAt(x: number, y: number): Pane | undefined {
@@ -34,6 +55,7 @@ function setHovered(pane: Pane | null): void {
 
 function dropPaths({ paths, x, y }: DropPayload): void {
   setHovered(null);
+  if (zone?.drop(paths, x, y)) return;
   const pane = paneAt(x, y);
   if (!pane || !paths.length || !pane.alive) return;
   // ドロップは mousedown を生まないので、落とし先を自分でフォーカスする
@@ -49,7 +71,8 @@ function dropPaths({ paths, x, y }: DropPayload): void {
 export function initDropPaths(): void {
   void listen<DragPayload>("filedrop:drag", (e) => {
     const { kind, x, y } = e.payload;
-    setHovered(kind === "leave" ? null : (paneAt(x, y) ?? null));
+    if (zone?.hover(kind === "leave" ? null : { x, y })) setHovered(null);
+    else setHovered(kind === "leave" ? null : (paneAt(x, y) ?? null));
   });
   void listen<DropPayload>("filedrop:drop", (e) => dropPaths(e.payload));
 }

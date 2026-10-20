@@ -29,6 +29,10 @@
 //   パスのコピーだけで、ホバーや選択に関係なく常に押せるボタンとして行の右端に置く
 // - サイドバーの新規セッション入口（場所フライアウト）も openFolderPicker で同じブラウザーを
 //   開き、選んだフォルダーにセッションを作る
+// - Finder / エクスプローラーからファイル・フォルダーをドロップすると、表示中のフォルダー
+//   （フォルダー行・左列の場所に落とせばそのフォルダー）へコピーする（fs_import）。
+//   ドロップは features/attachments/drop-paths.ts からペインより優先して受け取る。
+//   ドラッグを始めるために Finder 等をクリックすると窓が blur するので、blur では閉じない
 // ============================================================
 
 import { invoke } from "@tauri-apps/api/core";
@@ -46,8 +50,14 @@ import { copyText } from "../../shared/clipboard";
 import type { Pane } from "../../terminal/pane";
 import { getHostOs, panes } from "../../workspace/state";
 import { getRecentDirs } from "../sidebar/recent-dirs";
+import { setFileDropZone } from "../attachments/drop-paths";
 import type { FsEntry, FsListing } from "../../workspace/types";
 import { joinPath, normPath, parentPath, pathBasename } from "../explorer/paths";
+
+const DROP_TARGET_CLASS = "is-drop-target";
+/** ドロップの結果表示を消すまで（失敗は読めるよう長めに残す） */
+const NOTICE_MS = 4000;
+const NOTICE_ERROR_MS = 8000;
 
 type PathBarDeps = {
   /** アプリ内ビューアーでファイルを開く */
@@ -383,8 +393,9 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   let closed = false;
   let size = loadSize();
   let sideWidth = loadSideWidth();
-  /** OS のフォルダ選択を開いている間は、ウィンドウの blur で閉じない */
-  let osDialog = false;
+  /** ドロップのコピー中（同時に1つだけ流す） */
+  let importing = false;
+  let noticeTimer = 0;
 
   const pop = document.createElement("div");
   pop.className = "pathbar-pop";
@@ -479,7 +490,12 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
 
   const main = document.createElement("div");
   main.className = "pathbar-main";
-  main.append(filterWrap, here, navRow, list);
+  // ドロップしたファイルのコピー結果
+  const notice = document.createElement("div");
+  notice.className = "pathbar-notice";
+  notice.setAttribute("role", "status");
+  notice.hidden = true;
+  main.append(filterWrap, here, navRow, list, notice);
   const body = document.createElement("div");
   body.className = "pathbar-body";
   body.append(side, sideGrip, main);
@@ -518,17 +534,13 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
 
   // Finder / エクスプローラーで選んだフォルダーへ一覧の表示先を移す（作成・移動は各主ボタン）
   const osBtn = actionButton("folder", osPickLabel(), () => {
-    osDialog = true;
     void d.pickFolderFromOs().then(
       (path) => {
-        osDialog = false;
         if (closed) return;
         if (path) void navigate(path);
         filter.focus();
       },
-      () => {
-        osDialog = false;
-      },
+      () => {},
     );
   });
   osBtn.classList.add("pathbar-os-pick");
@@ -721,6 +733,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     item.setAttribute("role", "button");
     item.tabIndex = 0;
     item.title = path;
+    item.dataset.path = path;
     const name = document.createElement("span");
     name.className = "pathbar-side-name";
     name.textContent = label;
@@ -1038,6 +1051,7 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
       item.setAttribute("aria-selected", String(i === selected));
       item.classList.toggle("is-dir", row.entry.isDir);
       item.title = row.path;
+      if (row.entry.isDir) item.dataset.path = row.path;
       const name = document.createElement("span");
       name.className = "pathbar-row-name";
       name.textContent = row.entry.name;
@@ -1136,23 +1150,108 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
     renderList();
   }
 
+  /** 一覧だけ読み直す（絞り込み・履歴はそのまま）。select の名前があればその行を選ぶ */
+  async function refresh(select?: string) {
+    const my = ++token;
+    try {
+      const result = await invoke<FsListing>("fs_list", { path: current });
+      if (my !== token || closed) return;
+      listing = result;
+      error = null;
+    } catch (e) {
+      if (my !== token || closed) return;
+      error = String(e);
+    }
+    computeRows();
+    const i = select === undefined ? -1 : rows.findIndex((r) => r.entry.name === select);
+    if (i >= 0) selected = i;
+    renderList();
+  }
+
+  // ---- OS からのファイルドロップ: 座標直下のフォルダー行 / 左列の場所、それ以外は表示中のフォルダーへ
+  let dropMark: HTMLElement | null = null;
+
+  function dropTarget(x: number, y: number): { dir: string; el: HTMLElement } | null {
+    const hit = document.elementFromPoint(x, y);
+    if (!(hit instanceof Element) || !pop.contains(hit)) return null;
+    const row = hit.closest<HTMLElement>(".pathbar-row[data-path], .pathbar-side-item[data-path]");
+    if (row?.dataset.path) return { dir: row.dataset.path, el: row };
+    return { dir: current, el: main };
+  }
+
+  function markDrop(target: { dir: string; el: HTMLElement } | null) {
+    if (dropMark !== target?.el) {
+      dropMark?.classList.remove(DROP_TARGET_CLASS);
+      dropMark = target?.el ?? null;
+      dropMark?.classList.add(DROP_TARGET_CLASS);
+    }
+    if (target?.el === main) main.dataset.dropHint = t("pathbar.dropHere", { name: displayName(current) });
+    else delete main.dataset.dropHint;
+  }
+
+  function displayName(dir: string) {
+    return pathBasename(dir) || dir;
+  }
+
+  function showNotice(text: string, isError: boolean) {
+    window.clearTimeout(noticeTimer);
+    notice.textContent = text;
+    notice.classList.toggle("is-error", isError);
+    notice.hidden = false;
+    noticeTimer = window.setTimeout(() => {
+      notice.hidden = true;
+    }, isError ? NOTICE_ERROR_MS : NOTICE_MS);
+  }
+
+  async function importInto(dir: string, sources: string[]) {
+    if (importing) {
+      showNotice(t("pathbar.importBusy"), true);
+      return;
+    }
+    importing = true;
+    showNotice(t("pathbar.importing"), false);
+    try {
+      await invoke("fs_import", { destDir: dir, sources });
+      if (closed) return;
+      showNotice(t("pathbar.imported", { n: String(sources.length), name: displayName(dir) }), false);
+      if (normPath(dir) === normPath(current)) await refresh(pathBasename(normPath(sources[0])));
+    } catch (e) {
+      if (!closed) showNotice(t("pathbar.importError", { error: String(e) }), true);
+    } finally {
+      importing = false;
+    }
+  }
+
+  const releaseDropZone = setFileDropZone({
+    hover(point) {
+      const target = point ? dropTarget(point.x, point.y) : null;
+      markDrop(target);
+      return !!target;
+    },
+    drop(paths, x, y) {
+      const target = dropTarget(x, y);
+      markDrop(null);
+      if (!target) return false;
+      if (paths.length) void importInto(target.dir, paths);
+      return true;
+    },
+  });
+
   /** refocus: Esc や操作の完了ではペインへ戻す。外側クリック等ではクリック先に任せる */
   function close(refocus = true) {
     if (closed) return;
     closed = true;
     token++;
+    window.clearTimeout(noticeTimer);
+    releaseDropZone();
     pop.remove();
     document.removeEventListener("mousedown", onOutside, true);
     window.removeEventListener("resize", dismissQuietly);
-    window.removeEventListener("blur", onWindowBlur);
     if (closeBrowser === dismissQuietly) closeBrowser = undefined;
     onClosed(refocus);
   }
   function dismissQuietly() {
     close(false);
-  }
-  function onWindowBlur() {
-    if (!osDialog) close(false);
   }
   closeBrowser = dismissQuietly;
 
@@ -1162,7 +1261,6 @@ function openFolderBrowser(opts: BrowserOpts, onClosed: (refocus: boolean) => vo
   }
   document.addEventListener("mousedown", onOutside, true);
   window.addEventListener("resize", dismissQuietly);
-  window.addEventListener("blur", onWindowBlur);
 
   pop.addEventListener("mousedown", (e) => {
     if (!favMenu || !(e.target instanceof Node)) return;

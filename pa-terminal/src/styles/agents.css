@@ -626,6 +626,45 @@
 /* 矢印のないファイル行でも、フォルダー行のボタンと縦に揃える（矢印 12px + gap 8px） */
 .pathbar-row:not(.is-dir) .pathbar-row-copy { margin-right: 18px; }
 
+/* OS からのファイルドロップ: 落とし先のフォルダー行 / 場所、それ以外は一覧全体（表示中のフォルダー） */
+.pathbar-main { position: relative; }
+.pathbar-row.is-drop-target,
+.pathbar-side-item.is-drop-target {
+  background: var(--active-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pathbar-main.is-drop-target {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.pathbar-main.is-drop-target[data-drop-hint]::after {
+  content: attr(data-drop-hint);
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.pathbar-notice {
+  flex: 0 0 auto;
+  margin: 0 6px 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--active-bg);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.pathbar-notice.is-error { color: var(--alarm); }
+
 /* 大きさ変更ハンドル: アンカーの反対側の辺・右辺・その角 */
 .pathbar-grip { position: absolute; z-index: 3; }
 .pathbar-grip.is-x { top: 12px; bottom: 12px; right: 0; width: 6px; cursor: ew-resize; }

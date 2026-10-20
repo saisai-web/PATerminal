@@ -1,4 +1,4 @@
-//! Files パネルから選んだファイル / フォルダを、右クリックしたフォルダへコピーする。
+//! フォルダーブラウザーへ OS からドロップしたファイル / フォルダを、落とし先のフォルダへコピーする。
 //!
 //! 誤って既存内容を失わないよう、同名の既存エントリや選択内の同名はコピー開始前に拒否する。
 //! シンボリックリンクはコピー先の外へ辿る危険があるため、インポート対象にしない。
@@ -125,7 +125,7 @@ fn import_entries(dest_dir: &str, sources: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Files パネルの右クリックメニューで選んだエントリを、対象フォルダへコピーする。
+/// フォルダーブラウザーへドロップしたエントリを、対象フォルダへコピーする。
 #[tauri::command]
 pub(crate) async fn fs_import(dest_dir: String, sources: Vec<String>) -> Result<(), String> {
     if sources.is_empty() {

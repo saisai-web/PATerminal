@@ -95,4 +95,90 @@ const wSent = await win.evaluate((n) => window.__ptyWrites.slice(n).map((w) => w
 check("Windows drop quotes the path for PowerShell",
   wSent === "'C:\\tmp\\$env\\a b.png' ", `sent=${JSON.stringify(wSent)}`);
 await win.close();
+
+// ============================================================
+// フォルダーブラウザーの上へのドロップ → ペインには入力せず、フォルダーへコピー（fs_import）
+// ============================================================
+const fb = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+fb.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+await fb.goto(BASE_URL);
+await fb.waitForSelector(".pane-pathbar");
+await fb.locator(".pane-pathbar-path").click();
+await fb.waitForSelector(".pathbar-row", { hasText: "proj" });
+const center = (sel) => fb.locator(sel).first().boundingBox().then((b) => [b.x + b.width / 2, b.y + b.height / 2]);
+const drag = (kind, [x, y]) => fb.evaluate(([kind, x, y]) => window.__emit("filedrop:drag", { kind, x, y }), [kind, x, y]);
+const drop = (paths, [x, y]) => fb.evaluate(([paths, x, y]) => window.__emit("filedrop:drop", { paths, x, y }), [paths, x, y]);
+
+// ドラッグの開始で窓が blur しても閉じない（Finder をクリックしてからドラッグするため）
+await fb.evaluate(() => window.dispatchEvent(new Event("blur")));
+await fb.waitForTimeout(50);
+check("folder browser: stays open when the window loses focus", (await fb.locator(".pathbar-pop").count()) === 1);
+
+// 一覧の空き（ファイル行）は表示中のフォルダー、フォルダー行はそのフォルダーを落とし先にする
+const fileRow = await center(".pathbar-row:not(.is-dir)");
+await drag("enter", fileRow);
+await fb.waitForTimeout(50);
+const mainMark = await fb.evaluate(() => ({
+  main: document.querySelector(".pathbar-main").classList.contains("is-drop-target"),
+  hint: document.querySelector(".pathbar-main").dataset.dropHint,
+  panes: document.querySelectorAll(".pane.is-drop-target").length,
+}));
+check("folder browser: dragging over the list targets the shown folder, not the pane",
+  mainMark.main && mainMark.hint?.includes("user") && mainMark.panes === 0, JSON.stringify(mainMark));
+const projRow = await center(".pathbar-row.is-dir >> text=proj");
+await drag("over", projRow);
+await fb.waitForTimeout(50);
+const rowMark = await fb.evaluate(() => ({
+  row: [...document.querySelectorAll(".pathbar-row.is-drop-target")].map((el) => el.textContent),
+  main: document.querySelector(".pathbar-main").classList.contains("is-drop-target"),
+}));
+check("folder browser: dragging over a folder row targets that folder",
+  rowMark.row.length === 1 && rowMark.row[0].includes("proj") && !rowMark.main, JSON.stringify(rowMark));
+await drag("leave", [0, 0]);
+await fb.waitForTimeout(50);
+check("folder browser: drag leave clears the marks",
+  (await fb.locator(".pathbar-pop .is-drop-target").count()) === 0);
+
+// 表示中のフォルダーへコピーし、一覧を読み直して最初の項目を選ぶ
+const fbWrites = await fb.evaluate(() => window.__ptyWrites.length);
+await fb.evaluate(() => { window.__mockImportDirs = ["/src/assets"]; });
+await drop(["/src/note.txt", "/src/assets"], fileRow);
+await fb.waitForFunction(() => document.querySelector(".pathbar-notice:not([hidden])")?.textContent.includes("2"));
+const imported = await fb.evaluate((n) => ({
+  imports: window.__fsImports.slice(-1)[0],
+  rows: [...document.querySelectorAll(".pathbar-row")].map((el) => el.textContent),
+  selected: document.querySelector('.pathbar-row[aria-selected="true"]')?.textContent,
+  writes: window.__ptyWrites.length - n,
+  open: !!document.querySelector(".pathbar-pop"),
+}), fbWrites);
+check("folder browser: a drop copies into the shown folder and refreshes the list",
+  imported.imports?.destDir === "/home/user" &&
+  JSON.stringify(imported.imports.sources) === JSON.stringify(["/src/note.txt", "/src/assets"]) &&
+  imported.rows.some((r) => r.includes("note.txt")) && imported.rows.some((r) => r.includes("assets")) &&
+  imported.selected?.includes("note.txt") && imported.writes === 0 && imported.open, JSON.stringify(imported));
+
+// フォルダー行へ落とすとそのフォルダーへ
+await drop(["/src/other.txt"], await center(".pathbar-row.is-dir >> text=proj"));
+await fb.waitForFunction(() => window.__fsImports.slice(-1)[0]?.sources[0] === "/src/other.txt");
+check("folder browser: a drop on a folder row copies into that folder",
+  (await fb.evaluate(() => window.__fsImports.slice(-1)[0].destDir)) === "/home/user/proj");
+
+// 同名があれば何もコピーせず、理由を出す
+const importsBefore = await fb.evaluate(() => window.__fsImports.length);
+await drop(["/elsewhere/readme.md"], await center(".pathbar-row:not(.is-dir) >> text=readme.md"));
+await fb.waitForFunction(() => document.querySelector(".pathbar-notice.is-error:not([hidden])"));
+check("folder browser: a name collision copies nothing and shows the error",
+  (await fb.evaluate(() => window.__fsImports.length)) === importsBefore);
+
+// 閉じた後はペインへのドロップが従来どおりパス入力になる
+await fb.keyboard.press("Escape");
+await fb.waitForFunction(() => !document.querySelector(".pathbar-pop"));
+const pbox = await fb.locator(".pane .xterm").first().boundingBox();
+const outsideWrites = await fb.evaluate(() => window.__ptyWrites.length);
+await drop(["/tmp/x"], [pbox.x + 20, pbox.y + 20]);
+await fb.waitForTimeout(200);
+const outsideSent = await fb.evaluate((n) => window.__ptyWrites.slice(n).map((w) => w.data).join(""), outsideWrites);
+check("folder browser: after closing, drops type the path into the pane again",
+  outsideSent === "'/tmp/x' ", `sent=${JSON.stringify(outsideSent)}`);
+await fb.close();
 }
