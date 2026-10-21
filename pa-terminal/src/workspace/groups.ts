@@ -6,6 +6,7 @@ import { renderSidebar } from "../features/sidebar/sidebar";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
 import { collapsedGroups, groups, workspaces } from "./state";
+import { WORKSPACE_BACKGROUND_COLORS } from "./types";
 import type { Workspace, WorkspaceBackgroundColor, WorkspaceGroup } from "./types";
 
 const groupDatalist = document.querySelector<HTMLDataListElement>("#ws-group-list")!;
@@ -123,12 +124,38 @@ export function nextGroupName(): string {
   return `Group ${max + 1}`;
 }
 
+/** 新しいグループの色。使われている数が最も少ない色を、パレット順で選ぶ。 */
+function nextGroupColor(): WorkspaceBackgroundColor {
+  const counts = new Map<WorkspaceBackgroundColor, number>();
+  for (const group of groups) {
+    if (group.color) counts.set(group.color, (counts.get(group.color) ?? 0) + 1);
+  }
+  let best: WorkspaceBackgroundColor = WORKSPACE_BACKGROUND_COLORS[0];
+  for (const color of WORKSPACE_BACKGROUND_COLORS) {
+    if ((counts.get(color) ?? 0) < (counts.get(best) ?? 0)) best = color;
+  }
+  return best;
+}
+
+/** 復元したグループのうち、色がまだ割り当てられていないものへ自動で色を振る。
+    「色なし」を選んだグループ（null）はそのまま残す。変更があれば true。 */
+export function assignMissingGroupColors(): boolean {
+  let changed = false;
+  for (const group of groups) {
+    if (group.color !== undefined) continue;
+    group.color = nextGroupColor();
+    changed = true;
+  }
+  return changed;
+}
+
 export function addGroup(name: string, parentId?: string): WorkspaceGroup {
   const validParent = groupById(parentId)?.id;
   const group: WorkspaceGroup = {
     id: newGroupId(),
     name: uniqueGroupName(name, validParent),
     parentId: validParent,
+    color: nextGroupColor(),
   };
   groups.push(group);
   appendSidebarEntry(group, validParent);
@@ -252,8 +279,10 @@ export function renameGroup(group: WorkspaceGroup, newName: string) {
 
 /** 右クリックメニューから、グループの見出しと配下の行へ色を付ける。 */
 export function setGroupColor(group: WorkspaceGroup, color: WorkspaceBackgroundColor | undefined) {
-  if (group.color === color) return;
-  group.color = color;
+  // 「色なし」は null で保存し、次回起動時の自動割り当てで色が戻らないようにする
+  const next = color ?? null;
+  if (group.color === next) return;
+  group.color = next;
   renderSidebar();
   scheduleSave();
 }

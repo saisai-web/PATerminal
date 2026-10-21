@@ -16,6 +16,8 @@ await pageV4.addInitScript(() => {
       { id: "parent", name: "Parent" },
       { id: "child", name: "Child", parentId: "parent" },
       { id: "empty", name: "Empty" },
+      { id: "kept", name: "Kept", color: "purple" },
+      { id: "none", name: "None", color: null },
     ],
     workspaces: [
       {
@@ -34,6 +36,16 @@ check("v4 restores a nested group hierarchy",
       { hasText: "Nested Session" }).count()) === 1);
 check("v4 restores empty groups independently of sessions",
   (await pageV4.locator(".ws-whole-members > .ws-group[data-group-id=empty]").count()) === 1);
+// 色機能より前のグループには色を自動で振り、既存の色と「色なし」(null) は保つ
+const groupColor = (id) =>
+  pageV4.locator(`.ws-group[data-group-id=${id}]`).getAttribute("data-ws-color");
+const autoColors = [await groupColor("parent"), await groupColor("child"), await groupColor("empty")];
+check("v4 restore gives colorless groups distinct automatic colors",
+  autoColors.every((c) => ["red", "orange", "yellow", "green", "blue"].includes(c)) &&
+    new Set(autoColors).size === 3,
+  JSON.stringify(autoColors));
+check("v4 restore keeps saved colors and an explicit none",
+  await groupColor("kept") === "purple" && await groupColor("none") === null);
 await pageV4.close();
 
 }

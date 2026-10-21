@@ -8,7 +8,7 @@ import {
   getExplorerFavorites,
   setExplorerFavorites,
 } from "../features/explorer/explorer";
-import { groupById, newGroupId } from "../workspace/groups";
+import { assignMissingGroupColors, groupById, newGroupId } from "../workspace/groups";
 import { applyStaticTexts, defaultLang, getLang, isLang, setLang, t } from "../i18n";
 import { makePane } from "../terminal/pane";
 import {
@@ -356,7 +356,7 @@ export async function boot() {
               name: saved.name,
               parentId: saved.parentId,
               sidebarOrder: Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined,
-              color: normalizeWorkspaceBackgroundColor(saved.color),
+              color: saved.color === null ? null : normalizeWorkspaceBackgroundColor(saved.color),
             });
           }
         }
@@ -374,6 +374,8 @@ export async function boot() {
           }
           if (parent) group.parentId = undefined;
         }
+        // 色機能より前に作られたグループにも色を振り、次回からはその色を保つ
+        if (assignMissingGroupColors()) scheduleSave();
         for (const s of v4.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);
@@ -417,6 +419,7 @@ export async function boot() {
           legacyGroupIds.set(s.group, id);
           groups.push({ id, name: s.group });
         }
+        assignMissingGroupColors();
         for (const s of v3.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);

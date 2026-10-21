@@ -209,43 +209,64 @@ const freshHead = freshName.locator("..");
 const freshId = await freshHead.getAttribute("data-group-id");
 check("group rename from the header menu takes effect", (await freshName.count()) === 1);
 
-// グループの色: 見出しメニューのスウォッチで見出しと配下の行に色が付き、保存される
+// グループの色: 作成時に自動で色が付き、見出しメニューのスウォッチで変えられて保存される
 const freshMembers = page.locator(`.ws-group[data-group-id="${freshId}"] + .ws-group-members`);
-const defaultHeadBg = await freshHead.evaluate((el) => getComputedStyle(el).backgroundColor);
+const autoColor = await freshHead.getAttribute("data-ws-color");
+check("new group gets a color automatically",
+  ["red", "orange", "yellow", "green", "blue", "purple"].includes(autoColor) &&
+    await freshMembers.getAttribute("data-ws-color") === autoColor,
+  `color=${autoColor}`);
+const pickColor = autoColor === "blue" ? "green" : "blue";
 await freshHead.click({ button: "right" });
 await page.waitForTimeout(100);
 check("group header menu shows the default and six color choices",
   await page.locator("#ctx-menu .ctx-color-option").count() === 7 &&
-    await page.locator('#ctx-menu .ctx-color-option[data-ws-color="default"]')
+    await page.locator(`#ctx-menu .ctx-color-option[data-ws-color="${autoColor}"]`)
       .getAttribute("aria-pressed") === "true");
-await page.locator('#ctx-menu .ctx-color-option[data-ws-color="blue"]').click();
+await page.locator('#ctx-menu .ctx-color-option[data-ws-color="default"]').click();
+await page.waitForTimeout(100);
+const defaultHeadBg = await freshHead.evaluate((el) => getComputedStyle(el).backgroundColor);
+await freshHead.click({ button: "right" });
+await page.waitForTimeout(100);
+await page.locator(`#ctx-menu .ctx-color-option[data-ws-color="${pickColor}"]`).click();
 await page.waitForTimeout(100);
 const blueHeadBg = await freshHead.evaluate((el) => getComputedStyle(el).backgroundColor);
 check("group color swatch tints the header and marks its members",
-  await freshHead.getAttribute("data-ws-color") === "blue" &&
-    await freshMembers.getAttribute("data-ws-color") === "blue" &&
+  await freshHead.getAttribute("data-ws-color") === pickColor &&
+    await freshMembers.getAttribute("data-ws-color") === pickColor &&
     blueHeadBg !== defaultHeadBg,
-  `default=${defaultHeadBg} blue=${blueHeadBg}`);
+  `default=${defaultHeadBg} picked=${blueHeadBg}`);
 await page.waitForFunction(
-  (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id)?.color === "blue",
-  freshId,
+  ({ id, color }) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id)?.color === color,
+  { id: freshId, color: pickColor },
   { timeout: 6000 },
 ).catch(() => {});
 const savedFresh = await page.evaluate(
   (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id),
   freshId,
 );
-check("group color is saved", savedFresh?.color === "blue", JSON.stringify(savedFresh));
+check("group color is saved", savedFresh?.color === pickColor, JSON.stringify(savedFresh));
 await freshHead.click({ button: "right" });
 await page.waitForTimeout(100);
 check("selected group color swatch is marked",
-  await page.locator('#ctx-menu .ctx-color-option[data-ws-color="blue"]')
+  await page.locator(`#ctx-menu .ctx-color-option[data-ws-color="${pickColor}"]`)
     .getAttribute("aria-pressed") === "true");
 await page.locator('#ctx-menu .ctx-color-option[data-ws-color="default"]').click();
 await page.waitForTimeout(100);
 check("default swatch clears the group color",
   await freshHead.getAttribute("data-ws-color") === null &&
     await freshMembers.getAttribute("data-ws-color") === null);
+// 「色なし」は null で保存し、次回起動の自動割り当てで色が戻らないようにする
+await page.waitForFunction(
+  (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id)?.color === null,
+  freshId,
+  { timeout: 6000 },
+).catch(() => {});
+check("cleared group color is saved as an explicit none",
+  await page.evaluate(
+    (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id)?.color,
+    freshId,
+  ) === null);
 
 // 表示中セッションとは別の見出しを操作しても、挿入位置は見出し直下になる。
 await page.locator(".ws-item", { hasText: "Session 1" }).click();
