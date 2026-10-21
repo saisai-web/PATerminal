@@ -206,6 +206,7 @@ export const ru: Dict = {
   "ctx.unpin": "Открепить сессию",
   "ctx.backgroundColor": "Фон сессии",
   "ctx.backgroundDefault": "Без цвета фона",
+  "ctx.groupColor": "Цвет группы",
   "ctx.colorRed": "Красный",
   "ctx.colorOrange": "Оранжевый",
   "ctx.colorYellow": "Жёлтый",

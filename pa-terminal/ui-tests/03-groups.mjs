@@ -209,6 +209,44 @@ const freshHead = freshName.locator("..");
 const freshId = await freshHead.getAttribute("data-group-id");
 check("group rename from the header menu takes effect", (await freshName.count()) === 1);
 
+// グループの色: 見出しメニューのスウォッチで見出しと配下の行に色が付き、保存される
+const freshMembers = page.locator(`.ws-group[data-group-id="${freshId}"] + .ws-group-members`);
+const defaultHeadBg = await freshHead.evaluate((el) => getComputedStyle(el).backgroundColor);
+await freshHead.click({ button: "right" });
+await page.waitForTimeout(100);
+check("group header menu shows the default and six color choices",
+  await page.locator("#ctx-menu .ctx-color-option").count() === 7 &&
+    await page.locator('#ctx-menu .ctx-color-option[data-ws-color="default"]')
+      .getAttribute("aria-pressed") === "true");
+await page.locator('#ctx-menu .ctx-color-option[data-ws-color="blue"]').click();
+await page.waitForTimeout(100);
+const blueHeadBg = await freshHead.evaluate((el) => getComputedStyle(el).backgroundColor);
+check("group color swatch tints the header and marks its members",
+  await freshHead.getAttribute("data-ws-color") === "blue" &&
+    await freshMembers.getAttribute("data-ws-color") === "blue" &&
+    blueHeadBg !== defaultHeadBg,
+  `default=${defaultHeadBg} blue=${blueHeadBg}`);
+await page.waitForFunction(
+  (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id)?.color === "blue",
+  freshId,
+  { timeout: 6000 },
+).catch(() => {});
+const savedFresh = await page.evaluate(
+  (id) => JSON.parse(window.__savedSession ?? "null")?.groups?.find((g) => g.id === id),
+  freshId,
+);
+check("group color is saved", savedFresh?.color === "blue", JSON.stringify(savedFresh));
+await freshHead.click({ button: "right" });
+await page.waitForTimeout(100);
+check("selected group color swatch is marked",
+  await page.locator('#ctx-menu .ctx-color-option[data-ws-color="blue"]')
+    .getAttribute("aria-pressed") === "true");
+await page.locator('#ctx-menu .ctx-color-option[data-ws-color="default"]').click();
+await page.waitForTimeout(100);
+check("default swatch clears the group color",
+  await freshHead.getAttribute("data-ws-color") === null &&
+    await freshMembers.getAttribute("data-ws-color") === null);
+
 // 表示中セッションとは別の見出しを操作しても、挿入位置は見出し直下になる。
 await page.locator(".ws-item", { hasText: "Session 1" }).click();
 await page.waitForTimeout(100);

@@ -206,6 +206,7 @@ export const fr: Dict = {
   "ctx.unpin": "Désépingler la session",
   "ctx.backgroundColor": "Arrière-plan de la session",
   "ctx.backgroundDefault": "Aucune couleur de fond",
+  "ctx.groupColor": "Couleur du groupe",
   "ctx.colorRed": "Rouge",
   "ctx.colorOrange": "Orange",
   "ctx.colorYellow": "Jaune",

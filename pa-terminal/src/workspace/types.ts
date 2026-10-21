@@ -79,6 +79,8 @@ export type WorkspaceGroup = {
   parentId?: string;
   /** 同じ親階層でのサイドバー表示順。未指定の旧データは従来順へフォールバックする */
   sidebarOrder?: number;
+  /** 見出しと配下の行に付けるテーマ対応の色。セッション背景色と同じIDを使う */
+  color?: WorkspaceBackgroundColor;
 };
 
 export type Workspace = {

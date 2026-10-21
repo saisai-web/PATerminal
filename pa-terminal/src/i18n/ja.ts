@@ -206,6 +206,7 @@ export const ja: Dict = {
   "ctx.unpin": "ピン留めを解除",
   "ctx.backgroundColor": "セッションの背景色",
   "ctx.backgroundDefault": "背景色なし",
+  "ctx.groupColor": "グループの色",
   "ctx.colorRed": "赤",
   "ctx.colorOrange": "オレンジ",
   "ctx.colorYellow": "黄",

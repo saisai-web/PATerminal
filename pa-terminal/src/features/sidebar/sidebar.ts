@@ -419,6 +419,7 @@ function buildGroupHeader(
   const head = document.createElement("div");
   head.className = "ws-group";
   head.dataset.groupId = group.id;
+  if (group.color) head.dataset.wsColor = group.color;
   head.draggable = true;
   const arrow = document.createElement("span");
   arrow.className = "ws-group-arrow";
@@ -653,6 +654,7 @@ function appendGroup(
 
   const membersDiv = document.createElement("div");
   membersDiv.className = "ws-group-members";
+  if (group.color) membersDiv.dataset.wsColor = group.color;
   // 検索・状態絞り込み中は、一致したセッションが隠れないよう祖先を展開して見せる。
   membersDiv.hidden =
     !q && !isSessionStatusFilterActive() && collapsedGroups.has(group.id);

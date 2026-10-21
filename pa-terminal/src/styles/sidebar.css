@@ -346,6 +346,19 @@
   outline: none;
 }
 .ws-group-members { margin-left: 14px; }
+/* グループの色: 見出しを薄く塗り、配下の行の左に同色の縦線を引いて範囲を示す */
+.ws-group[data-ws-color] {
+  background: color-mix(in srgb, var(--ws-color-value) 16%, transparent);
+}
+.ws-group[data-ws-color]:hover {
+  background: color-mix(in srgb, var(--ws-color-value) 24%, var(--hover));
+}
+.ws-group[data-ws-color] .ws-group-arrow { color: var(--ws-color-value); }
+.ws-group-members[data-ws-color] {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 2px solid color-mix(in srgb, var(--ws-color-value) 55%, transparent);
+}
 
 /* --- インライン編集（セッション名 / ペイン名 / グループ名） --- */
 .inline-edit {
@@ -474,16 +487,28 @@
   background: color-mix(in srgb, var(--ws-color-value) 28%, var(--active-bg));
 }
 .ws-item[data-ws-color="red"],
+.ws-group[data-ws-color="red"],
+.ws-group-members[data-ws-color="red"],
 #ctx-menu .ctx-color-option[data-ws-color="red"] { --ws-color-value: var(--ws-color-red); }
 .ws-item[data-ws-color="orange"],
+.ws-group[data-ws-color="orange"],
+.ws-group-members[data-ws-color="orange"],
 #ctx-menu .ctx-color-option[data-ws-color="orange"] { --ws-color-value: var(--ws-color-orange); }
 .ws-item[data-ws-color="yellow"],
+.ws-group[data-ws-color="yellow"],
+.ws-group-members[data-ws-color="yellow"],
 #ctx-menu .ctx-color-option[data-ws-color="yellow"] { --ws-color-value: var(--ws-color-yellow); }
 .ws-item[data-ws-color="green"],
+.ws-group[data-ws-color="green"],
+.ws-group-members[data-ws-color="green"],
 #ctx-menu .ctx-color-option[data-ws-color="green"] { --ws-color-value: var(--ws-color-green); }
 .ws-item[data-ws-color="blue"],
+.ws-group[data-ws-color="blue"],
+.ws-group-members[data-ws-color="blue"],
 #ctx-menu .ctx-color-option[data-ws-color="blue"] { --ws-color-value: var(--ws-color-blue); }
 .ws-item[data-ws-color="purple"],
+.ws-group[data-ws-color="purple"],
+.ws-group-members[data-ws-color="purple"],
 #ctx-menu .ctx-color-option[data-ws-color="purple"] { --ws-color-value: var(--ws-color-purple); }
 
 /* 詳細フォームの「場所」欄。既定は「表示中ペインと同じ場所」、選ぶとパスを表示 */

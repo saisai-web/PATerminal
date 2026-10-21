@@ -206,6 +206,7 @@ export const ko: Dict = {
   "ctx.unpin": "세션 고정 해제",
   "ctx.backgroundColor": "세션 배경색",
   "ctx.backgroundDefault": "배경색 없음",
+  "ctx.groupColor": "그룹 색상",
   "ctx.colorRed": "빨간색",
   "ctx.colorOrange": "주황색",
   "ctx.colorYellow": "노란색",

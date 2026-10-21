@@ -356,6 +356,7 @@ export async function boot() {
               name: saved.name,
               parentId: saved.parentId,
               sidebarOrder: Number.isFinite(saved.sidebarOrder) ? saved.sidebarOrder : undefined,
+              color: normalizeWorkspaceBackgroundColor(saved.color),
             });
           }
         }

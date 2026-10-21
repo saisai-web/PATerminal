@@ -206,6 +206,7 @@ export const tr: Dict = {
   "ctx.unpin": "Oturum sabitlemesini kaldır",
   "ctx.backgroundColor": "Oturum arka planı",
   "ctx.backgroundDefault": "Arka plan rengi yok",
+  "ctx.groupColor": "Grup rengi",
   "ctx.colorRed": "Kırmızı",
   "ctx.colorOrange": "Turuncu",
   "ctx.colorYellow": "Sarı",

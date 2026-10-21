@@ -223,6 +223,7 @@ export const en = {
   "ctx.unpin": "Unpin session",
   "ctx.backgroundColor": "Session background",
   "ctx.backgroundDefault": "No background color",
+  "ctx.groupColor": "Group color",
   "ctx.colorRed": "Red",
   "ctx.colorOrange": "Orange",
   "ctx.colorYellow": "Yellow",

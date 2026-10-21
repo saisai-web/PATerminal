@@ -206,6 +206,7 @@ export const es: Dict = {
   "ctx.unpin": "Desfijar sesión",
   "ctx.backgroundColor": "Fondo de la sesión",
   "ctx.backgroundDefault": "Sin color de fondo",
+  "ctx.groupColor": "Color del grupo",
   "ctx.colorRed": "Rojo",
   "ctx.colorOrange": "Naranja",
   "ctx.colorYellow": "Amarillo",
