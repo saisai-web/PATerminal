@@ -206,6 +206,7 @@ export const zhHant: Dict = {
   "ctx.unpin": "取消釘選",
   "ctx.backgroundColor": "工作階段背景色",
   "ctx.backgroundDefault": "無背景色",
+  "ctx.groupColor": "群組顏色",
   "ctx.colorRed": "紅色",
   "ctx.colorOrange": "橙色",
   "ctx.colorYellow": "黃色",

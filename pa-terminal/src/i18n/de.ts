@@ -206,6 +206,7 @@ export const de: Dict = {
   "ctx.unpin": "Sitzung lösen",
   "ctx.backgroundColor": "Sitzungshintergrund",
   "ctx.backgroundDefault": "Keine Hintergrundfarbe",
+  "ctx.groupColor": "Gruppenfarbe",
   "ctx.colorRed": "Rot",
   "ctx.colorOrange": "Orange",
   "ctx.colorYellow": "Gelb",

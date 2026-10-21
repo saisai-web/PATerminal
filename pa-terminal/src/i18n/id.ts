@@ -206,6 +206,7 @@ export const id: Dict = {
   "ctx.unpin": "Lepas sematan sesi",
   "ctx.backgroundColor": "Latar belakang sesi",
   "ctx.backgroundDefault": "Tanpa warna latar",
+  "ctx.groupColor": "Warna grup",
   "ctx.colorRed": "Merah",
   "ctx.colorOrange": "Oranye",
   "ctx.colorYellow": "Kuning",

@@ -206,6 +206,7 @@ export const ar: Dict = {
   "ctx.unpin": "إلغاء تثبيت الجلسة",
   "ctx.backgroundColor": "خلفية الجلسة",
   "ctx.backgroundDefault": "بلا لون خلفية",
+  "ctx.groupColor": "لون المجموعة",
   "ctx.colorRed": "أحمر",
   "ctx.colorOrange": "برتقالي",
   "ctx.colorYellow": "أصفر",

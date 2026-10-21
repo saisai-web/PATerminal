@@ -12,6 +12,7 @@ import {
   isWorkspaceEntry,
   nextGroupName,
   renameGroup,
+  setGroupColor,
   setSidebarEntryOrder,
   sidebarEntries,
 } from "../../workspace/groups";
@@ -58,13 +59,18 @@ const backgroundColorLabelKeys: Record<WorkspaceBackgroundColor, MsgKey> = {
   purple: "ctx.colorPurple",
 };
 
-/** テーマ対応の背景色スウォッチ。「なし」を先頭に置き、現在値はリングとチェックで示す。 */
-function buildBackgroundPicker(targets: readonly Workspace[]): HTMLDivElement {
+/** テーマ対応の色スウォッチ。「なし」を先頭に置き、現在値はリングとチェックで示す。
+    セッションの背景色とグループの色で共用する。 */
+function buildColorPicker(
+  labelText: string,
+  isCurrent: (color: WorkspaceBackgroundColor | undefined) => boolean,
+  apply: (color: WorkspaceBackgroundColor | undefined) => void,
+): HTMLDivElement {
   const picker = document.createElement("div");
   picker.className = "ctx-color-picker";
   const label = document.createElement("span");
   label.className = "ctx-color-label";
-  label.textContent = t("ctx.backgroundColor");
+  label.textContent = labelText;
 
   const options = document.createElement("div");
   options.className = "ctx-color-options";
@@ -83,12 +89,12 @@ function buildBackgroundPicker(targets: readonly Workspace[]): HTMLDivElement {
     const choiceLabel = color ? t(backgroundColorLabelKeys[color]) : t("ctx.backgroundDefault");
     button.title = choiceLabel;
     button.setAttribute("aria-label", choiceLabel);
-    const current = targets.every((target) => target.backgroundColor === color);
+    const current = isCurrent(color);
     button.classList.toggle("is-current", current);
     button.setAttribute("aria-pressed", String(current));
     button.onclick = () => {
       closeGroupMenu();
-      setWorkspaceBackgroundColor(targets, color);
+      apply(color);
     };
     options.append(button);
   }
@@ -203,7 +209,11 @@ export function openGroupMenu(
   }
 
   // 背景色は複数選択にも一括適用できる。混在中はどのスウォッチも未選択で表示する。
-  const backgroundPicker = buildBackgroundPicker(targets);
+  const backgroundPicker = buildColorPicker(
+    t("ctx.backgroundColor"),
+    (color) => targets.every((target) => target.backgroundColor === color),
+    (color) => setWorkspaceBackgroundColor(targets, color),
+  );
 
   // 代表ディレクトリ（フォーカス中 or 先頭ペインの cwd）が分かる場合のみ
   // パス系の項目を出す
@@ -312,6 +322,12 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
     if (nameEl) startInlineEdit(nameEl, group.name, (v) => renameGroup(group, v));
   };
 
+  const colorPicker = buildColorPicker(
+    t("ctx.groupColor"),
+    (color) => group.color === color,
+    (color) => setGroupColor(group, color),
+  );
+
   const createSep = document.createElement("div");
   createSep.className = "ctx-sep";
   const dissolve = document.createElement("button");
@@ -362,7 +378,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
       scheduleSave();
     })();
   };
-  menu.append(session, child, createSep, renameBtn, dissolve, sep, closeAll);
+  menu.append(session, child, createSep, colorPicker, renameBtn, dissolve, sep, closeAll);
   showCtxMenu(menu, x, y);
 }
 

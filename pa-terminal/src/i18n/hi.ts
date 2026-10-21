@@ -206,6 +206,7 @@ export const hi: Dict = {
   "ctx.unpin": "सत्र अनपिन करें",
   "ctx.backgroundColor": "सत्र की पृष्ठभूमि",
   "ctx.backgroundDefault": "कोई पृष्ठभूमि रंग नहीं",
+  "ctx.groupColor": "समूह का रंग",
   "ctx.colorRed": "लाल",
   "ctx.colorOrange": "नारंगी",
   "ctx.colorYellow": "पीला",

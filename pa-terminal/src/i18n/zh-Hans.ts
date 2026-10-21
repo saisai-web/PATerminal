@@ -206,6 +206,7 @@ export const zhHans: Dict = {
   "ctx.unpin": "取消置顶",
   "ctx.backgroundColor": "会话背景色",
   "ctx.backgroundDefault": "无背景色",
+  "ctx.groupColor": "分组颜色",
   "ctx.colorRed": "红色",
   "ctx.colorOrange": "橙色",
   "ctx.colorYellow": "黄色",

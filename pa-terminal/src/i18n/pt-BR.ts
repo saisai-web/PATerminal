@@ -206,6 +206,7 @@ export const ptBR: Dict = {
   "ctx.unpin": "Desafixar sessão",
   "ctx.backgroundColor": "Fundo da sessão",
   "ctx.backgroundDefault": "Sem cor de fundo",
+  "ctx.groupColor": "Cor do grupo",
   "ctx.colorRed": "Vermelho",
   "ctx.colorOrange": "Laranja",
   "ctx.colorYellow": "Amarelo",

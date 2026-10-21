@@ -206,6 +206,7 @@ export const th: Dict = {
   "ctx.unpin": "เลิกปักหมุดเซสชัน",
   "ctx.backgroundColor": "พื้นหลังเซสชัน",
   "ctx.backgroundDefault": "ไม่มีสีพื้นหลัง",
+  "ctx.groupColor": "สีของกลุ่ม",
   "ctx.colorRed": "แดง",
   "ctx.colorOrange": "ส้ม",
   "ctx.colorYellow": "เหลือง",

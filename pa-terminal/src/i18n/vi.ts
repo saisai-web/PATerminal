@@ -206,6 +206,7 @@ export const vi: Dict = {
   "ctx.unpin": "Bỏ ghim phiên",
   "ctx.backgroundColor": "Nền phiên",
   "ctx.backgroundDefault": "Không có màu nền",
+  "ctx.groupColor": "Màu nhóm",
   "ctx.colorRed": "Đỏ",
   "ctx.colorOrange": "Cam",
   "ctx.colorYellow": "Vàng",

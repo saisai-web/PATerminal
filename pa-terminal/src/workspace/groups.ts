@@ -6,7 +6,7 @@ import { renderSidebar } from "../features/sidebar/sidebar";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
 import { collapsedGroups, groups, workspaces } from "./state";
-import type { Workspace, WorkspaceGroup } from "./types";
+import type { Workspace, WorkspaceBackgroundColor, WorkspaceGroup } from "./types";
 
 const groupDatalist = document.querySelector<HTMLDataListElement>("#ws-group-list")!;
 
@@ -246,6 +246,14 @@ export function refreshGroupDatalist() {
 /** IDは変えず表示名だけを変更するため、所属セッション・子階層はそのまま維持される */
 export function renameGroup(group: WorkspaceGroup, newName: string) {
   group.name = uniqueGroupName(newName, group.parentId, group.id);
+  renderSidebar();
+  scheduleSave();
+}
+
+/** 右クリックメニューから、グループの見出しと配下の行へ色を付ける。 */
+export function setGroupColor(group: WorkspaceGroup, color: WorkspaceBackgroundColor | undefined) {
+  if (group.color === color) return;
+  group.color = color;
   renderSidebar();
   scheduleSave();
 }

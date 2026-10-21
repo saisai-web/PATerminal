@@ -206,6 +206,7 @@ export const it: Dict = {
   "ctx.unpin": "Rimuovi sessione",
   "ctx.backgroundColor": "Sfondo della sessione",
   "ctx.backgroundDefault": "Nessun colore di sfondo",
+  "ctx.groupColor": "Colore del gruppo",
   "ctx.colorRed": "Rosso",
   "ctx.colorOrange": "Arancione",
   "ctx.colorYellow": "Giallo",
