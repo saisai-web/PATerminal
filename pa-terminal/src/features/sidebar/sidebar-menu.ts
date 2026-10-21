@@ -324,7 +324,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
 
   const colorPicker = buildColorPicker(
     t("ctx.groupColor"),
-    (color) => group.color === color,
+    (color) => (group.color ?? undefined) === color,
     (color) => setGroupColor(group, color),
   );
 
