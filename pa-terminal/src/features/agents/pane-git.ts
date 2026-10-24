@@ -2,6 +2,7 @@
 // ペイン上部のバー（タイトル・cwd の行）の Git 操作
 //
 // バーには「⎇ ブランチ ↑push ↓pull」「変更数」と Diff / Worktree / Commit / Fetch / Pull（ahead があれば Push）を出し、
+// Pull は upstream から、upstream が無いブランチは origin の既定ブランチ（origin/main など）から取り込む。
 // ブランチ名のクリックでブランチ一覧のポップオーバーを開いて切り替え・リモートからの
 // チェックアウト・新規作成をその場で行う。Diff はそのペインの未コミットの変更をまとめて
 // 差分オーバーレイで開く（Git ウィンドウは開かない）。Worktree はそのペインのリポジトリを対象に
@@ -169,7 +170,7 @@ export function renderPaneGit(pane: Pane): void {
   const s = states.get(pane.id);
   const busy = el.classList.contains("is-busy");
   const sig = s
-    ? [s.root, s.branch, s.detached, s.upstream, s.ahead, s.behind, s.fileCount, busy].join("\0")
+    ? [s.root, s.branch, s.detached, s.upstream, s.pullSource, s.ahead, s.behind, s.fileCount, busy].join("\0")
     : "";
   if (sigs.get(pane.id) === sig && el.dataset.rendered === "true") return;
   sigs.set(pane.id, sig);
@@ -203,10 +204,10 @@ export function renderPaneGit(pane: Pane): void {
   dirty.title = t("pgit.dirty", { n: String(s.fileCount) });
 
   const pull = el.querySelector<HTMLButtonElement>(".pane-git-act.is-pull")!;
-  pull.disabled = busy || !s.upstream;
+  pull.disabled = busy || !s.pullSource;
   pull.classList.toggle("is-attn", s.behind > 0);
   pull.querySelector(".pane-git-count")!.textContent = s.behind > 0 ? String(s.behind) : "";
-  pull.title = s.upstream ? t("pgit.pullTitle", { upstream: s.upstream }) : t("pgit.noUpstream");
+  pull.title = pullTitle(s);
 
   const push = el.querySelector<HTMLButtonElement>(".pane-git-act.is-push")!;
   push.hidden = !(s.upstream && s.ahead > 0);
@@ -229,6 +230,11 @@ export function renderPaneGit(pane: Pane): void {
   const worktree = el.querySelector<HTMLButtonElement>(".pane-git-act.is-worktree")!;
   worktree.disabled = busy;
   worktree.title = t("agent.worktreeTitle");
+}
+
+/** upstream が無いブランチ（worktree で作ったものなど）は origin の既定ブランチから取り込む */
+function pullTitle(s: PaneGitSummary): string {
+  return s.pullSource ? t("pgit.pullTitle", { upstream: s.pullSource }) : t("pgit.noUpstream");
 }
 
 function syncChip(arrow: string, n: number, cls: string): HTMLSpanElement {
@@ -282,9 +288,9 @@ function run(pane: Pane, button: HTMLElement | null, action: () => Promise<strin
 
 function runPull(pane: Pane, button: HTMLElement | null): void {
   const s = states.get(pane.id);
-  if (!s?.upstream) return;
-  const { root, upstream } = s;
-  void run(pane, button, () => invoke<string>("git_pull", { root, branch: upstream }));
+  if (!s?.pullSource) return;
+  const { root, pullSource } = s;
+  void run(pane, button, () => invoke<string>("git_pull", { root, branch: pullSource }));
 }
 
 function runPush(pane: Pane, button: HTMLElement | null): void {
@@ -418,8 +424,8 @@ function openBranchPop(pane: Pane, anchor: HTMLButtonElement): void {
     close();
     runPull(pane, pane.el.querySelector(".pane-git-act.is-pull"));
   });
-  pullBtn.disabled = !s.upstream || isActionBusy();
-  pullBtn.title = s.upstream ? t("pgit.pullTitle", { upstream: s.upstream }) : t("pgit.noUpstream");
+  pullBtn.disabled = !s.pullSource || isActionBusy();
+  pullBtn.title = pullTitle(s);
   pullBtn.classList.toggle("is-primary", s.behind > 0);
   const worktreeBtn = popAction("worktree", t("agent.worktree"), () => {
     close(false);

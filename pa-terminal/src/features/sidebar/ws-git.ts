@@ -50,6 +50,7 @@ export type GitSummary = {
   branch: string | null;
   detached?: boolean;
   upstream?: string | null;
+  pullSource?: string | null;
   ahead?: number;
   behind?: number;
   fileCount: number;
@@ -64,6 +65,8 @@ export type PaneGitSummary = {
   branch: string | null;
   detached: boolean;
   upstream: string | null;
+  /** Pull の取り込み元（upstream、無ければ origin の既定ブランチ） */
+  pullSource: string | null;
   ahead: number;
   behind: number;
   fileCount: number;
@@ -239,6 +242,7 @@ export function toPaneGit(cwd: string, res: GitSummary | null): PaneGitSummary |
     branch: res.branch,
     detached: res.detached ?? false,
     upstream: res.upstream ?? null,
+    pullSource: res.pullSource ?? res.upstream ?? null,
     ahead: res.ahead ?? 0,
     behind: res.behind ?? 0,
     fileCount: res.fileCount,
