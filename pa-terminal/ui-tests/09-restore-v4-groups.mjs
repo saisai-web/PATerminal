@@ -36,26 +36,76 @@ check("v4 restores a nested group hierarchy",
       { hasText: "Nested Session" }).count()) === 1);
 check("v4 restores empty groups independently of sessions",
   (await pageV4.locator(".ws-whole-members > .ws-group[data-group-id=empty]").count()) === 1);
-// 色機能より前のグループには赤か青を自動で振り、6色時代の色は赤か青へ振り直す。
-// 「色なし」(null) は保つ
+// 色機能より前のグループと6色時代の自動色は、見えている見出しの順に赤・青を交互に塗る。
+// 表示中セッションが Child にあるため Parent は開いて復元される。折りたたむと Child は数えない。
+// 「色なし」(null) は保ち、数えない
 const groupColor = (id) =>
   pageV4.locator(`.ws-group[data-group-id=${id}]`).getAttribute("data-ws-color");
-const autoColors = [await groupColor("parent"), await groupColor("child"), await groupColor("empty")];
-check("v4 restore gives colorless groups a red or blue color",
-  autoColors.every((c) => ["red", "blue"].includes(c)),
-  JSON.stringify(autoColors));
-check("v4 restore moves an old six-color group to red or blue and keeps an explicit none",
-  ["red", "blue"].includes(await groupColor("kept")) && await groupColor("none") === null);
+const visibleColors = async () => ({
+  parent: await groupColor("parent"),
+  empty: await groupColor("empty"),
+  kept: await groupColor("kept"),
+  none: await groupColor("none"),
+});
+const expandedColors = { ...(await visibleColors()), child: await groupColor("child") };
+check("v4 restore alternates red and blue down the visible groups, children included",
+  JSON.stringify(expandedColors) ===
+    JSON.stringify({ parent: "red", empty: "red", kept: "blue", none: null, child: "blue" }) &&
+    await pageV4.locator(".ws-group[data-group-id=child] + .ws-group-members")
+      .getAttribute("data-ws-color") === "blue",
+  JSON.stringify(expandedColors));
+await pageV4.locator(".ws-group[data-group-id=parent]").click();
+await pageV4.waitForTimeout(100);
+const collapsedColors = await visibleColors();
+check("collapsing a group repaints the alternating colors without its hidden children",
+  JSON.stringify(collapsedColors) ===
+    JSON.stringify({ parent: "red", empty: "blue", kept: "red", none: null }),
+  JSON.stringify(collapsedColors));
 await pageV4.waitForFunction(
-  () => JSON.parse(window.__savedSession ?? "null")?.settings?.groupColors === "red-blue",
+  () => JSON.parse(window.__savedSession ?? "null")?.settings?.groupColorsAlternate === true,
   null, { timeout: 5000 },
 ).catch(() => {});
 const savedV4 = await pageV4.evaluate(() => JSON.parse(window.__savedSession ?? "null"));
-check("migrated group colors are saved with the red-blue marker",
+check("automatic group colors are not stored and the alternate marker is saved",
   savedV4?.settings?.groupColors === "red-blue" &&
-    ["red", "blue"].includes(savedV4?.groups?.find((g) => g.id === "kept")?.color),
-  JSON.stringify(savedV4?.settings?.groupColors));
+    savedV4?.settings?.groupColorsAlternate === true &&
+    savedV4?.groups?.find((g) => g.id === "kept")?.color === undefined &&
+    savedV4?.groups?.find((g) => g.id === "none")?.color === null,
+  JSON.stringify(savedV4?.groups));
 await pageV4.close();
+
+// ランダムな赤青を保存していた頃のデータは、赤・青を一度だけ自動色へ戻して交互に塗り直す。
+// 赤青化の後に自分で選んだ赤青以外の色は残す
+const pageRandom = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+pageRandom.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+await pageRandom.addInitScript(() => {
+  window.__mockSessionLoad = JSON.stringify({
+    version: 5,
+    activeId: "random-session",
+    settings: { groupColors: "red-blue" },
+    groups: [
+      { id: "r1", name: "R1", color: "red" },
+      { id: "r2", name: "R2", color: "red" },
+      { id: "green", name: "Green", color: "green" },
+      { id: "b1", name: "B1", color: "blue" },
+    ],
+    workspaces: [
+      {
+        id: "random-session", name: "Random Session", group: "r1",
+        shellKind: "default", broadcast: false, root: { kind: "leaf", title: "random" },
+      },
+    ],
+  });
+});
+await pageRandom.goto(BASE_URL);
+await pageRandom.waitForSelector(".workspace-layer:not([hidden]) .pane", { timeout: 10000 });
+await pageRandom.waitForTimeout(300);
+const randomColors = await pageRandom.evaluate(() =>
+  [...document.querySelectorAll(".ws-group")].map((el) => `${el.dataset.groupId}:${el.dataset.wsColor}`));
+check("random red/blue colors from before are redone as alternating colors",
+  JSON.stringify(randomColors) === JSON.stringify(["r1:red", "r2:blue", "green:green", "b1:red"]),
+  JSON.stringify(randomColors));
+await pageRandom.close();
 
 // 赤青化の後の保存データは一度だけの振り直しをしない。「色を付けない」設定では
 // 色のないグループに色を振らず、設定パネルのチェックボックスで切り替えられる
@@ -101,14 +151,17 @@ await pageNone.waitForFunction(
   null, { timeout: 5000 },
 ).catch(() => {});
 const turnedOn = await pageNone.evaluate(async () => {
-  const { addGroup } = await import("/src/workspace/groups.ts");
+  const { createGroup } = await import("/src/workspace/groups.ts");
+  const group = createGroup("Colored");
   return {
     saved: JSON.parse(window.__savedSession ?? "null")?.settings?.groupColors,
-    color: addGroup("Colored").color,
+    stored: group.color,
+    shown: document.querySelector(`.ws-group[data-group-id="${group.id}"]`)?.dataset.wsColor,
   };
 });
 check("turning the option on is saved and colors new groups red or blue",
-  turnedOn.saved === "red-blue" && ["red", "blue"].includes(turnedOn.color),
+  turnedOn.saved === "red-blue" && turnedOn.stored === undefined &&
+    ["red", "blue"].includes(turnedOn.shown),
   JSON.stringify(turnedOn));
 await pageNone.close();
 

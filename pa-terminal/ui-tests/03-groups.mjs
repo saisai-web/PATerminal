@@ -216,6 +216,15 @@ check("new group gets a red or blue color automatically",
   ["red", "blue"].includes(autoColor) &&
     await freshMembers.getAttribute("data-ws-color") === autoColor,
   `color=${autoColor}`);
+// 隣り合う自動色のグループは赤と青が交互になる
+const autoHeads = await page.evaluate(() =>
+  [...document.querySelectorAll(".ws-group")]
+    .filter((el) => !el.closest(".ws-group-members[hidden]"))
+    .map((el) => el.dataset.wsColor));
+check("visible automatic group colors alternate red and blue",
+  autoHeads.length > 0 &&
+    autoHeads.every((c, i) => i === 0 || c !== autoHeads[i - 1] || !["red", "blue"].includes(c)),
+  JSON.stringify(autoHeads));
 const pickColor = autoColor === "blue" ? "green" : "blue";
 await freshHead.click({ button: "right" });
 await page.waitForTimeout(100);
