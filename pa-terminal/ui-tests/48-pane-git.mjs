@@ -265,6 +265,32 @@ export default async function ({ browser, check, BASE_URL }) {
   check("commit: disabled when there are no changes",
     await page.locator(".pane-git .is-commit").isDisabled());
 
+  // upstream の無いブランチ（worktree で作ったものなど）は origin の既定ブランチから Pull できる
+  await page.evaluate(() => {
+    window.__mockGitSummary = {
+      ...window.__mockGitSummary, branch: "worktree/x", upstream: null, pullSource: "origin/main", ahead: 0, behind: 0,
+    };
+  });
+  await page.waitForFunction(() => document.querySelector(".pane-git-name")?.textContent === "worktree/x",
+    undefined, { timeout: 8000 });
+  check("pull: enabled without an upstream when the remote has a default branch",
+    !(await page.locator(".pane-git .is-pull").isDisabled()) &&
+      (await page.locator(".pane-git .is-pull").getAttribute("title")).includes("origin/main"));
+  const pullsBefore = await page.evaluate(() => window.__gitPullCalls.length);
+  await page.locator(".pane-git .is-pull").click();
+  await page.waitForFunction((n) => window.__gitPullCalls.length === n + 1, pullsBefore);
+  check("pull: without an upstream pulls the remote default branch",
+    JSON.stringify(await page.evaluate(() => window.__gitPullCalls.at(-1))) ===
+      JSON.stringify({ root: "/repo/app", branch: "origin/main" }));
+  await page.waitForFunction(() => !document.querySelector(".pane-git.is-busy"));
+  await page.evaluate(() => {
+    window.__mockGitSummary = { ...window.__mockGitSummary, pullSource: null };
+  });
+  await page.waitForFunction(() => document.querySelector(".pane-git .is-pull")?.disabled === true,
+    undefined, { timeout: 8000 }).catch(() => {});
+  check("pull: disabled when there is neither an upstream nor a remote default branch",
+    await page.locator(".pane-git .is-pull").isDisabled());
+
   // リポジトリ外へ出たら Git 部分を隠す（フォルダーボタンは残る）
   await page.evaluate(() => {
     window.__mockGitSummary = { repo: false, root: null, branch: null, fileCount: 0, adds: 0, dels: 0 };

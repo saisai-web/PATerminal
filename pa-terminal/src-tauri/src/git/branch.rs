@@ -321,5 +321,27 @@ mod tests {
         assert_eq!(summary["upstream"], "origin/main");
         assert_eq!(summary["ahead"], 0);
         assert_eq!(summary["behind"], 1);
+        assert_eq!(summary["pullSource"], "origin/main");
+
+        // upstream の無いローカルブランチ（worktree で作ったものなど）は origin の既定ブランチから取り込む
+        test_git(&local, &["switch", "--quiet", "-c", "worktree/local-only"]);
+        let summary = serde_json::to_value(
+            git_summary(local.to_string_lossy().into_owned())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(summary["upstream"], serde_json::Value::Null);
+        assert_eq!(summary["pullSource"], "origin/main");
+
+        // origin/HEAD が無くても origin/main があればそれを使う
+        test_git(&local, &["remote", "set-head", "origin", "--delete"]);
+        let summary = serde_json::to_value(
+            git_summary(local.to_string_lossy().into_owned())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(summary["pullSource"], "origin/main");
     }
 }

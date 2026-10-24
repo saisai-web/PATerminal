@@ -192,6 +192,9 @@ pub(crate) struct GitSummary {
     detached: bool,
     /// 現在ブランチの upstream（"origin/main"）。無ければ None
     upstream: Option<String>,
+    /// ペインバーの Pull の取り込み元。upstream があればそれ、無ければ（worktree で作った
+    /// ローカルブランチなど）origin の既定ブランチ（"origin/main"）。どちらも無ければ None
+    pull_source: Option<String>,
     /// upstream に対して Push / Pull が必要なコミット数（ペインバーの同期表示）
     ahead: u32,
     behind: u32,
@@ -230,6 +233,38 @@ fn git_upstream_track(cwd: &str, branch: &str) -> (Option<String>, u32, u32) {
     (Some(upstream.to_string()), ahead, behind)
 }
 
+/// origin の既定ブランチ（"origin/main" 形式）。origin/HEAD が指す先を優先し、
+/// 無ければ origin/main、origin/master の順。全ペインのスイープで呼ばれるので for-each-ref 1回で済ませる
+fn git_default_remote_branch(cwd: &str) -> Option<String> {
+    let o = run_git(&[
+        "-C",
+        cwd,
+        "for-each-ref",
+        "--format=%(refname)%1f%(symref)",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+        "refs/remotes/origin/master",
+    ])
+    .ok()
+    .filter(|o| o.status.success())?;
+    let text = String::from_utf8_lossy(&o.stdout);
+    let mut refs: Vec<&str> = Vec::new();
+    let mut head_target: Option<&str> = None;
+    for line in text.lines() {
+        let (name, symref) = line.split_once('\u{1f}').unwrap_or((line, ""));
+        if name == "refs/remotes/origin/HEAD" {
+            head_target = Some(symref).filter(|s| !s.is_empty());
+        } else {
+            refs.push(name);
+        }
+    }
+    let fallback = ["refs/remotes/origin/main", "refs/remotes/origin/master"];
+    let pick = head_target.or_else(|| fallback.into_iter().find(|r| refs.contains(r)))?;
+    let short = pick.strip_prefix("refs/remotes/")?;
+    // git_pull は "remote/branch" 形式で受け取り、- 始まりは拒否する
+    (short.starts_with("origin/") && short.len() > "origin/".len()).then(|| short.to_string())
+}
+
 /// サイドバーのセッションバッジ用。git_changes と同じ数え方で集計だけ返す
 /// （全セッション × 定期ポーリングで呼ばれるため、ファイル一覧は IPC に流さない）
 #[tauri::command]
@@ -240,6 +275,7 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
         branch: None,
         detached: false,
         upstream: None,
+        pull_source: None,
         ahead: 0,
         behind: 0,
         file_count: 0,
@@ -261,6 +297,11 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
     let (upstream, ahead, behind) = match branch.as_deref() {
         Some(b) if !detached => git_upstream_track(&cwd, b),
         _ => (None, 0, 0),
+    };
+    let pull_source = match (&upstream, detached) {
+        (Some(u), _) => Some(u.clone()),
+        (None, false) if branch.is_some() => git_default_remote_branch(&cwd),
+        _ => None,
     };
 
     // 集計は git_changes と同じソース（diff HEAD --numstat + 未追跡）で数を合わせる
@@ -307,6 +348,7 @@ pub(crate) async fn git_summary(cwd: String) -> Result<GitSummary, String> {
         branch,
         detached,
         upstream,
+        pull_source,
         ahead,
         behind,
         file_count,
