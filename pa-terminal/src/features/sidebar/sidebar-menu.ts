@@ -25,7 +25,7 @@ import {
   actionTargets,
   clearWsSelection,
 } from "./sidebar-selection";
-import { renderSidebar } from "./sidebar";
+import { displayedGroupColor, renderSidebar } from "./sidebar";
 import { openPromptHistory } from "../history/prompt-history";
 import { attachRootCreate } from "./new-session-location";
 import { isArchiveSessionStatusFilterActive } from "./session-status-filter";
@@ -324,7 +324,7 @@ export function openGroupHeadMenu(group: WorkspaceGroup, x: number, y: number) {
 
   const colorPicker = buildColorPicker(
     t("ctx.groupColor"),
-    (color) => (group.color ?? undefined) === color,
+    (color) => displayedGroupColor(group) === color,
     (color) => setGroupColor(group, color),
   );
 

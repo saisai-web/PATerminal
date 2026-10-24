@@ -2,6 +2,7 @@ import { onWorkspaceActivityChange, wsActivityState, wsActivityText } from "../.
 import { AVATAR_COLORS, SHELL_CHOICES } from "../../shared/constants";
 import { closeGroupMenu } from "../../shared/ctx-menu";
 import {
+  autoGroupColor,
   groupById,
   groupDescendantIds,
   groupPath,
@@ -38,7 +39,7 @@ import {
   selectedWsIds,
   workspaces,
 } from "../../workspace/state";
-import type { Workspace, WorkspaceGroup } from "../../workspace/types";
+import type { Workspace, WorkspaceBackgroundColor, WorkspaceGroup } from "../../workspace/types";
 import {
   closeWorkspace,
   compactWsPath,
@@ -419,6 +420,7 @@ function buildGroupHeader(
   const head = document.createElement("div");
   head.className = "ws-group";
   head.dataset.groupId = group.id;
+  // 自動色は描画後に paintAutoGroupColors が見える並びで塗る
   if (group.color) head.dataset.wsColor = group.color;
   head.draggable = true;
   const arrow = document.createElement("span");
@@ -441,6 +443,7 @@ function buildGroupHeader(
     arrow.textContent = collapsed ? "▸" : "▾";
     if (collapsed) collapsedGroups.add(group.id);
     else collapsedGroups.delete(group.id);
+    paintAutoGroupColors(); // 見える見出しの並びが変わるので交互の色を塗り直す
     scheduleSave(); // 折りたたみ状態も保存する
   };
   // グループ名のダブルクリックで一括リネーム
@@ -642,6 +645,33 @@ function pinnedFirst(list: Array<Workspace | WorkspaceGroup>): Array<Workspace |
   ];
 }
 
+/** 自動色のグループへ今塗っている色。見出しメニューの現在値表示にも使う */
+const autoGroupColors = new Map<string, WorkspaceBackgroundColor>();
+
+/** グループの表示色。自分で選んだ色か色なし、自動色なら今塗っている赤か青。 */
+export function displayedGroupColor(group: WorkspaceGroup): WorkspaceBackgroundColor | undefined {
+  return group.color === undefined ? autoGroupColors.get(group.id) : (group.color ?? undefined);
+}
+
+/** 自動色のグループを、見えている見出しの上からの順に赤・青と交互に塗る。
+    折りたたみで隠れた見出しは数えないので、開閉や作成・移動の後も隣同士が同じ色にならない。
+    開閉は再描画しないため、renderSidebar と開閉の両方から呼ぶ。 */
+function paintAutoGroupColors() {
+  autoGroupColors.clear();
+  for (const head of wsList.querySelectorAll<HTMLElement>(".ws-group")) {
+    const group = groupById(head.dataset.groupId);
+    if (!group || group.color !== undefined) continue;
+    if (head.closest(".ws-group-members[hidden]")) continue;
+    const color = autoGroupColor(autoGroupColors.size);
+    autoGroupColors.set(group.id, color);
+    head.dataset.wsColor = color;
+    const members = head.nextElementSibling;
+    if (members instanceof HTMLElement && members.classList.contains("ws-group-members")) {
+      members.dataset.wsColor = color;
+    }
+  }
+}
+
 /** グループ見出しと直下のセッション / 子グループを再帰的に描画する */
 function appendGroup(
   container: HTMLElement,
@@ -689,6 +719,7 @@ export function renderSidebar() {
   const q = wsSearch.value.trim().toLowerCase();
   wsList.innerHTML = "";
   wsList.append(buildWholeGroup(q));
+  paintAutoGroupColors();
   wsList.scrollTop = scrollTop;
   renderSessionStatusFilterTexts();
   renderSelectionBar(); // 件数表示と言語切替への追従（項目自体は buildWsItem が反映済み）

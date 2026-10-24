@@ -9,11 +9,11 @@ import {
   setExplorerFavorites,
 } from "../features/explorer/explorer";
 import {
-  assignMissingGroupColors,
+  clearAutoGroupColors,
   getGroupColorMode,
   groupById,
-  migrateGroupColorsToRedBlue,
   newGroupId,
+  resetStoredAutoGroupColors,
   setGroupColorMode,
 } from "../workspace/groups";
 import { applyStaticTexts, defaultLang, getLang, isLang, setLang, t } from "../i18n";
@@ -152,6 +152,7 @@ function serializeAll(): SessionV5 {
       tutorial: getTutorialMode() === "welcome" ? "pending" : getTutorialMode() === "update" ? "update" : "done",
       tours: getToursDone(),
       groupColors: getGroupColorMode(),
+      groupColorsAlternate: true,
     },
     workspaces: workspaces.map(serializeWorkspace).filter((w): w is SerializedWorkspace => !!w),
     deletedWorkspaces: getDeletedWorkspaces(),
@@ -342,8 +343,10 @@ export async function boot() {
   renderLockMarks(); // applyStaticTexts の後（🔒 は .is-locked クラス + CSS 疑似要素）
   setNotificationsEnabled(savedSettings?.notifications !== false); // 未設定はデフォルト ON
   setGroupColorMode(savedSettings?.groupColors === "none" ? "none" : "red-blue");
-  // groupColors が無い = 6色から自動で振っていた頃の保存データ。既存グループを一度だけ赤か青にする
-  const migrateGroupColors = savedSettings?.groupColors === undefined;
+  // groupColorsAlternate が無い = 自動色を color に保存していた頃のデータ。
+  // groupColors も無ければ6色、あればランダムな赤青で振っていた
+  const resetGroupColors = savedSettings?.groupColorsAlternate !== true;
+  const sixColorGroups = savedSettings?.groupColors === undefined;
 
   if (parsedRaw) {
     try {
@@ -385,10 +388,13 @@ export async function boot() {
           }
           if (parent) group.parentId = undefined;
         }
-        // 6色時代の自動色を赤か青へ振り直し、色機能より前に作られたグループにも色を振る。
-        // 次回からはその色を保つ
-        const migrated = migrateGroupColors && migrateGroupColorsToRedBlue();
-        if (assignMissingGroupColors() || migrated) scheduleSave();
+        // 保存されていた自動色を並びに沿った交互の色へ戻す。「色を付けない」設定では
+        // 自動色のグループを色なしに固定し、既存の色は触らない
+        const reset =
+          resetGroupColors && getGroupColorMode() === "red-blue" &&
+          resetStoredAutoGroupColors(sixColorGroups);
+        const cleared = getGroupColorMode() === "none" && clearAutoGroupColors();
+        if (reset || cleared || resetGroupColors) scheduleSave();
         for (const s of v4.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);
@@ -432,7 +438,7 @@ export async function boot() {
           legacyGroupIds.set(s.group, id);
           groups.push({ id, name: s.group });
         }
-        assignMissingGroupColors();
+        if (getGroupColorMode() === "none") clearAutoGroupColors();
         for (const s of v3.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);

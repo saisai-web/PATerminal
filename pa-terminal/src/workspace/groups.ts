@@ -123,9 +123,15 @@ export function nextGroupName(): string {
   return `Group ${max + 1}`;
 }
 
-/** 自動で付けるグループの色。"red-blue" は赤と青からランダム、"none" は色を付けない。 */
+/** 自動で付けるグループの色。"red-blue" はサイドバーの並びで赤と青を交互に、"none" は色を付けない。 */
 export type GroupColorMode = "red-blue" | "none";
 const AUTO_GROUP_COLORS = ["red", "blue"] as const satisfies readonly WorkspaceBackgroundColor[];
+
+/** 自動色のグループ（color が undefined）が、表示中の自動色グループの中で n 番目に来たときの色。
+    色は保存せず描画のたびに並びから決めるので、作成・移動・折りたたみ後も隣同士が同じ色にならない。 */
+export function autoGroupColor(index: number): WorkspaceBackgroundColor {
+  return AUTO_GROUP_COLORS[index % AUTO_GROUP_COLORS.length];
+}
 let groupColorMode: GroupColorMode = "red-blue";
 
 export function getGroupColorMode(): GroupColorMode {
@@ -137,34 +143,33 @@ export function setGroupColorMode(mode: GroupColorMode) {
   groupColorMode = mode;
 }
 
-function randomAutoGroupColor(): WorkspaceBackgroundColor {
-  return AUTO_GROUP_COLORS[Math.floor(Math.random() * AUTO_GROUP_COLORS.length)];
+/** 新しいグループの色。undefined は並びで決まる自動色。
+    設定が「色を付けない」なら null（= 色なしを選んだのと同じ扱い）。 */
+function nextGroupColor(): null | undefined {
+  return groupColorMode === "none" ? null : undefined;
 }
 
-/** 新しいグループの色。設定が「色を付けない」なら null（= 色なしを選んだのと同じ扱い）。 */
-function nextGroupColor(): WorkspaceBackgroundColor | null {
-  return groupColorMode === "none" ? null : randomAutoGroupColor();
-}
-
-/** 復元したグループのうち、色がまだ割り当てられていないものへ自動で色を振る。
-    「色なし」を選んだグループ（null）はそのまま残す。変更があれば true。 */
-export function assignMissingGroupColors(): boolean {
+/** 「色を付けない」設定で復元したとき、自動色のグループを色なしに固定する。変更があれば true。 */
+export function clearAutoGroupColors(): boolean {
   let changed = false;
   for (const group of groups) {
     if (group.color !== undefined) continue;
-    group.color = nextGroupColor();
+    group.color = null;
     changed = true;
   }
   return changed;
 }
 
-/** 6色から自動で振っていた頃のグループを、赤と青のどちらかへ一度だけ振り直す。
-    赤・青・色なしはそのまま残す。変更があれば true。 */
-export function migrateGroupColorsToRedBlue(): boolean {
+/** 交互の自動色より前の保存データでは、自動で振られた色がそのまま color に入っている。
+    一度だけ自動色（undefined）へ戻して、並びに沿った交互の色にする。
+    sixColors は6色から自動で振っていた頃のデータで、赤・青以外の色も自動色だった。
+    「色なし」(null) は残す。変更があれば true。 */
+export function resetStoredAutoGroupColors(sixColors: boolean): boolean {
   let changed = false;
   for (const group of groups) {
-    if (!group.color || (AUTO_GROUP_COLORS as readonly string[]).includes(group.color)) continue;
-    group.color = randomAutoGroupColor();
+    if (!group.color) continue;
+    if (!sixColors && !(AUTO_GROUP_COLORS as readonly string[]).includes(group.color)) continue;
+    group.color = undefined;
     changed = true;
   }
   return changed;

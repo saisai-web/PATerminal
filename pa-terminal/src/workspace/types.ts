@@ -80,7 +80,7 @@ export type WorkspaceGroup = {
   /** 同じ親階層でのサイドバー表示順。未指定の旧データは従来順へフォールバックする */
   sidebarOrder?: number;
   /** 見出しと配下の行に付けるテーマ対応の色。セッション背景色と同じIDを使う。
-      null はユーザーが「色なし」を選んだ状態。undefined は未割り当てで、作成時・復元時に自動で色を振る */
+      null はユーザーが「色なし」を選んだ状態。undefined は自動色で、サイドバーの並びで赤と青を交互に付ける */
   color?: WorkspaceBackgroundColor | null;
 };
 
@@ -194,6 +194,9 @@ export type SessionV3 = {
     /** 新しいグループへ自動で付ける色。未設定は赤青化より前の保存データで、
         6色の自動色を一度だけ赤か青へ振り直してから "red-blue" として保存する */
     groupColors?: "red-blue" | "none";
+    /** true なら自動色は保存せず並びから交互に決める。未設定はランダムな赤青か6色を
+        color に保存していた頃のデータで、それらを一度だけ自動色へ戻す */
+    groupColorsAlternate?: boolean;
   };
   workspaces: Array<{
     id: string;
