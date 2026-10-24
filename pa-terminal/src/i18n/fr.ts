@@ -531,6 +531,7 @@ export const fr: Dict = {
   "settings.title": "Réglages",
   "settings.close": "Fermer les réglages",
   "settings.theme": "Thème de couleurs",
+  "settings.groupColorsAuto": "Attribuer automatiquement une couleur rouge ou bleue aux nouveaux groupes",
   "settings.language": "Langue",
   "settings.notifications": "Notifications",
   "settings.notifyToggle": "Notification bureau à la fin d'une session (seulement celles que vous ne regardez pas)",

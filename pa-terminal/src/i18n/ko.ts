@@ -531,6 +531,7 @@ export const ko: Dict = {
   "settings.title": "설정",
   "settings.close": "설정 닫기",
   "settings.theme": "색상 테마",
+  "settings.groupColorsAuto": "새 그룹에 빨간색 또는 파란색을 자동으로 지정",
   "settings.language": "언어",
   "settings.notifications": "알림",
   "settings.notifyToggle": "세션이 끝나면 데스크톱 알림 (보고 있지 않은 세션만)",

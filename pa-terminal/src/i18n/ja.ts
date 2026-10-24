@@ -531,6 +531,7 @@ export const ja: Dict = {
   "settings.title": "設定",
   "settings.close": "設定を閉じる",
   "settings.theme": "カラーテーマ",
+  "settings.groupColorsAuto": "新しいグループに赤か青の色を自動で付ける",
   "settings.language": "言語",
   "settings.notifications": "通知",
   "settings.notifyToggle": "完了をデスクトップ通知する（見ていないセッションのみ）",

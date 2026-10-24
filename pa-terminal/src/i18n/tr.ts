@@ -531,6 +531,7 @@ export const tr: Dict = {
   "settings.title": "Ayarlar",
   "settings.close": "Ayarları kapat",
   "settings.theme": "Renk teması",
+  "settings.groupColorsAuto": "Yeni gruplara otomatik olarak kırmızı veya mavi renk ver",
   "settings.language": "Dil",
   "settings.notifications": "Bildirimler",
   "settings.notifyToggle": "Bir oturum bittiğinde masaüstü bildirimi (yalnızca bakmadığın oturumlar)",

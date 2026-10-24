@@ -531,6 +531,7 @@ export const ptBR: Dict = {
   "settings.title": "Configurações",
   "settings.close": "Fechar as configurações",
   "settings.theme": "Tema de cores",
+  "settings.groupColorsAuto": "Dar automaticamente uma cor vermelha ou azul aos novos grupos",
   "settings.language": "Idioma",
   "settings.notifications": "Notificações",
   "settings.notifyToggle": "Notificação no desktop quando uma sessão termina (apenas as que você não está vendo)",

@@ -531,6 +531,7 @@ export const id: Dict = {
   "settings.title": "Pengaturan",
   "settings.close": "Tutup pengaturan",
   "settings.theme": "Tema warna",
+  "settings.groupColorsAuto": "Otomatis beri warna merah atau biru pada grup baru",
   "settings.language": "Bahasa",
   "settings.notifications": "Notifikasi",
   "settings.notifyToggle": "Notifikasi desktop saat sebuah sesi selesai (hanya sesi yang tidak sedang Anda lihat)",

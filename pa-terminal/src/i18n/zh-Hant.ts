@@ -531,6 +531,7 @@ export const zhHant: Dict = {
   "settings.title": "設定",
   "settings.close": "關閉設定",
   "settings.theme": "配色主題",
+  "settings.groupColorsAuto": "自動為新群組設定紅色或藍色",
   "settings.language": "語言",
   "settings.notifications": "通知",
   "settings.notifyToggle": "工作階段結束時發送桌面通知（僅限目前沒在看的工作階段）",

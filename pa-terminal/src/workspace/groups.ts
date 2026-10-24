@@ -6,7 +6,6 @@ import { renderSidebar } from "../features/sidebar/sidebar";
 import { scheduleSave } from "../app/session";
 import { requireFeature } from "../features/license/license";
 import { collapsedGroups, groups, workspaces } from "./state";
-import { WORKSPACE_BACKGROUND_COLORS } from "./types";
 import type { Workspace, WorkspaceBackgroundColor, WorkspaceGroup } from "./types";
 
 const groupDatalist = document.querySelector<HTMLDataListElement>("#ws-group-list")!;
@@ -124,17 +123,27 @@ export function nextGroupName(): string {
   return `Group ${max + 1}`;
 }
 
-/** 新しいグループの色。使われている数が最も少ない色を、パレット順で選ぶ。 */
-function nextGroupColor(): WorkspaceBackgroundColor {
-  const counts = new Map<WorkspaceBackgroundColor, number>();
-  for (const group of groups) {
-    if (group.color) counts.set(group.color, (counts.get(group.color) ?? 0) + 1);
-  }
-  let best: WorkspaceBackgroundColor = WORKSPACE_BACKGROUND_COLORS[0];
-  for (const color of WORKSPACE_BACKGROUND_COLORS) {
-    if ((counts.get(color) ?? 0) < (counts.get(best) ?? 0)) best = color;
-  }
-  return best;
+/** 自動で付けるグループの色。"red-blue" は赤と青からランダム、"none" は色を付けない。 */
+export type GroupColorMode = "red-blue" | "none";
+const AUTO_GROUP_COLORS = ["red", "blue"] as const satisfies readonly WorkspaceBackgroundColor[];
+let groupColorMode: GroupColorMode = "red-blue";
+
+export function getGroupColorMode(): GroupColorMode {
+  return groupColorMode;
+}
+
+/** 保存データからの復元と設定パネル用。既存グループの色は変えない。 */
+export function setGroupColorMode(mode: GroupColorMode) {
+  groupColorMode = mode;
+}
+
+function randomAutoGroupColor(): WorkspaceBackgroundColor {
+  return AUTO_GROUP_COLORS[Math.floor(Math.random() * AUTO_GROUP_COLORS.length)];
+}
+
+/** 新しいグループの色。設定が「色を付けない」なら null（= 色なしを選んだのと同じ扱い）。 */
+function nextGroupColor(): WorkspaceBackgroundColor | null {
+  return groupColorMode === "none" ? null : randomAutoGroupColor();
 }
 
 /** 復元したグループのうち、色がまだ割り当てられていないものへ自動で色を振る。
@@ -144,6 +153,18 @@ export function assignMissingGroupColors(): boolean {
   for (const group of groups) {
     if (group.color !== undefined) continue;
     group.color = nextGroupColor();
+    changed = true;
+  }
+  return changed;
+}
+
+/** 6色から自動で振っていた頃のグループを、赤と青のどちらかへ一度だけ振り直す。
+    赤・青・色なしはそのまま残す。変更があれば true。 */
+export function migrateGroupColorsToRedBlue(): boolean {
+  let changed = false;
+  for (const group of groups) {
+    if (!group.color || (AUTO_GROUP_COLORS as readonly string[]).includes(group.color)) continue;
+    group.color = randomAutoGroupColor();
     changed = true;
   }
   return changed;

@@ -531,6 +531,7 @@ export const vi: Dict = {
   "settings.title": "Cài đặt",
   "settings.close": "Đóng cài đặt",
   "settings.theme": "Chủ đề màu",
+  "settings.groupColorsAuto": "Tự động gán màu đỏ hoặc xanh dương cho nhóm mới",
   "settings.language": "Ngôn ngữ",
   "settings.notifications": "Thông báo",
   "settings.notifyToggle": "Thông báo trên máy khi một phiên kết thúc (chỉ những phiên bạn không xem)",

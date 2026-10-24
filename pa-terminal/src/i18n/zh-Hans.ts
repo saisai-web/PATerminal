@@ -531,6 +531,7 @@ export const zhHans: Dict = {
   "settings.title": "设置",
   "settings.close": "关闭设置",
   "settings.theme": "配色主题",
+  "settings.groupColorsAuto": "自动为新分组设置红色或蓝色",
   "settings.language": "语言",
   "settings.notifications": "通知",
   "settings.notifyToggle": "会话结束时发送桌面通知（仅限当前未查看的会话）",
