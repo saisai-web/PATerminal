@@ -531,6 +531,7 @@ export const de: Dict = {
   "settings.title": "Einstellungen",
   "settings.close": "Einstellungen schließen",
   "settings.theme": "Farbthema",
+  "settings.groupColorsAuto": "Neuen Gruppen automatisch eine rote oder blaue Farbe geben",
   "settings.language": "Sprache",
   "settings.notifications": "Benachrichtigungen",
   "settings.notifyToggle": "Desktop-Benachrichtigung, wenn eine Sitzung fertig ist (nur Sitzungen, die du nicht ansiehst)",

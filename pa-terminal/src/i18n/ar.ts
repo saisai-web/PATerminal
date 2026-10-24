@@ -531,6 +531,7 @@ export const ar: Dict = {
   "settings.title": "الإعدادات",
   "settings.close": "إغلاق الإعدادات",
   "settings.theme": "سمة الألوان",
+  "settings.groupColorsAuto": "منح المجموعات الجديدة لونًا أحمر أو أزرق تلقائيًا",
   "settings.language": "اللغة",
   "settings.notifications": "الإشعارات",
   "settings.notifyToggle": "إشعار على سطح المكتب عند انتهاء جلسة (للجلسات التي لا تنظر إليها فقط)",

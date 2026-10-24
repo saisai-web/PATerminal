@@ -8,7 +8,14 @@ import {
   getExplorerFavorites,
   setExplorerFavorites,
 } from "../features/explorer/explorer";
-import { assignMissingGroupColors, groupById, newGroupId } from "../workspace/groups";
+import {
+  assignMissingGroupColors,
+  getGroupColorMode,
+  groupById,
+  migrateGroupColorsToRedBlue,
+  newGroupId,
+  setGroupColorMode,
+} from "../workspace/groups";
 import { applyStaticTexts, defaultLang, getLang, isLang, setLang, t } from "../i18n";
 import { makePane } from "../terminal/pane";
 import {
@@ -144,6 +151,7 @@ function serializeAll(): SessionV5 {
       pair: getPairDefaultCmds(),
       tutorial: getTutorialMode() === "welcome" ? "pending" : getTutorialMode() === "update" ? "update" : "done",
       tours: getToursDone(),
+      groupColors: getGroupColorMode(),
     },
     workspaces: workspaces.map(serializeWorkspace).filter((w): w is SerializedWorkspace => !!w),
     deletedWorkspaces: getDeletedWorkspaces(),
@@ -333,6 +341,9 @@ export async function boot() {
   applyStaticTexts();
   renderLockMarks(); // applyStaticTexts の後（🔒 は .is-locked クラス + CSS 疑似要素）
   setNotificationsEnabled(savedSettings?.notifications !== false); // 未設定はデフォルト ON
+  setGroupColorMode(savedSettings?.groupColors === "none" ? "none" : "red-blue");
+  // groupColors が無い = 6色から自動で振っていた頃の保存データ。既存グループを一度だけ赤か青にする
+  const migrateGroupColors = savedSettings?.groupColors === undefined;
 
   if (parsedRaw) {
     try {
@@ -374,8 +385,10 @@ export async function boot() {
           }
           if (parent) group.parentId = undefined;
         }
-        // 色機能より前に作られたグループにも色を振り、次回からはその色を保つ
-        if (assignMissingGroupColors()) scheduleSave();
+        // 6色時代の自動色を赤か青へ振り直し、色機能より前に作られたグループにも色を振る。
+        // 次回からはその色を保つ
+        const migrated = migrateGroupColors && migrateGroupColorsToRedBlue();
+        if (assignMissingGroupColors() || migrated) scheduleSave();
         for (const s of v4.workspaces) {
           const ws = createEmptyWorkspace(s.id, s.name, s.shellKind, s.broadcast);
           ws.note = normalizeWorkspaceNote(s.note);

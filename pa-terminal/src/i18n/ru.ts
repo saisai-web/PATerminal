@@ -531,6 +531,7 @@ export const ru: Dict = {
   "settings.title": "Настройки",
   "settings.close": "Закрыть настройки",
   "settings.theme": "Цветовая тема",
+  "settings.groupColorsAuto": "Автоматически назначать новым группам красный или синий цвет",
   "settings.language": "Язык",
   "settings.notifications": "Уведомления",
   "settings.notifyToggle": "Уведомление на рабочем столе, когда сессия завершилась (только те, на которые вы не смотрите)",

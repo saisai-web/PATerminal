@@ -531,6 +531,7 @@ export const th: Dict = {
   "settings.title": "การตั้งค่า",
   "settings.close": "ปิดการตั้งค่า",
   "settings.theme": "ธีมสี",
+  "settings.groupColorsAuto": "กำหนดสีแดงหรือสีน้ำเงินให้กลุ่มใหม่โดยอัตโนมัติ",
   "settings.language": "ภาษา",
   "settings.notifications": "การแจ้งเตือน",
   "settings.notifyToggle": "แจ้งเตือนบนเดสก์ท็อปเมื่อเซสชันทำงานเสร็จ (เฉพาะเซสชันที่คุณไม่ได้ดูอยู่)",

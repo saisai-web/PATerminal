@@ -212,8 +212,8 @@ check("group rename from the header menu takes effect", (await freshName.count()
 // グループの色: 作成時に自動で色が付き、見出しメニューのスウォッチで変えられて保存される
 const freshMembers = page.locator(`.ws-group[data-group-id="${freshId}"] + .ws-group-members`);
 const autoColor = await freshHead.getAttribute("data-ws-color");
-check("new group gets a color automatically",
-  ["red", "orange", "yellow", "green", "blue", "purple"].includes(autoColor) &&
+check("new group gets a red or blue color automatically",
+  ["red", "blue"].includes(autoColor) &&
     await freshMembers.getAttribute("data-ws-color") === autoColor,
   `color=${autoColor}`);
 const pickColor = autoColor === "blue" ? "green" : "blue";

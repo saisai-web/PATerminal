@@ -18,6 +18,7 @@ import { getPairDefaultCmds, renderPairTexts, updatePairDefaultCmds } from "../p
 import { flushSessionSave, scheduleSave } from "../../app/session";
 import { renderSidebar } from "../sidebar/sidebar";
 import { getActiveWs, getHostOs, panes } from "../../workspace/state";
+import { getGroupColorMode, setGroupColorMode } from "../../workspace/groups";
 import { renderSessionTrashTexts } from "../sidebar/session-trash";
 import { getWorktreePrefs, updateWorktreePrefs, worktreeDirFor } from "../git/worktree";
 import type { WorktreeLocation } from "../git/worktree";
@@ -41,6 +42,7 @@ const settingsCloseBtn = document.querySelector<HTMLButtonElement>("#settings-cl
 const settingsThemesEl = document.querySelector<HTMLDivElement>("#settings-themes")!;
 const settingsLangsEl = document.querySelector<HTMLDivElement>("#settings-langs")!;
 const settingsNotifEl = document.querySelector<HTMLInputElement>("#settings-notif")!;
+const settingsGroupColorsEl = document.querySelector<HTMLInputElement>("#settings-group-colors")!;
 const settingsVersionEl = document.querySelector<HTMLSpanElement>("#settings-version")!;
 const settingsCheckBtn = document.querySelector<HTMLButtonElement>("#settings-check-update")!;
 const settingsUpdateResultEl = document.querySelector<HTMLDivElement>("#settings-update-result")!;
@@ -326,6 +328,8 @@ export function renderSettingsPanel() {
     b.onclick = () => applyLanguage(info.code);
     settingsLangsEl.append(b);
   }
+  // 新しいグループの自動色（既存グループの色は変えない）
+  settingsGroupColorsEl.checked = getGroupColorMode() === "red-blue";
   // 通知
   settingsNotifEl.checked = notificationsEnabled;
   // アップデート
@@ -447,6 +451,10 @@ window.addEventListener(
   true,
 );
 settingsCheckBtn.onclick = () => void checkUpdate();
+settingsGroupColorsEl.onchange = () => {
+  setGroupColorMode(settingsGroupColorsEl.checked ? "red-blue" : "none");
+  scheduleSave();
+};
 settingsNotifEl.onchange = () => {
   notificationsEnabled = settingsNotifEl.checked;
   // ON にした瞬間 = ユーザーが意図したタイミングで OS の許可ダイアログを出す

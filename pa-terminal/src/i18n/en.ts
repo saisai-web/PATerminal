@@ -555,6 +555,7 @@ export const en = {
   "settings.title": "Settings",
   "settings.close": "Close settings",
   "settings.theme": "Color theme",
+  "settings.groupColorsAuto": "Automatically give new groups a red or blue color",
   "settings.language": "Language",
   "settings.notifications": "Notifications",
   "settings.notifyToggle": "Desktop notification when a session finishes (only sessions you are not looking at)",

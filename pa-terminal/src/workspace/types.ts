@@ -191,6 +191,9 @@ export type SessionV3 = {
     tutorial?: "pending" | "update" | "done";
     /** 上部バーの「ツアー」で見終えた編（一覧の ✓ 表示用） */
     tours?: string[];
+    /** 新しいグループへ自動で付ける色。未設定は赤青化より前の保存データで、
+        6色の自動色を一度だけ赤か青へ振り直してから "red-blue" として保存する */
+    groupColors?: "red-blue" | "none";
   };
   workspaces: Array<{
     id: string;

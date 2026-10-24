@@ -531,6 +531,7 @@ export const hi: Dict = {
   "settings.title": "सेटिंग्स",
   "settings.close": "सेटिंग्स बंद करें",
   "settings.theme": "रंग थीम",
+  "settings.groupColorsAuto": "नए समूहों को अपने-आप लाल या नीला रंग दें",
   "settings.language": "भाषा",
   "settings.notifications": "सूचनाएँ",
   "settings.notifyToggle": "सत्र पूरा होने पर डेस्कटॉप सूचना (केवल वे सत्र जिन्हें आप नहीं देख रहे)",

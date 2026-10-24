@@ -104,6 +104,7 @@
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 6px;
 }
+#settings-themes + .settings-checkbox-row { margin-top: 14px; }
 /* 言語は 17 種類あるので折り返すグリッド（横スクロールは出さない） */
 #settings-langs {
   display: grid;
