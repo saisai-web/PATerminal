@@ -69,10 +69,23 @@ check("the auto-opened browser tells the user to choose a folder to open",
 await pop.locator(".pathbar-row", { hasText: "proj" }).click();
 await page.waitForFunction(() => document.querySelector(".pathbar-crumb[aria-current]")?.textContent === "proj");
 const newPaneId = (await lastSpawn()).id;
+// シェルはまだホームにいて、少し遅れて cd を実行する（起動直後の初期化待ちを模す）
+await page.evaluate((id) => { window.__mockPtyCwdById = { [id]: "/home/user" }; }, newPaneId);
 await pop.locator(".pathbar-action.is-primary").click();
 await page.waitForFunction((id) =>
   window.__ptyWrites.some((w) => w.id === id && w.data === "cd '/home/user/proj'\r"), newPaneId);
 check("Move here cds the new session to the chosen folder", (await pop.count()) === 0);
+await page.waitForTimeout(300);
+await page.evaluate((id) => { window.__mockPtyCwdById = { [id]: "/home/user/proj" }; }, newPaneId);
+// 3〜5 秒の定期ポーリングを待たず、移動した直後にサイドバーとパスバーへ反映する
+const followed = await page.waitForFunction((id) => {
+  const pane = document.querySelector(`.pane[data-pane-id="${id}"]`);
+  const active = document.querySelector(".ws-item.is-active .ws-sub");
+  return pane?.querySelector(".pane-pathbar")?.dataset.cwd === "/home/user/proj" &&
+    active?.title === "/home/user/proj";
+}, newPaneId, { timeout: 1500 }).then(() => true, () => false);
+check("the sidebar and path bar follow the move right away", followed);
+await page.evaluate(() => { delete window.__mockPtyCwdById; });
 
 // --- Esc で閉じればホームのまま使える ---
 const beforeEsc = await spawnCount();

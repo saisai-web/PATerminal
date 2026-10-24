@@ -5,7 +5,7 @@ import type { Pane } from "../../terminal/pane";
 import { replacePane } from "../../terminal/tree";
 import { getActiveWs, getFocusedId, getHostOs, panes } from "../../workspace/state";
 import type { PaneAgentInfo } from "../../workspace/types";
-import { cdCommandFor } from "../explorer/paths";
+import { cdCommandFor, normPath } from "../explorer/paths";
 import { requireFeature } from "../license/license";
 import { recordRecentDir } from "../sidebar/recent-dirs";
 import { isValidSessionId, resumeCommandFor } from "./agents";
@@ -26,11 +26,43 @@ export async function moveTerminalTo(pane: Pane, path: string) {
     const agent = await agentForDirectoryChange(pane);
     if (agent) openDirectoryChange(pane, path);
     else {
-      if (pane.alive && panes.get(pane.id) === pane) pane.write(`${cdCommandFor(pane, path)}\r`);
+      if (pane.alive && panes.get(pane.id) === pane) sendCd(pane, path);
     }
   } catch (error) {
     openDirectoryChange(pane, path, String(error));
   }
+}
+
+const CD_FOLLOW_INTERVAL_MS = 100;
+const CD_FOLLOW_TIMEOUT_MS = 5000;
+
+/** cd を送り、シェルが実際に移動したらすぐサイドバー・パスバー・Git 表示へ反映する。
+    OSC 7 を吐かないシェル（macOS の素の zsh 等）は 3〜5 秒の定期ポーリングまで
+    表示がホームのまま残るため、このペインだけ pty_cwd を直列に短い間隔で確かめる。
+    起動直後のシェルは初期化が済んでから cd を読むので、変化するまで少し待つ */
+function sendCd(pane: Pane, path: string) {
+  const before = pane.cwd ?? pane.spec.cwd;
+  pane.write(`${cdCommandFor(pane, path)}\r`);
+  const deadline = Date.now() + CD_FOLLOW_TIMEOUT_MS;
+  const check = async () => {
+    if (!pane.alive || panes.get(pane.id) !== pane) return;
+    // 待っている間に OSC 7 / 定期ポーリングが反映済みなら終わり
+    if ((pane.cwd ?? pane.spec.cwd) !== before) return;
+    let live: string | null = null;
+    try {
+      live = await invoke<string | null>("pty_cwd", { id: pane.id });
+    } catch {
+      /* 取れない環境は定期ポーリング / OSC 7 に任せる */
+      return;
+    }
+    if (!pane.alive || panes.get(pane.id) !== pane) return;
+    if (live && (!before || normPath(live) !== normPath(before))) {
+      pane.setCwd(live);
+      return;
+    }
+    if (Date.now() < deadline) window.setTimeout(() => void check(), CD_FOLLOW_INTERVAL_MS);
+  };
+  window.setTimeout(() => void check(), CD_FOLLOW_INTERVAL_MS);
 }
 
 async function validateDirectory(path: string) {
@@ -164,7 +196,7 @@ export function openDirectoryChange(pane: Pane, path?: string, initialError?: st
       }
       agent = current;
       if (!current) {
-        pane.write(`${cdCommandFor(pane, destination)}\r`);
+        sendCd(pane, destination);
         close();
         return;
       }
