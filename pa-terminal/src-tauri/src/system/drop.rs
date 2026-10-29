@@ -17,6 +17,10 @@
 //! - Windows: 同じプロセス・UI スレッドの子 HWND が持つ IDropTarget だけを差し替える。
 //!   CF_HDROP を持たないドラッグは元の IDropTarget へ委譲する。WebView2 の別プロセスが
 //!   所有する HWND の COM ポインターは、このプロセスでは参照できないため触らない。
+//!   通常の WebView2 は drop 先の HWND がブラウザープロセス側にあり、この差し替えは
+//!   効かない。そのときドロップは HTML5 の `drop` として届くので、フロントが
+//!   `chrome.webview.postMessageWithAdditionalObjects` で File を送り、ここで
+//!   `ICoreWebView2File::Path` からパスを取り出して同じ `filedrop:drop` を出す。
 //! - Linux: 何もしない（フロントの window `dragover`/`drop` の preventDefault だけが効く）。
 //!
 //! 座標は WebView 左上原点の CSS px（macOS の pt = CSS px。Windows は DPI で割る）。
@@ -281,7 +285,15 @@ mod platform {
     use std::path::PathBuf;
     use std::sync::Mutex;
 
-    use windows::core::{implement, w, Interface, BOOL};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use serde::Deserialize;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2File, ICoreWebView2WebMessageReceivedEventArgs,
+        ICoreWebView2WebMessageReceivedEventArgs2,
+    };
+    use webview2_com::{take_pwstr, WebMessageReceivedEventHandler};
+    use windows::core::{implement, w, Interface, BOOL, PWSTR};
     use windows::Win32::Foundation::{HWND, LPARAM, POINT, POINTL};
     use windows::Win32::Graphics::Gdi::ScreenToClient;
     use windows::Win32::System::Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL};
@@ -299,9 +311,34 @@ mod platform {
 
     /// 差し替え済みの HWND。ページ再読み込み等で再度呼ばれても二重に差し替えない。
     static HOOKED: Mutex<Vec<isize>> = Mutex::new(Vec::new());
+    /// WebMessageReceived の登録済みフラグ。ハンドラは CoreWebView2 に付くので再読み込み後も残る。
+    static MESSAGE_HOOKED: AtomicBool = AtomicBool::new(false);
+
+    /// フロント（features/attachments/drop-paths.ts）が File と一緒に送るメッセージ本体
+    #[derive(Deserialize)]
+    struct FileDropMessage {
+        #[serde(rename = "type")]
+        kind: String,
+        x: f64,
+        y: f64,
+    }
 
     pub(super) unsafe fn hook(pw: tauri::webview::PlatformWebview) {
         let controller = pw.controller();
+        if !MESSAGE_HOOKED.load(Ordering::Relaxed) {
+            if let Ok(webview) = controller.CoreWebView2() {
+                let handler = WebMessageReceivedEventHandler::create(Box::new(|_, args| {
+                    if let Some(args) = args {
+                        on_web_message(&args);
+                    }
+                    Ok(())
+                }));
+                let mut token = 0;
+                if webview.add_WebMessageReceived(&handler, &mut token).is_ok() {
+                    MESSAGE_HOOKED.store(true, Ordering::Relaxed);
+                }
+            }
+        }
         let mut parent = HWND::default();
         if controller.ParentWindow(&mut parent).is_err() {
             return;
@@ -312,6 +349,48 @@ mod platform {
             BOOL(1)
         }
         let _ = EnumChildWindows(Some(parent), Some(each), LPARAM(0));
+    }
+
+    /// HTML5 の drop で送られた File からパスを取り出す。wry の IPC ハンドラは文字列の
+    /// メッセージしか扱わず、このオブジェクト形式のメッセージは無視する。
+    unsafe fn on_web_message(args: &ICoreWebView2WebMessageReceivedEventArgs) {
+        let mut json = PWSTR::null();
+        if args.WebMessageAsJson(&mut json).is_err() {
+            return;
+        }
+        let Ok(msg) = serde_json::from_str::<FileDropMessage>(&take_pwstr(json)) else {
+            return;
+        };
+        if msg.kind != "filedrop" {
+            return;
+        }
+        let Ok(objects) = args
+            .cast::<ICoreWebView2WebMessageReceivedEventArgs2>()
+            .and_then(|a| a.AdditionalObjects())
+        else {
+            return;
+        };
+        let mut count = 0;
+        if objects.Count(&mut count).is_err() {
+            return;
+        }
+        let mut paths = Vec::new();
+        for i in 0..count {
+            let Ok(file) = objects
+                .GetValueAtIndex(i)
+                .and_then(|o| o.cast::<ICoreWebView2File>())
+            else {
+                continue;
+            };
+            let mut path = PWSTR::null();
+            if file.Path(&mut path).is_ok() {
+                let path = take_pwstr(path);
+                if !path.is_empty() {
+                    paths.push(PathBuf::from(path));
+                }
+            }
+        }
+        super::emit_drop(paths, msg.x, msg.y);
     }
 
     /// OLE's window property is a raw, apartment-local COM pointer. WebView2's
