@@ -4,6 +4,9 @@
 // 横取りして `filedrop:drag` / `filedrop:drop` を送ってくる。座標は WebView 左上原点の
 // CSS px なので、そのまま elementFromPoint で落とし先のペインを決める。
 // パスをシェル向けに引用し、空白区切り・末尾の空白付きで入力する。
+// Windows の WebView2 はネイティブの差し替えが効かず HTML5 の drop として届くので、
+// File を chrome.webview.postMessageWithAdditionalObjects でネイティブへ送り、
+// パスに直した `filedrop:drop` を受け取る（ホバー表示は dragover から直接出す）。
 // 開いているフォルダーブラウザー（features/agents/path-bar.ts）の上ではペインより先に
 // そちらへ渡し、ブラウザーがフォルダーへのコピーとして受け取る。
 // ============================================================
@@ -68,11 +71,48 @@ function dropPaths({ paths, x, y }: DropPayload): void {
   pane.focus();
 }
 
-export function initDropPaths(): void {
-  void listen<DragPayload>("filedrop:drag", (e) => {
-    const { kind, x, y } = e.payload;
-    if (zone?.hover(kind === "leave" ? null : { x, y })) setHovered(null);
-    else setHovered(kind === "leave" ? null : (paneAt(x, y) ?? null));
+function hoverAt({ kind, x, y }: DragPayload): void {
+  if (zone?.hover(kind === "leave" ? null : { x, y })) setHovered(null);
+  else setHovered(kind === "leave" ? null : (paneAt(x, y) ?? null));
+}
+
+type WebView2 = {
+  postMessageWithAdditionalObjects?: (message: unknown, objects: FileList) => void;
+};
+
+/** WebView2 だけが持つ。ほかの WebView では undefined */
+function webView2(): WebView2 | undefined {
+  return (window as { chrome?: { webview?: WebView2 } }).chrome?.webview;
+}
+
+function hasFiles(e: DragEvent): boolean {
+  return !!e.dataTransfer?.types.includes("Files");
+}
+
+/** WebView2 で HTML5 として届く OS からのファイルドロップを受ける */
+function initWebView2Drop(webview: Required<WebView2>): void {
+  window.addEventListener("dragover", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    hoverAt({ kind: "over", x: e.clientX, y: e.clientY });
   });
+  window.addEventListener("dragleave", (e) => {
+    if (hasFiles(e) && !e.relatedTarget) hoverAt({ kind: "leave", x: 0, y: 0 });
+  });
+  window.addEventListener("drop", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    hoverAt({ kind: "leave", x: 0, y: 0 });
+    const files = e.dataTransfer?.files;
+    if (!files?.length) return;
+    webview.postMessageWithAdditionalObjects({ type: "filedrop", x: e.clientX, y: e.clientY }, files);
+  });
+}
+
+export function initDropPaths(): void {
+  void listen<DragPayload>("filedrop:drag", (e) => hoverAt(e.payload));
   void listen<DropPayload>("filedrop:drop", (e) => dropPaths(e.payload));
+  const webview = webView2();
+  if (webview?.postMessageWithAdditionalObjects) initWebView2Drop(webview as Required<WebView2>);
 }
