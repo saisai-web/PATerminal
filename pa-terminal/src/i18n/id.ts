@@ -193,6 +193,8 @@ export const id: Dict = {
   "ws.filterArchived": "Diarsipkan",
   "ws.archiveTitle": "Arsipkan sesi",
   "ws.unarchiveTitle": "Keluarkan sesi dari arsip",
+  "ws.filterGroups": "Grup",
+  "ws.filterGroupsTitle": "Filter menurut grup",
   "ws.sortRecent": "Terbaru",
   "ws.sortRecentTitle": "Urutkan menurut penggunaan terakhir",
   "ws.recentInputTitle": "Ada input dalam 7 hari terakhir (input terakhir: {when})",

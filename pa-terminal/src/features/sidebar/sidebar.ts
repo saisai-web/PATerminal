@@ -56,6 +56,13 @@ import {
   wsSubtitle,
 } from "../../workspace/workspace";
 import { buildWsGitEl } from "./ws-git";
+import {
+  buildGroupFilterChips,
+  buildGroupFilterToggle,
+  groupMatchesSessionGroupFilter,
+  initSessionGroupFilter,
+  matchesSessionGroupFilter,
+} from "./session-group-filter";
 import { createSessionNoteField } from "./session-note";
 import {
   initSessionStatusFilter,
@@ -569,7 +576,17 @@ function buildWholeGroup(q: string): HTMLElement {
   count.textContent = String(workspaces.filter(isWorkspaceInSessionFilterScope).length);
   const create = buildCreateButton((x, y) => openListCtxMenu(x, y, 0));
   // 右側コントロール群（件数・+）の一番左に「最近操作した順」トグルを置く
-  head.append(name, buildRecentSortButton(), count, create);
+  // 名前のすぐ右にグループ絞り込みの開閉トグル、Whole 行の下段にグループ名チップ欄を置く
+  const groupToggle = buildGroupFilterToggle();
+  const groupFilter = buildGroupFilterChips();
+  head.append(
+    name,
+    ...(groupToggle ? [groupToggle] : []),
+    buildRecentSortButton(),
+    count,
+    create,
+    ...(groupFilter ? [groupFilter] : []),
+  );
 
   const members = document.createElement("div");
   members.className = "ws-whole-members";
@@ -601,6 +618,8 @@ function groupHasDisplayMatch(
 ): boolean {
   if (seen.has(group.id)) return false;
   seen.add(group.id);
+  // グループ絞り込み中は、選ばれていない枝を丸ごと落とす（選んだ枝は空でも残す）。
+  if (!groupMatchesSessionGroupFilter(group)) return false;
   const ownMatched = ancestorMatched || (!!q && group.name.toLowerCase().includes(q));
   // 従来の「すべて」では空グループも残し、検索で親名が一致したら配下を丸ごと見せる。
   // 状態絞り込み中だけは、一致セッションを持たない空の枝を落とす。
@@ -632,6 +651,7 @@ function workspaceMatchesDisplay(
   ancestorMatched = false,
 ): boolean {
   return (
+    matchesSessionGroupFilter(workspace) &&
     matchesSessionStatusFilter(workspace, wsActivityState(workspace)) &&
     (!query || ancestorMatched || workspaceMatchesSearch(workspace, query))
   );
@@ -759,6 +779,16 @@ export function initSidebarStatusFilter(): void {
 /** Whole 行の「最近操作した順」トグルを renderSidebar へ接続する（同上の理由で main.ts から）。 */
 export function initSidebarRecentSort(): void {
   initSessionRecentSort(renderSidebar);
+}
+
+/** Whole 行のグループ名チップを renderSidebar へ接続する（同上の理由で main.ts から）。 */
+export function initSidebarGroupFilter(): void {
+  initSessionGroupFilter((selectedGroupId) => {
+    // 選んだグループが折りたたまれたままだと見出ししか出ないので、選んだ時点で開く。
+    // 以後の開閉はそのまま効く（状態絞り込みのように常時展開はしない）。
+    if (selectedGroupId && collapsedGroups.delete(selectedGroupId)) scheduleSave();
+    renderSidebar();
+  });
 }
 
 /** 前後移動の並び = サイドバーの表示順。折りたたみ中のグループ内や検索で消えている

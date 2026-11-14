@@ -193,6 +193,8 @@ export const zhHant: Dict = {
   "ws.filterArchived": "已封存",
   "ws.archiveTitle": "封存工作階段",
   "ws.unarchiveTitle": "取消封存工作階段",
+  "ws.filterGroups": "群組",
+  "ws.filterGroupsTitle": "依群組篩選",
   "ws.sortRecent": "最近",
   "ws.sortRecentTitle": "依最近操作排序",
   "ws.recentInputTitle": "最近 7 天內有輸入（上次輸入：{when}）",

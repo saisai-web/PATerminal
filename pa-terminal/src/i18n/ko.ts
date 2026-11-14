@@ -193,6 +193,8 @@ export const ko: Dict = {
   "ws.filterArchived": "보관됨",
   "ws.archiveTitle": "세션 보관",
   "ws.unarchiveTitle": "세션 보관 해제",
+  "ws.filterGroups": "그룹",
+  "ws.filterGroupsTitle": "그룹으로 필터링",
   "ws.sortRecent": "최근순",
   "ws.sortRecentTitle": "최근 사용한 순으로 정렬",
   "ws.recentInputTitle": "최근 7일 이내에 입력함 (마지막 입력: {when})",

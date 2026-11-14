@@ -193,6 +193,8 @@ export const tr: Dict = {
   "ws.filterArchived": "Arşiv",
   "ws.archiveTitle": "Oturumu arşivle",
   "ws.unarchiveTitle": "Oturumu arşivden çıkar",
+  "ws.filterGroups": "Gruplar",
+  "ws.filterGroupsTitle": "Gruba göre filtrele",
   "ws.sortRecent": "Son",
   "ws.sortRecentTitle": "Son kullanıma göre sırala",
   "ws.recentInputTitle": "Son 7 gün içinde giriş yapıldı (son giriş: {when})",

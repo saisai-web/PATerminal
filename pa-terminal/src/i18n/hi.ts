@@ -193,6 +193,8 @@ export const hi: Dict = {
   "ws.filterArchived": "संग्रहित",
   "ws.archiveTitle": "सत्र को संग्रहित करें",
   "ws.unarchiveTitle": "सत्र को संग्रह से हटाएँ",
+  "ws.filterGroups": "समूह",
+  "ws.filterGroupsTitle": "समूह के अनुसार फ़िल्टर करें",
   "ws.sortRecent": "हाल की",
   "ws.sortRecentTitle": "हाल के उपयोग के क्रम में लगाएँ",
   "ws.recentInputTitle": "पिछले 7 दिनों में इनपुट किया गया (अंतिम इनपुट: {when})",

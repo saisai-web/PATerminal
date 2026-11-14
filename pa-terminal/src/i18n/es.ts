@@ -193,6 +193,8 @@ export const es: Dict = {
   "ws.filterArchived": "Archivadas",
   "ws.archiveTitle": "Archivar sesión",
   "ws.unarchiveTitle": "Sacar sesión del archivo",
+  "ws.filterGroups": "Grupos",
+  "ws.filterGroupsTitle": "Filtrar por grupo",
   "ws.sortRecent": "Recientes",
   "ws.sortRecentTitle": "Ordenar por uso reciente",
   "ws.recentInputTitle": "Con entrada en los últimos 7 días (última entrada: {when})",

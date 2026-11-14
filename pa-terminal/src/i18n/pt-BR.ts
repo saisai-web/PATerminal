@@ -193,6 +193,8 @@ export const ptBR: Dict = {
   "ws.filterArchived": "Arquivadas",
   "ws.archiveTitle": "Arquivar sessão",
   "ws.unarchiveTitle": "Desarquivar sessão",
+  "ws.filterGroups": "Grupos",
+  "ws.filterGroupsTitle": "Filtrar por grupo",
   "ws.sortRecent": "Recentes",
   "ws.sortRecentTitle": "Ordenar por uso recente",
   "ws.recentInputTitle": "Com entrada nos últimos 7 dias (última entrada: {when})",

@@ -193,6 +193,8 @@ export const ja: Dict = {
   "ws.filterArchived": "アーカイブ",
   "ws.archiveTitle": "セッションをアーカイブ",
   "ws.unarchiveTitle": "セッションをアーカイブから戻す",
+  "ws.filterGroups": "グループ",
+  "ws.filterGroupsTitle": "グループで絞り込む",
   "ws.sortRecent": "最近順",
   "ws.sortRecentTitle": "最近操作した順に並べ替え",
   "ws.recentInputTitle": "直近7日以内に入力あり（最終入力: {when}）",

@@ -193,6 +193,8 @@ export const vi: Dict = {
   "ws.filterArchived": "Đã lưu trữ",
   "ws.archiveTitle": "Lưu trữ phiên",
   "ws.unarchiveTitle": "Bỏ lưu trữ phiên",
+  "ws.filterGroups": "Nhóm",
+  "ws.filterGroupsTitle": "Lọc theo nhóm",
   "ws.sortRecent": "Gần đây",
   "ws.sortRecentTitle": "Sắp xếp theo lần dùng gần nhất",
   "ws.recentInputTitle": "Có nhập trong 7 ngày qua (lần nhập gần nhất: {when})",
