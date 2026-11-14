@@ -17,12 +17,33 @@ export function hasRecentInput(ws: Workspace, now = Date.now()): boolean {
   return ws.lastInputAt !== undefined && now - ws.lastInputAt < RECENT_INPUT_WINDOW_MS;
 }
 
+const startOfDay = (ms: number) => new Date(ms).setHours(0, 0, 0, 0);
+
+/** 今日から daysBack 日前（ローカル日付）までに打鍵したセッション。0 は今日だけで、
+    期間絞り込みと「今日 / 昨日 / 3日前」バッジが同じ日付の数え方になる。 */
+export function hasInputWithinDays(ws: Workspace, daysBack: number, now = Date.now()): boolean {
+  if (ws.lastInputAt === undefined) return false;
+  const since = new Date(now);
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - daysBack); // 夏時間の切り替え日も暦日で数える
+  return ws.lastInputAt >= since.getTime();
+}
+
+let notifyFirstInputToday: (() => void) | null = null;
+
+/** その日最初の打鍵で期間絞り込みの一覧へ加えるための通知（sidebar が接続する）。 */
+export function onFirstInputToday(listener: () => void): void {
+  notifyFirstInputToday = listener;
+}
+
 /** ユーザーの打鍵（xterm onData のうち端末の自動応答でないもの）で呼ぶ。 */
 export function markWorkspaceInput(ws: Workspace): void {
   const now = Date.now();
   if (ws.lastInputAt !== undefined && now - ws.lastInputAt < RECORD_INTERVAL_MS) return;
+  const firstToday = !hasInputWithinDays(ws, 0, now);
   ws.lastInputAt = now;
   scheduleSave();
+  if (firstToday) notifyFirstInputToday?.();
   // activity と同じく該当項目だけを外科的に更新する（renderSidebar は呼ばない）
   const tags = wsList.querySelector<HTMLElement>(`.ws-item[data-ws-id="${ws.id}"] .ws-tags`);
   if (tags) renderRecentInputBadge(tags, ws);
@@ -30,7 +51,6 @@ export function markWorkspaceInput(ws: Workspace): void {
 
 /** 今日 / 昨日 / 3日前。表示言語の言い回しは Intl に任せる。 */
 function dayLabel(at: number, now: number): string {
-  const startOfDay = (ms: number) => new Date(ms).setHours(0, 0, 0, 0);
   const days = Math.round((startOfDay(at) - startOfDay(now)) / 86_400_000);
   return new Intl.RelativeTimeFormat(getLang(), { numeric: "auto" }).format(days, "day");
 }

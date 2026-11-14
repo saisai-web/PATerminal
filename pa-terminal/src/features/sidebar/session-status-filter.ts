@@ -1,5 +1,6 @@
 import { t } from "../../i18n";
 import type { ActivityState, Workspace } from "../../workspace/types";
+import { hasInputWithinDays } from "./recent-input";
 
 export type SessionStatusFilter = "all" | ActivityState | "unseen" | "archived";
 
@@ -10,10 +11,14 @@ const filterButtons = [
 const archiveFilterButton = filterEl.querySelector<HTMLButtonElement>(
   'button[data-status-filter="archived"]',
 )!;
+const periodSelect = document.querySelector<HTMLSelectElement>("#ws-period-filter")!;
 const archiveBadgeEl = document.querySelector<HTMLSpanElement>("#ws-archive-badge")!;
 
 let currentFilter: SessionStatusFilter = "all";
 let unseenArchiveCount = 0;
+// 最後に打鍵した日での絞り込み（今日から何日前まで。null は期間を問わない）。
+// 状態タブとは別軸で、状態・検索と AND する。状態タブと同じく保存しない。
+let periodDaysBack: number | null = null;
 
 function isSessionStatusFilter(value: string | undefined): value is SessionStatusFilter {
   return (
@@ -30,6 +35,8 @@ function renderPressedState(): void {
   for (const button of filterButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.statusFilter === currentFilter));
   }
+  periodSelect.value = periodDaysBack === null ? "" : String(periodDaysBack);
+  periodSelect.toggleAttribute("data-active", periodDaysBack !== null);
 }
 
 function renderArchiveBadge(): void {
@@ -64,16 +71,46 @@ export function initSessionStatusFilter(onChange: () => void): void {
       onChange();
     };
   }
+  periodSelect.onchange = () => {
+    periodDaysBack = periodSelect.value === "" ? null : Number(periodSelect.value);
+    renderPressedState();
+    onChange();
+  };
+  // 日付が変わったら昨日の分を外す。スリープ中はタイマーが進まないので、復帰時にも見直す。
+  let shownDay = new Date().toDateString();
+  const refreshOnNewDay = () => {
+    const day = new Date().toDateString();
+    if (day === shownDay) return;
+    shownDay = day;
+    if (periodDaysBack !== null) onChange();
+  };
+  setInterval(refreshOnNewDay, 60_000);
+  window.addEventListener("focus", refreshOnNewDay);
 }
 
 export function renderSessionStatusFilterTexts(): void {
   filterEl.setAttribute("aria-label", t("ws.filterLabel"));
   archiveFilterButton.setAttribute("aria-label", t("ws.filterArchived"));
+  periodSelect.title = t("ws.filterPeriodTitle");
+  periodSelect.setAttribute("aria-label", periodSelect.title);
+  for (const option of periodSelect.options) {
+    option.textContent =
+      option.value === ""
+        ? t("ws.filterPeriodAll")
+        : option.value === "0"
+          ? t("ws.filterToday")
+          : t("ws.filterDaysBack", { n: option.value });
+  }
   renderArchiveBadge();
 }
 
 export function isSessionStatusFilterActive(): boolean {
-  return currentFilter !== "all";
+  return currentFilter !== "all" || isPeriodSessionFilterActive();
+}
+
+/** アーカイブ画面は退避済みを全部見せる場所なので、期間はそこでは効かせない。 */
+function isPeriodSessionFilterActive(): boolean {
+  return periodDaysBack !== null && currentFilter !== "archived";
 }
 
 /** アーカイブ画面固有の一括操作で、通常セッションを巻き込まないために使う。 */
@@ -94,6 +131,7 @@ export function matchesSessionStatusFilter(
 ): boolean {
   if (!isWorkspaceInSessionFilterScope(workspace)) return false;
   if (currentFilter === "archived") return true;
+  if (periodDaysBack !== null && !hasInputWithinDays(workspace, periodDaysBack)) return false;
   if (currentFilter === "all") return true;
   if (currentFilter === "unseen") return workspace.attention !== null;
   return activity === currentFilter;

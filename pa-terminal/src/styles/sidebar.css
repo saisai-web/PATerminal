@@ -154,6 +154,32 @@
   color: var(--alarm);
   border-color: var(--alarm);
 }
+/* 期間は状態タブと別軸なので少し離し、絞り込み中は各項目の「今日」バッジと同じ色で示す */
+#ws-period-filter {
+  min-width: 0;
+  margin-inline-end: 4px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+#ws-period-filter:hover,
+#ws-period-filter:focus-visible {
+  color: var(--text);
+  border-color: var(--dim);
+  outline: none;
+}
+#ws-period-filter[data-active] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: var(--accent);
+}
 #ws-status-filter button[data-status-filter="archived"] {
   position: relative;
   width: 28px;
