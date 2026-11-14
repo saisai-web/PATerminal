@@ -189,6 +189,8 @@ export const zhHans: Dict = {
   "ws.filterArchived": "已归档",
   "ws.archiveTitle": "归档会话",
   "ws.unarchiveTitle": "取消归档会话",
+  "ws.filterGroups": "分组",
+  "ws.filterGroupsTitle": "按分组筛选",
   "ws.sortRecent": "最近",
   "ws.sortRecentTitle": "按最近操作排序",
   "ws.recentInputTitle": "最近 7 天内有输入（上次输入：{when}）",

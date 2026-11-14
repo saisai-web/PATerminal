@@ -206,6 +206,8 @@ export const en = {
   "ws.filterArchived": "Archived",
   "ws.archiveTitle": "Archive session",
   "ws.unarchiveTitle": "Remove session from archive",
+  "ws.filterGroups": "Groups",
+  "ws.filterGroupsTitle": "Filter by group",
   "ws.sortRecent": "Recent",
   "ws.sortRecentTitle": "Sort by last used",
   "ws.recentInputTitle": "Typed in the last 7 days (last input: {when})",

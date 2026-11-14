@@ -189,6 +189,8 @@ export const fr: Dict = {
   "ws.filterArchived": "Archivées",
   "ws.archiveTitle": "Archiver la session",
   "ws.unarchiveTitle": "Désarchiver la session",
+  "ws.filterGroups": "Groupes",
+  "ws.filterGroupsTitle": "Filtrer par groupe",
   "ws.sortRecent": "Récentes",
   "ws.sortRecentTitle": "Trier par utilisation récente",
   "ws.recentInputTitle": "Saisie au cours des 7 derniers jours (dernière saisie : {when})",

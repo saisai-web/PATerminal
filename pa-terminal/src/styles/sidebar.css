@@ -255,6 +255,7 @@
   top: 0;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-height: 26px;
@@ -304,6 +305,79 @@
   border-color: var(--accent);
 }
 .ws-whole-head .ws-group-count { margin-left: 0; }
+/* Whole のすぐ右に置くグループ絞り込みの開閉トグル。最近順トグルと同系のピルで、
+   絞り込み中は閉じていても分かるよう選択数を添えて強調する */
+.ws-group-filter-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ws-group-filter-toggle:hover,
+.ws-group-filter-toggle:focus-visible {
+  color: var(--text);
+  border-color: var(--dim);
+  outline: none;
+}
+.ws-group-filter-toggle[data-active="true"] {
+  color: var(--accent);
+  background: var(--active-bg);
+  border-color: var(--accent);
+}
+.ws-group-filter-arrow { font-size: 9px; }
+/* Whole 行の下段に開くグループ名チップ欄（複数選択可）。行を折り返して全幅を使い、
+   グループが多いときは欄の中だけをスクロールして一覧を押し出しすぎない */
+.ws-group-filter {
+  flex: 0 0 100%;
+  min-width: 0;
+  max-height: 112px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+}
+.ws-group-filter-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ws-group-filter-chip:hover,
+.ws-group-filter-chip:focus-visible {
+  color: var(--text);
+  border-color: var(--dim);
+  outline: none;
+}
+.ws-group-filter-chip[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--active-bg);
+  border-color: var(--accent);
+}
 .ws-group {
   display: flex;
   align-items: center;

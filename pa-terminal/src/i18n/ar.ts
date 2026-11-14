@@ -189,6 +189,8 @@ export const ar: Dict = {
   "ws.filterArchived": "المؤرشفة",
   "ws.archiveTitle": "أرشفة الجلسة",
   "ws.unarchiveTitle": "إلغاء أرشفة الجلسة",
+  "ws.filterGroups": "المجموعات",
+  "ws.filterGroupsTitle": "التصفية حسب المجموعة",
   "ws.sortRecent": "الأحدث",
   "ws.sortRecentTitle": "ترتيب حسب آخر استخدام",
   "ws.recentInputTitle": "تم الإدخال خلال آخر 7 أيام (آخر إدخال: {when})",

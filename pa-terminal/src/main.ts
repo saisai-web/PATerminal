@@ -14,7 +14,7 @@ import { initGitWatch } from "./features/git/git-watch";
 import { initGitEnvNotice } from "./features/git/git-env-notice";
 import { closeGitWindow, initGitWindow } from "./features/git/git-window";
 import { initWsGit } from "./features/sidebar/ws-git";
-import { getDraggingWorkspaces, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
+import { getDraggingWorkspaces, initSidebarGroupFilter, initSidebarRecentSort, initSidebarStatusFilter, renderSidebar } from "./features/sidebar/sidebar";
 import { initQuickPhrases } from "./features/quick-phrases/quick-phrases";
 import { initDropPaths } from "./features/attachments/drop-paths";
 import { initWorktreeList, initWorktreePrefs } from "./features/git/worktree";
@@ -83,6 +83,7 @@ const splitDownBtn = document.querySelector<HTMLButtonElement>("#split-down")!;
 initSidebarStatusFilter();
 // Whole 行の「最近操作した順」トグル（同上）
 initSidebarRecentSort();
+initSidebarGroupFilter();
 initSessionView({ dragged: getDraggingWorkspaces });
 
 // 通知ゲート用のフォーカス追跡（メニュー閉じ処理とは独立に持つ）

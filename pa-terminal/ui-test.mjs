@@ -42,6 +42,7 @@ import eula from "./ui-tests/37-eula.mjs";
 import sessionStatusFilter from "./ui-tests/38-session-status-filter.mjs";
 import newSessionLocation from "./ui-tests/38-new-session-location.mjs";
 import recentSort from "./ui-tests/39-recent-sort.mjs";
+import groupFilter from "./ui-tests/49-group-filter.mjs";
 import themeContrast from "./ui-tests/40-theme-contrast.mjs";
 import sessionArchive from "./ui-tests/41-session-archive.mjs";
 import scrollAnchor from "./ui-tests/43-scroll-anchor.mjs";
@@ -121,6 +122,7 @@ const independentSuites = [
   ["session-status-filter", sessionStatusFilter],
   ["new-session-location", newSessionLocation],
   ["recent-sort", recentSort],
+  ["group-filter", groupFilter],
   ["session-archive", sessionArchive],
   ["scroll-anchor", scrollAnchor],
   ["file-drop", fileDrop],

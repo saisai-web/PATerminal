@@ -189,6 +189,8 @@ export const ru: Dict = {
   "ws.filterArchived": "Архив",
   "ws.archiveTitle": "Архивировать сеанс",
   "ws.unarchiveTitle": "Вернуть сеанс из архива",
+  "ws.filterGroups": "Группы",
+  "ws.filterGroupsTitle": "Фильтр по группе",
   "ws.sortRecent": "Недавние",
   "ws.sortRecentTitle": "Сортировать по последнему использованию",
   "ws.recentInputTitle": "Ввод за последние 7 дня (последний ввод: {when})",

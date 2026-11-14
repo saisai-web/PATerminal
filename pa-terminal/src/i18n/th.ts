@@ -189,6 +189,8 @@ export const th: Dict = {
   "ws.filterArchived": "เก็บถาวร",
   "ws.archiveTitle": "เก็บเซสชันถาวร",
   "ws.unarchiveTitle": "นำเซสชันออกจากคลัง",
+  "ws.filterGroups": "กลุ่ม",
+  "ws.filterGroupsTitle": "กรองตามกลุ่ม",
   "ws.sortRecent": "ล่าสุด",
   "ws.sortRecentTitle": "เรียงตามการใช้งานล่าสุด",
   "ws.recentInputTitle": "มีการป้อนข้อมูลใน 7 วันที่ผ่านมา (ป้อนล่าสุด: {when})",
