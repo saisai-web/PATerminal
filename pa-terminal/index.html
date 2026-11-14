@@ -34,6 +34,13 @@
         </div>
         <!-- Whole の上で通常セッションを状態で絞り込み、アーカイブだけは専用表示する。選択タブは保存せず毎回「すべて」 -->
         <div id="ws-status-filter" role="group" aria-label="セッションを絞り込み">
+          <!-- 状態タブとは別軸。最後に打鍵した日で絞り込み、状態・検索と AND する。選択は保存しない -->
+          <select id="ws-period-filter" title="最後に入力した日で絞り込み" aria-label="最後に入力した日で絞り込み">
+            <option value="">全期間</option>
+            <option value="0">今日</option>
+            <option value="3">3日前まで</option>
+            <option value="7">7日前まで</option>
+          </select>
           <button type="button" data-status-filter="all" data-i18n="ws.filterAll" aria-pressed="true">すべて</button>
           <button type="button" data-status-filter="running" data-i18n="ws.statusRunning" aria-pressed="false">実行中</button>
           <button type="button" data-status-filter="waiting" data-i18n="ws.statusWaiting" aria-pressed="false">入力待ち</button>
