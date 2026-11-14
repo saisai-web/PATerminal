@@ -58,6 +58,7 @@ import pathBar from "./ui-tests/46-path-bar.mjs";
 import tutorial from "./ui-tests/47-tutorial.mjs";
 import paneGit from "./ui-tests/48-pane-git.mjs";
 import gitEnvNotice from "./ui-tests/48-git-env-notice.mjs";
+import periodFilter from "./ui-tests/49-period-filter.mjs";
 
 const mode = process.argv.includes("--smoke") ? "smoke" : "full";
 const unknownArgs = process.argv.slice(2).filter((arg) => arg !== "--smoke");
@@ -121,6 +122,7 @@ const independentSuites = [
   ["session-status-filter", sessionStatusFilter],
   ["new-session-location", newSessionLocation],
   ["recent-sort", recentSort],
+  ["period-filter", periodFilter],
   ["session-archive", sessionArchive],
   ["scroll-anchor", scrollAnchor],
   ["file-drop", fileDrop],

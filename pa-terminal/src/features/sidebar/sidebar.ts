@@ -72,7 +72,7 @@ import {
   sortByRecentOp,
 } from "./session-sort";
 import { attachLocationPicker, attachRootCreate } from "./new-session-location";
-import { renderRecentInputBadge } from "./recent-input";
+import { onFirstInputToday, renderRecentInputBadge } from "./recent-input";
 
 const sidebarEl = document.querySelector<HTMLDivElement>("#sidebar")!;
 const sidebarCollapseBtn = document.querySelector<HTMLButtonElement>("#sidebar-collapse")!;
@@ -752,6 +752,7 @@ export function initSidebarStatusFilter(): void {
   statusFilterInitialized = true;
   initSessionStatusFilter(renderSidebar);
   onWorkspaceActivityChange(refreshFilteredSidebar);
+  onFirstInputToday(refreshFilteredSidebar);
   wsList.addEventListener("focusout", () => queueMicrotask(flushPendingFilteredRender));
 }
 
