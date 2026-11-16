@@ -102,6 +102,29 @@ and `BufferService.isUserScrolling` (6.0 rewrote the Viewport). Verify with
 switching to a session that was producing output and nudging the trackpad keeps the newest
 output visible.
 
+### CWD Snap-Back Incident (Occurred Twice, Resolved 2026-11-16)
+
+On Windows, after `cd` in the main pane, the Files path and the sidebar path did not move.
+PowerShell does not change the process CWD on `Set-Location`, so the PEB CWD stays at the
+startup directory. `pty_cwd` returned that value, and every frontend path (`resolveWatchCwd`,
+`ws-git`, `newSessionCwd`, pair, watch) uses `pty_cwd ?? pane.cwd (OSC 7) ?? spec.cwd`, and
+`ws-git` even writes it back with `setCwd(..., { fromPoll: true })`. So even after OSC 7 moved
+Files, the next poll pulled it back to the startup directory. zsh and bash on macOS and Linux
+call chdir, so they are not affected.
+
+- `pty_cwd` must **never** return a value that does not follow `cd`. Keep the decision in one
+  place, `shell::process_cwd_follows_cd()`, and return None for shells where it is false so
+  OSC 7 takes over.
+- Do not add PowerShell checks or priority branches in the frontend. `pty_cwd` guarantees the
+  CWD is correct.
+- When supporting a new shell, check whether `cd` changes the process CWD. If not, make
+  `process_cwd_follows_cd` false and provide a way for it to emit OSC 7.
+- The `__mockPtyCwd` mock assumes `pty_cwd` is correct, so UI tests cannot catch this
+  regression. Do not remove `powershell_process_cwd_is_not_trusted` in `pty/shell.rs`.
+- After touching CWD tracking, on a real Windows machine run `cd` in cmd.exe, PowerShell, and
+  Git Bash, wait 5 seconds, and confirm that Files, the sidebar, and the Git badge stay on the
+  new directory.
+
 ### Restoration and Process Termination
 
 - The scrollback in session.json is display history only. Do not carry TUI mode into a new
@@ -182,6 +205,8 @@ path. For color issues, first check the environment variables of a new pane and
 When changing an internal offset, also update the immediately following `#[cfg(windows)]`
 compile-time assertion. cmd.exe and Git Bash use the PEB; PowerShell uses the OSC 7 prompt in
 `pty/shell.rs`. Escape each path segment in the OSC 7 path with `EscapeDataString`.
+The PowerShell PEB CWD stays at the startup directory, so `pty_cwd` returns None for it
+(see "CWD Snap-Back Incident" above).
 
 Treat the CommandLine reading in `pty/agent.rs` as a pair with its PEB offsets and assertions.
 On actual Windows machines, verify CWD tracking in cmd.exe, PowerShell, and Git Bash.

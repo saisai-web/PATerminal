@@ -285,8 +285,10 @@ onLicenseChange((s) => {
 /** git 監視が見るべき cwd。フォーカス中ペインのシェルの実 cwd（pty_cwd）を
     優先し、取れない環境（プロセス終了直後・旧バイナリ）は OSC 7 / spec.cwd に
     フォールバックする。OSC 7 はシェル統合が無いと飛ばず cd に追従できないため
-    （Windows の PowerShell だけは PEB から cwd を読めないので、pty_spawn 側が
-    OSC 7 を吐くプロンプトを注入して同じ追従にしている） */
+    （PowerShell は Set-Location でプロセス cwd が変わらないので、Rust 側の pty_cwd は
+    PowerShell ペインで必ず null を返し、pty_spawn が注入した OSC 7 プロンプトに任せる。
+    ここで pty_cwd を優先する以上、pty_cwd が古い値を返すと Files・サイドバーが
+    数秒ごとに起動時ディレクトリへ引き戻される。CLAUDE.md "CWD Snap-Back Incident" 参照） */
 async function resolveWatchCwd(): Promise<string | null> {
   const fid = getFocusedId();
   const pane = fid ? panes.get(fid) : undefined;
