@@ -32,6 +32,17 @@ fn is_powershell_shell(program: &str) -> bool {
     stem == "powershell" || stem == "pwsh"
 }
 
+/// シェルプロセスの OS 上の cwd（`cwd::pid_cwd`）が cd に追従するか。
+///
+/// PowerShell（Windows PowerShell / pwsh、全 OS）は `Set-Location` してもプロセスの
+/// CWD を変えないため、`pid_cwd` は**起動時ディレクトリのまま**になる。これを
+/// `pty_cwd` が返すと、フロントは OSC 7（実際の現在地）より優先して使うので、
+/// Files・サイドバー・変更ストリップが 3 秒ごとに起動時ディレクトリへ引き戻される
+/// （2回発生した回帰）。追従しないシェルでは `pty_cwd` を None にして OSC 7 に任せる。
+pub(crate) fn process_cwd_follows_cd(program: &str) -> bool {
+    !is_powershell_shell(program)
+}
+
 #[cfg_attr(not(windows), allow(dead_code))]
 fn is_cmd_shell(program: &str) -> bool {
     program_stem(program) == "cmd"
@@ -140,7 +151,34 @@ pub(crate) fn bootstrap_args(program: &str, args: Option<&Vec<String>>) -> Optio
 
 #[cfg(test)]
 mod tests {
-    use super::{base64_encode, bootstrap_args, is_powershell_shell, POWERSHELL_OSC7_SCRIPT};
+    use super::{
+        base64_encode, bootstrap_args, is_powershell_shell, process_cwd_follows_cd,
+        POWERSHELL_OSC7_SCRIPT,
+    };
+
+    #[test]
+    fn powershell_process_cwd_is_not_trusted() {
+        // PowerShell の PEB / proc cwd は Set-Location で変わらない。pty_cwd に出すと
+        // OSC 7 の現在地を起動時ディレクトリで上書きしてしまう
+        for ps in [
+            "powershell.exe",
+            "pwsh.exe",
+            "pwsh",
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        ] {
+            assert!(!process_cwd_follows_cd(ps), "{ps} の OS cwd は信用しない");
+        }
+        // chdir / SetCurrentDirectory するシェルは OS の cwd が正
+        for sh in [
+            "cmd.exe",
+            r"C:\Program Files\Git\bin\bash.exe",
+            "/bin/zsh",
+            "/bin/bash",
+            "fish",
+        ] {
+            assert!(process_cwd_follows_cd(sh), "{sh} の OS cwd は cd に追従する");
+        }
+    }
 
     /// テスト用の最小 base64 デコーダ（round trip 検証用）
     fn base64_decode(text: &str) -> Vec<u8> {

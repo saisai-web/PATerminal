@@ -42,6 +42,9 @@ pub(crate) struct Pane {
     tx: mpsc::Sender<PaneMsg>,
     /// 最後に適用した (cols, rows)。同じ値の再送は捨てる
     size: (u16, u16),
+    /// シェルプロセスの OS 上の cwd が cd に追従するか（`shell::process_cwd_follows_cd`）。
+    /// false（PowerShell）なら `pty_cwd` は None を返し、フロントは OSC 7 を使う
+    cwd_follows_cd: bool,
 }
 
 #[derive(Default)]
@@ -120,6 +123,7 @@ pub(crate) async fn pty_spawn(
         .map_err(|e| e.to_string())?;
 
     let program = shell.unwrap_or_else(default_shell);
+    let cwd_follows_cd = shell::process_cwd_follows_cd(&program);
     let mut cmd = CommandBuilder::new(&program);
     scrollback::configure(&mut cmd, &program, args.as_ref());
     // Windows の PowerShell は Set-Location でプロセスの CWD を変えないため、
@@ -177,6 +181,7 @@ pub(crate) async fn pty_spawn(
             child,
             tx,
             size: (cols, rows),
+            cwd_follows_cd,
         },
     );
     Ok(())
@@ -274,12 +279,20 @@ pub(crate) async fn pty_kill(panes: State<'_, Panes>, id: String) -> Result<(), 
     Ok(())
 }
 
-/// ペインのシェルプロセスの現在ディレクトリ。取れなければ None
+/// ペインのシェルプロセスの現在ディレクトリ。取れない・信用できなければ None。
+///
+/// フロントの全経路（Files / サイドバー / git 監視 / 新規セッション / ペア）は
+/// これを OSC 7 より優先し、サイドバーのポーリングはペインの cwd まで上書きするので、
+/// **cd に追従しない値（PowerShell の PEB cwd）は絶対に返さない**。返すと OSC 7 の
+/// 現在地が起動時ディレクトリで上書きされる
 #[tauri::command]
 pub(crate) async fn pty_cwd(panes: State<'_, Panes>, id: String) -> Result<Option<String>, String> {
     let pid = {
         let map = panes.map.lock().unwrap();
         let pane = map.get(&id).ok_or_else(|| format!("no pane: {id}"))?;
+        if !pane.cwd_follows_cd {
+            return Ok(None);
+        }
         pane.child.process_id()
     };
     Ok(pid.and_then(|p| cwd::pid_cwd(p as i32)))
